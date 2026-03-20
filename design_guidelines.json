@@ -1,0 +1,261 @@
+{
+  "design_system": {
+    "identity": {
+      "name": "Calcetto Manager E1",
+      "vibe": "Clean Sport Utility",
+      "principles": [
+        "Fusion: Swiss Typography meets Sport Trading Card aesthetics",
+        "Clarity: High contrast data display (Strength/Role)",
+        "Speed: Generous touch targets, instant visual feedback",
+        "Native Feel: Respect iOS/Android patterns but bolder"
+      ]
+    },
+    "colors": {
+      "primary": "#007AFF",
+      "primary_variant": "#0056b3",
+      "secondary": "#34C759",
+      "background": "#F2F2F7",
+      "surface": "#FFFFFF",
+      "text": {
+        "primary": "#1C1C1E",
+        "secondary": "#8E8E93",
+        "tertiary": "#D1D1D6",
+        "inverse": "#FFFFFF"
+      },
+      "roles": {
+        "Portiere": "#FF9500",
+        "Difensore": "#5856D6",
+        "Centrocampista": "#34C759",
+        "Attaccante": "#FF3B30"
+      },
+      "status": {
+        "success": "#34C759",
+        "error": "#FF3B30",
+        "warning": "#FFCC00"
+      }
+    },
+    "typography": {
+      "font_family": "System",
+      "weights": {
+        "regular": "400",
+        "medium": "500",
+        "bold": "700",
+        "heavy": "900"
+      },
+      "sizes": {
+        "xs": 12,
+        "sm": 14,
+        "base": 16,
+        "lg": 20,
+        "xl": 24,
+        "2xl": 32,
+        "3xl": 40
+      },
+      "styles": {
+        "h1": {
+          "fontSize": 32,
+          "fontWeight": "800",
+          "color": "#1C1C1E",
+          "letterSpacing": -0.5
+        },
+        "h2": {
+          "fontSize": 24,
+          "fontWeight": "700",
+          "color": "#1C1C1E"
+        },
+        "h3": {
+          "fontSize": 20,
+          "fontWeight": "600",
+          "color": "#1C1C1E"
+        },
+        "body": {
+          "fontSize": 16,
+          "fontWeight": "400",
+          "color": "#1C1C1E",
+          "lineHeight": 22
+        },
+        "caption": {
+          "fontSize": 13,
+          "fontWeight": "500",
+          "color": "#8E8E93",
+          "textTransform": "uppercase",
+          "letterSpacing": 0.5
+        },
+        "stat_number": {
+          "fontSize": 28,
+          "fontWeight": "900",
+          "fontVariant": ["tabular-nums"]
+        }
+      }
+    },
+    "spacing": {
+      "xs": 4,
+      "sm": 8,
+      "md": 12,
+      "lg": 16,
+      "xl": 24,
+      "2xl": 32,
+      "3xl": 48
+    },
+    "borders": {
+      "radius": {
+        "sm": 8,
+        "md": 12,
+        "lg": 16,
+        "xl": 24,
+        "full": 9999
+      },
+      "width": {
+        "thin": 0.5,
+        "normal": 1,
+        "thick": 2
+      }
+    },
+    "shadows": {
+      "card": {
+        "shadowColor": "#000",
+        "shadowOffset": { "width": 0, "height": 2 },
+        "shadowOpacity": 0.1,
+        "shadowRadius": 8,
+        "elevation": 3
+      },
+      "floating": {
+        "shadowColor": "#000",
+        "shadowOffset": { "width": 0, "height": 4 },
+        "shadowOpacity": 0.2,
+        "shadowRadius": 12,
+        "elevation": 6
+      }
+    }
+  },
+  "components": {
+    "Card": {
+      "style": {
+        "backgroundColor": "#FFFFFF",
+        "borderRadius": 16,
+        "padding": 16,
+        "marginBottom": 12
+      },
+      "interaction": "Scale down slightly on press (0.98)"
+    },
+    "Button": {
+      "primary": {
+        "backgroundColor": "#007AFF",
+        "borderRadius": 12,
+        "paddingVertical": 16,
+        "alignItems": "center",
+        "justifyContent": "center"
+      },
+      "secondary": {
+        "backgroundColor": "#F2F2F7",
+        "borderRadius": 12,
+        "paddingVertical": 16,
+        "alignItems": "center",
+        "justifyContent": "center"
+      },
+      "text_primary": {
+        "color": "#FFFFFF",
+        "fontSize": 17,
+        "fontWeight": "600"
+      },
+      "text_secondary": {
+        "color": "#007AFF",
+        "fontSize": 17,
+        "fontWeight": "600"
+      }
+    },
+    "Input": {
+      "container": {
+        "marginBottom": 20
+      },
+      "field": {
+        "backgroundColor": "#FFFFFF",
+        "borderWidth": 1,
+        "borderColor": "#E5E5EA",
+        "borderRadius": 10,
+        "paddingHorizontal": 16,
+        "height": 50,
+        "fontSize": 17,
+        "color": "#1C1C1E"
+      },
+      "label": {
+        "marginBottom": 8,
+        "fontSize": 15,
+        "fontWeight": "600",
+        "color": "#3A3A3C"
+      }
+    },
+    "Avatar": {
+      "placeholder_url": "https://ui-avatars.com/api/?background=random&color=fff&name=",
+      "style": {
+        "width": 60,
+        "height": 60,
+        "borderRadius": 30,
+        "backgroundColor": "#E5E5EA"
+      }
+    }
+  },
+  "layouts": {
+    "PlayerList": {
+      "type": "FlatList",
+      "item_layout": "Horizontal card: Avatar Left | Info Middle | Rating Badge Right",
+      "spacing": 16
+    },
+    "TeamGenerator": {
+      "layout": "Split View",
+      "team_a_color": "rgba(0, 122, 255, 0.1)",
+      "team_b_color": "rgba(52, 199, 89, 0.1)",
+      "vs_badge": "Central circular badge with bold 'VS' text"
+    }
+  },
+  "assets": {
+    "icons": {
+      "library": "Ionicons",
+      "mapping": {
+        "add": "add-circle",
+        "search": "search",
+        "filter": "options",
+        "edit": "pencil",
+        "delete": "trash",
+        "close": "close",
+        "check": "checkmark",
+        "person": "person",
+        "football": "football"
+      }
+    },
+    "images": {
+      "hero_bg": "https://images.unsplash.com/photo-1575330739287-90c6a473f9a9?crop=entropy&cs=srgb&fm=jpg&q=85",
+      "fallback_avatar": "https://ui-avatars.com/api/?background=0D8ABC&color=fff"
+    }
+  },
+  "universal_guidelines": {
+    "react_native_specific": [
+      "Use StyleSheet.create for all styles to ensure performance.",
+      "Wrap main screens in SafeAreaView to handle notches.",
+      "Use KeyboardAvoidingView with behavior='padding' for all forms.",
+      "Touch targets must be at least 44x44 points.",
+      "Use TouchableOpacity for interactive elements with activeOpacity={0.7}.",
+      "Images must have style dimensions (width/height) explicitly set.",
+      "Use ScrollView with contentContainerStyle for padding."
+    ],
+    "language": {
+      "locale": "it-IT",
+      "vocabulary": {
+        "role_gk": "Portiere",
+        "role_def": "Difensore",
+        "role_mid": "Centrocampista",
+        "role_att": "Attaccante",
+        "strength": "Valore",
+        "team_a": "Squadra A",
+        "team_b": "Squadra B",
+        "generate": "Genera Squadre",
+        "save": "Salva Giocatore",
+        "add": "Aggiungi"
+      }
+    },
+    "testing": {
+      "attribute": "testID",
+      "format": "kebab-case-role"
+    }
+  }
+}
