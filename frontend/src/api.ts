@@ -21,6 +21,12 @@ export interface TeamResult {
   team_b: Player[];
   team_a_avg_strength: number;
   team_b_avg_strength: number;
+  team_a_avg_age: number;
+  team_b_avg_age: number;
+  team_a_name: string;
+  team_b_name: string;
+  team_a_color: string;
+  team_b_color: string;
 }
 
 export const ROLES = ['Portiere', 'Difensore', 'Centrocampista', 'Attaccante'] as const;
@@ -31,6 +37,29 @@ export const ROLE_COLORS: Record<string, string> = {
   Centrocampista: '#34C759',
   Attaccante: '#FF3B30',
 };
+
+export const JERSEY_COLORS: { label: string; value: string; hex: string }[] = [
+  { label: 'Bianca', value: 'Bianca', hex: '#FFFFFF' },
+  { label: 'Rossa', value: 'Rossa', hex: '#FF3B30' },
+  { label: 'Gialla', value: 'Gialla', hex: '#FFCC00' },
+  { label: 'Nera', value: 'Nera', hex: '#1C1C1E' },
+  { label: 'Verde', value: 'Verde', hex: '#34C759' },
+];
+
+export const MATCH_TYPES: { label: string; value: number }[] = [
+  { label: 'Calcetto 5', value: 5 },
+  { label: 'Calcio 6', value: 6 },
+  { label: 'Calcio 7', value: 7 },
+  { label: 'Calcio 8', value: 8 },
+  { label: 'Calcio 9', value: 9 },
+  { label: 'Calcio 10', value: 10 },
+  { label: 'Calcio 11', value: 11 },
+];
+
+export const STRENGTH_VALUES: number[] = [];
+for (let i = 1; i <= 10; i += 0.5) {
+  STRENGTH_VALUES.push(i);
+}
 
 export async function fetchPlayers(params?: {
   search?: string;
@@ -111,14 +140,22 @@ export async function deletePlayer(id: string): Promise<void> {
 
 export async function generateTeams(
   playerIds: string[],
-  playersPerTeam?: number
+  playersPerTeam: number = 5,
+  teamAName: string = 'Squadra A',
+  teamBName: string = 'Squadra B',
+  teamAColor: string = 'Bianca',
+  teamBColor: string = 'Rossa'
 ): Promise<TeamResult> {
   const res = await fetch(`${API_BASE}/generate-teams`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       player_ids: playerIds,
-      players_per_team: playersPerTeam || 5,
+      players_per_team: playersPerTeam,
+      team_a_name: teamAName,
+      team_b_name: teamBName,
+      team_a_color: teamAColor,
+      team_b_color: teamBColor,
     }),
   });
   if (!res.ok) {

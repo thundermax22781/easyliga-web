@@ -16,7 +16,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { fetchPlayer, updatePlayer, deletePlayer, ROLES, ROLE_COLORS, Player } from '../../src/api';
+import { fetchPlayer, updatePlayer, deletePlayer, ROLES, ROLE_COLORS, STRENGTH_VALUES, Player } from '../../src/api';
 
 export default function PlayerDetailScreen() {
   const router = useRouter();
@@ -227,7 +227,9 @@ export default function PlayerDetailScreen() {
             <View style={styles.detailDivider} />
             <View style={styles.detailRow}>
               <Text style={styles.detailLabel}>Forza</Text>
-              <Text style={[styles.detailValue, { fontWeight: '900' }]}>{player.strength}/10</Text>
+              <Text style={[styles.detailValue, { fontWeight: '900' }]}>
+                {Number.isInteger(player.strength) ? player.strength : player.strength.toFixed(1)}/10
+              </Text>
             </View>
           </View>
         </ScrollView>
@@ -329,30 +331,32 @@ export default function PlayerDetailScreen() {
 
             {/* Strength */}
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Valore di Forza</Text>
-              <View style={styles.strengthRow}>
-                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((v) => (
-                  <TouchableOpacity
-                    key={v}
-                    testID={`edit-strength-${v}`}
-                    style={[
-                      styles.strengthBtn,
-                      v === strength && styles.strengthBtnActive,
-                    ]}
-                    onPress={() => setStrength(v)}
-                    activeOpacity={0.7}
-                  >
-                    <Text
+              <Text style={styles.label}>Valore di Forza: {strength}</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                <View style={styles.strengthRow}>
+                  {STRENGTH_VALUES.map((v) => (
+                    <TouchableOpacity
+                      key={v}
+                      testID={`edit-strength-${v}`}
                       style={[
-                        styles.strengthBtnText,
-                        v === strength && styles.strengthBtnTextActive,
+                        styles.strengthBtn,
+                        v === strength && styles.strengthBtnActive,
                       ]}
+                      onPress={() => setStrength(v)}
+                      activeOpacity={0.7}
                     >
-                      {v}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
+                      <Text
+                        style={[
+                          styles.strengthBtnText,
+                          v === strength && styles.strengthBtnTextActive,
+                        ]}
+                      >
+                        {Number.isInteger(v) ? v : v.toFixed(1)}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </ScrollView>
             </View>
           </ScrollView>
         </TouchableWithoutFeedback>

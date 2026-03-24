@@ -4,15 +4,29 @@ import {
   Text,
   FlatList,
   TouchableOpacity,
+  TextInput,
   StyleSheet,
   ActivityIndicator,
   Alert,
   RefreshControl,
+  ScrollView,
+  KeyboardAvoidingView,
+  Platform,
+  Keyboard,
+  TouchableWithoutFeedback,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
-import { fetchPlayers, generateTeams, Player, ROLE_COLORS, TeamResult } from '../../src/api';
+import {
+  fetchPlayers,
+  generateTeams,
+  Player,
+  ROLE_COLORS,
+  TeamResult,
+  JERSEY_COLORS,
+  MATCH_TYPES,
+} from '../../src/api';
 
 export default function TeamsScreen() {
   const [players, setPlayers] = useState<Player[]>([]);
@@ -21,6 +35,14 @@ export default function TeamsScreen() {
   const [generating, setGenerating] = useState(false);
   const [teams, setTeams] = useState<TeamResult | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+
+  // New config options
+  const [matchType, setMatchType] = useState(5);
+  const [teamAName, setTeamAName] = useState('Squadra A');
+  const [teamBName, setTeamBName] = useState('Squadra B');
+  const [teamAColor, setTeamAColor] = useState('Bianca');
+  const [teamBColor, setTeamBColor] = useState('Rossa');
+  const [showConfig, setShowConfig] = useState(false);
 
   const loadPlayers = useCallback(async () => {
     try {
@@ -59,13 +81,24 @@ export default function TeamsScreen() {
   };
 
   const handleGenerate = async () => {
-    if (selectedIds.size < 2) {
-      Alert.alert('Attenzione', 'Seleziona almeno 2 giocatori');
+    const minPlayers = matchType * 2;
+    if (selectedIds.size < minPlayers) {
+      Alert.alert(
+        'Attenzione',
+        `Per ${matchType === 5 ? 'Calcetto 5' : 'Calcio ' + matchType} servono almeno ${minPlayers} giocatori (${matchType} per squadra). Hai selezionato ${selectedIds.size}.`
+      );
       return;
     }
     setGenerating(true);
     try {
-      const result = await generateTeams(Array.from(selectedIds));
+      const result = await generateTeams(
+        Array.from(selectedIds),
+        matchType,
+        teamAName,
+        teamBName,
+        teamAColor,
+        teamBColor
+      );
       setTeams(result);
     } catch (e: any) {
       Alert.alert('Errore', e.message || 'Errore nella generazione');
@@ -79,6 +112,14 @@ export default function TeamsScreen() {
   };
 
   const getInitials = (nickname: string) => nickname.substring(0, 2).toUpperCase();
+
+  const getJerseyHex = (colorName: string) => {
+    return JERSEY_COLORS.find((c) => c.value === colorName)?.hex || '#FFFFFF';
+  };
+
+  const getJerseyTextColor = (colorName: string) => {
+    return colorName === 'Bianca' || colorName === 'Gialla' ? '#1C1C1E' : '#FFFFFF';
+  };
 
   const renderSelectionItem = ({ item }: { item: Player }) => {
     const isSelected = selectedIds.has(item.id);
@@ -102,7 +143,9 @@ export default function TeamsScreen() {
           <Text style={[styles.selectRole, { color: ROLE_COLORS[item.role] }]}>{item.role}</Text>
         </View>
         <View style={styles.selectStrength}>
-          <Text style={styles.selectStrengthNum}>{item.strength}</Text>
+          <Text style={styles.selectStrengthNum}>
+            {Number.isInteger(item.strength) ? item.strength : item.strength.toFixed(1)}
+          </Text>
         </View>
       </TouchableOpacity>
     );
@@ -120,11 +163,19 @@ export default function TeamsScreen() {
         <Text style={styles.teamPlayerName}>{player.nickname}</Text>
         <Text style={[styles.teamPlayerRole, { color: ROLE_COLORS[player.role] }]}>{player.role}</Text>
       </View>
-      <Text style={styles.teamPlayerStrength}>{player.strength}</Text>
+      <Text style={styles.teamPlayerStrength}>
+        {Number.isInteger(player.strength) ? player.strength : player.strength.toFixed(1)}
+      </Text>
     </View>
   );
 
+  // TEAMS RESULT VIEW
   if (teams) {
+    const teamAHex = getJerseyHex(teams.team_a_color);
+    const teamBHex = getJerseyHex(teams.team_b_color);
+    const teamATextColor = getJerseyTextColor(teams.team_a_color);
+    const teamBTextColor = getJerseyTextColor(teams.team_b_color);
+
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.header}>
@@ -143,14 +194,21 @@ export default function TeamsScreen() {
           renderItem={() => (
             <View style={styles.teamsContainer}>
               {/* Team A */}
-              <View style={[styles.teamCard, { backgroundColor: 'rgba(0, 122, 255, 0.06)' }]}>
+              <View style={[styles.teamCard, { backgroundColor: teamAHex + '12' }]}>
                 <View style={styles.teamHeader}>
-                  <View style={[styles.teamBadge, { backgroundColor: '#007AFF' }]}>
-                    <Text style={styles.teamBadgeText}>A</Text>
+                  <View style={[styles.jerseyBadge, { backgroundColor: teamAHex, borderWidth: teamAHex === '#FFFFFF' ? 1 : 0, borderColor: '#D1D1D6' }]}>
+                    <Ionicons name="shirt" size={18} color={teamATextColor} />
                   </View>
-                  <Text style={styles.teamName}>Squadra A</Text>
-                  <View style={styles.avgBadge}>
-                    <Text style={styles.avgText}>Media: {teams.team_a_avg_strength}</Text>
+                  <Text style={styles.teamName} numberOfLines={1}>{teams.team_a_name}</Text>
+                </View>
+                <View style={styles.teamStatsRow}>
+                  <View style={styles.teamStatBadge}>
+                    <Text style={styles.teamStatLabel}>Forza media</Text>
+                    <Text style={styles.teamStatValue}>{teams.team_a_avg_strength}</Text>
+                  </View>
+                  <View style={styles.teamStatBadge}>
+                    <Text style={styles.teamStatLabel}>Età media</Text>
+                    <Text style={styles.teamStatValue}>{teams.team_a_avg_age}</Text>
                   </View>
                 </View>
                 {teams.team_a.map((p, i) => renderTeamPlayer(p, i))}
@@ -164,14 +222,21 @@ export default function TeamsScreen() {
               </View>
 
               {/* Team B */}
-              <View style={[styles.teamCard, { backgroundColor: 'rgba(52, 199, 89, 0.06)' }]}>
+              <View style={[styles.teamCard, { backgroundColor: teamBHex + '12' }]}>
                 <View style={styles.teamHeader}>
-                  <View style={[styles.teamBadge, { backgroundColor: '#34C759' }]}>
-                    <Text style={styles.teamBadgeText}>B</Text>
+                  <View style={[styles.jerseyBadge, { backgroundColor: teamBHex, borderWidth: teamBHex === '#FFFFFF' ? 1 : 0, borderColor: '#D1D1D6' }]}>
+                    <Ionicons name="shirt" size={18} color={teamBTextColor} />
                   </View>
-                  <Text style={styles.teamName}>Squadra B</Text>
-                  <View style={styles.avgBadge}>
-                    <Text style={styles.avgText}>Media: {teams.team_b_avg_strength}</Text>
+                  <Text style={styles.teamName} numberOfLines={1}>{teams.team_b_name}</Text>
+                </View>
+                <View style={styles.teamStatsRow}>
+                  <View style={styles.teamStatBadge}>
+                    <Text style={styles.teamStatLabel}>Forza media</Text>
+                    <Text style={styles.teamStatValue}>{teams.team_b_avg_strength}</Text>
+                  </View>
+                  <View style={styles.teamStatBadge}>
+                    <Text style={styles.teamStatLabel}>Età media</Text>
+                    <Text style={styles.teamStatValue}>{teams.team_b_avg_age}</Text>
                   </View>
                 </View>
                 {teams.team_b.map((p, i) => renderTeamPlayer(p, i))}
@@ -184,68 +249,190 @@ export default function TeamsScreen() {
     );
   }
 
+  // MAIN SELECTION VIEW
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Genera Squadre</Text>
-      </View>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={{ flex: 1 }}
+      >
+        <View style={styles.header}>
+          <Text style={styles.title}>Genera Squadre</Text>
+        </View>
 
-      <View style={styles.selectionHeader}>
-        <Text style={styles.selectionCount}>
-          {selectedIds.size} selezionat{selectedIds.size === 1 ? 'o' : 'i'}
-        </Text>
-        <TouchableOpacity testID="select-all-btn" onPress={selectAll} activeOpacity={0.7}>
-          <Text style={styles.selectAllText}>
-            {selectedIds.size === players.length ? 'Deseleziona Tutti' : 'Seleziona Tutti'}
-          </Text>
+        {/* Config Toggle */}
+        <TouchableOpacity
+          testID="toggle-config-btn"
+          style={styles.configToggle}
+          onPress={() => { Keyboard.dismiss(); setShowConfig(!showConfig); }}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="settings-outline" size={20} color="#007AFF" />
+          <Text style={styles.configToggleText}>Impostazioni Partita</Text>
+          <Ionicons name={showConfig ? 'chevron-up' : 'chevron-down'} size={20} color="#007AFF" />
         </TouchableOpacity>
-      </View>
 
-      {loading ? (
-        <View style={styles.center}>
-          <ActivityIndicator size="large" color="#007AFF" />
-        </View>
-      ) : players.length === 0 ? (
-        <View style={styles.center}>
-          <Ionicons name="people-outline" size={64} color="#D1D1D6" />
-          <Text style={styles.emptyText}>Nessun giocatore disponibile</Text>
-          <Text style={styles.emptySubtext}>Aggiungi giocatori dalla schermata Giocatori</Text>
-        </View>
-      ) : (
-        <FlatList
-          testID="team-player-list"
-          data={players}
-          keyExtractor={(item) => item.id}
-          renderItem={renderSelectionItem}
-          contentContainerStyle={styles.listContent}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadPlayers(); }} tintColor="#007AFF" />
-          }
-          showsVerticalScrollIndicator={false}
-        />
-      )}
+        {/* Config Panel */}
+        {showConfig && (
+          <ScrollView style={styles.configPanel} contentContainerStyle={styles.configPanelContent} nestedScrollEnabled>
+            {/* Match Type */}
+            <Text style={styles.configLabel}>Tipo di Partita</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.matchTypeScroll}>
+              <View style={styles.matchTypeRow}>
+                {MATCH_TYPES.map((mt) => (
+                  <TouchableOpacity
+                    key={mt.value}
+                    testID={`match-type-${mt.value}`}
+                    style={[styles.matchTypeChip, matchType === mt.value && styles.matchTypeChipActive]}
+                    onPress={() => setMatchType(mt.value)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[styles.matchTypeText, matchType === mt.value && styles.matchTypeTextActive]}>
+                      {mt.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </ScrollView>
 
-      {/* Generate Button */}
-      {players.length > 0 && !teams && (
-        <View style={styles.generateBar}>
-          <TouchableOpacity
-            testID="generate-teams-btn"
-            style={[styles.generateButton, selectedIds.size < 2 && styles.generateButtonDisabled]}
-            onPress={handleGenerate}
-            disabled={generating || selectedIds.size < 2}
-            activeOpacity={0.8}
-          >
-            {generating ? (
-              <ActivityIndicator color="#FFFFFF" />
-            ) : (
-              <>
-                <Ionicons name="football" size={20} color="#FFFFFF" style={{ marginRight: 8 }} />
-                <Text style={styles.generateText}>Genera Squadre</Text>
-              </>
-            )}
+            {/* Team Names */}
+            <View style={styles.teamNamesRow}>
+              <View style={styles.teamNameCol}>
+                <Text style={styles.configLabel}>Nome Squadra 1</Text>
+                <TextInput
+                  testID="team-a-name-input"
+                  style={styles.configInput}
+                  value={teamAName}
+                  onChangeText={setTeamAName}
+                  placeholder="Squadra A"
+                  placeholderTextColor="#C7C7CC"
+                />
+              </View>
+              <View style={styles.teamNameCol}>
+                <Text style={styles.configLabel}>Nome Squadra 2</Text>
+                <TextInput
+                  testID="team-b-name-input"
+                  style={styles.configInput}
+                  value={teamBName}
+                  onChangeText={setTeamBName}
+                  placeholder="Squadra B"
+                  placeholderTextColor="#C7C7CC"
+                />
+              </View>
+            </View>
+
+            {/* Jersey Colors Team A */}
+            <Text style={styles.configLabel}>Maglia Squadra 1</Text>
+            <View style={styles.colorRow}>
+              {JERSEY_COLORS.map((c) => (
+                <TouchableOpacity
+                  key={`a-${c.value}`}
+                  testID={`team-a-color-${c.value.toLowerCase()}`}
+                  style={[
+                    styles.colorBtn,
+                    { backgroundColor: c.hex, borderWidth: c.hex === '#FFFFFF' ? 1 : 0, borderColor: '#D1D1D6' },
+                    teamAColor === c.value && styles.colorBtnSelected,
+                  ]}
+                  onPress={() => setTeamAColor(c.value)}
+                  activeOpacity={0.7}
+                >
+                  {teamAColor === c.value && (
+                    <Ionicons name="checkmark" size={18} color={c.hex === '#FFFFFF' || c.hex === '#FFCC00' ? '#1C1C1E' : '#FFFFFF'} />
+                  )}
+                </TouchableOpacity>
+              ))}
+              <Text style={styles.colorLabel}>{teamAColor}</Text>
+            </View>
+
+            {/* Jersey Colors Team B */}
+            <Text style={styles.configLabel}>Maglia Squadra 2</Text>
+            <View style={styles.colorRow}>
+              {JERSEY_COLORS.map((c) => (
+                <TouchableOpacity
+                  key={`b-${c.value}`}
+                  testID={`team-b-color-${c.value.toLowerCase()}`}
+                  style={[
+                    styles.colorBtn,
+                    { backgroundColor: c.hex, borderWidth: c.hex === '#FFFFFF' ? 1 : 0, borderColor: '#D1D1D6' },
+                    teamBColor === c.value && styles.colorBtnSelected,
+                  ]}
+                  onPress={() => setTeamBColor(c.value)}
+                  activeOpacity={0.7}
+                >
+                  {teamBColor === c.value && (
+                    <Ionicons name="checkmark" size={18} color={c.hex === '#FFFFFF' || c.hex === '#FFCC00' ? '#1C1C1E' : '#FFFFFF'} />
+                  )}
+                </TouchableOpacity>
+              ))}
+              <Text style={styles.colorLabel}>{teamBColor}</Text>
+            </View>
+          </ScrollView>
+        )}
+
+        {/* Selection Header */}
+        <View style={styles.selectionHeader}>
+          <Text style={styles.selectionCount}>
+            {selectedIds.size} selezionat{selectedIds.size === 1 ? 'o' : 'i'} · min {matchType * 2}
+          </Text>
+          <TouchableOpacity testID="select-all-btn" onPress={selectAll} activeOpacity={0.7}>
+            <Text style={styles.selectAllText}>
+              {selectedIds.size === players.length ? 'Deseleziona' : 'Seleziona Tutti'}
+            </Text>
           </TouchableOpacity>
         </View>
-      )}
+
+        {/* Player List */}
+        {loading ? (
+          <View style={styles.center}>
+            <ActivityIndicator size="large" color="#007AFF" />
+          </View>
+        ) : players.length === 0 ? (
+          <View style={styles.center}>
+            <Ionicons name="people-outline" size={64} color="#D1D1D6" />
+            <Text style={styles.emptyText}>Nessun giocatore disponibile</Text>
+            <Text style={styles.emptySubtext}>Aggiungi giocatori dalla schermata Giocatori</Text>
+          </View>
+        ) : (
+          <FlatList
+            testID="team-player-list"
+            data={players}
+            keyExtractor={(item) => item.id}
+            renderItem={renderSelectionItem}
+            contentContainerStyle={styles.listContent}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadPlayers(); }} tintColor="#007AFF" />
+            }
+            showsVerticalScrollIndicator={false}
+          />
+        )}
+
+        {/* Generate Button */}
+        {players.length > 0 && (
+          <View style={styles.generateBar}>
+            <TouchableOpacity
+              testID="generate-teams-btn"
+              style={[
+                styles.generateButton,
+                selectedIds.size < matchType * 2 && styles.generateButtonDisabled,
+              ]}
+              onPress={handleGenerate}
+              disabled={generating || selectedIds.size < matchType * 2}
+              activeOpacity={0.8}
+            >
+              {generating ? (
+                <ActivityIndicator color="#FFFFFF" />
+              ) : (
+                <>
+                  <Ionicons name="football" size={20} color="#FFFFFF" style={{ marginRight: 8 }} />
+                  <Text style={styles.generateText}>
+                    Genera {matchType === 5 ? 'Calcetto 5' : 'Calcio ' + matchType}
+                  </Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
+        )}
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -260,7 +447,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingTop: 8,
-    paddingBottom: 12,
+    paddingBottom: 8,
   },
   title: {
     fontSize: 32,
@@ -282,20 +469,121 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  // Config Toggle
+  configToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    marginHorizontal: 20,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    marginBottom: 8,
+    gap: 8,
+  },
+  configToggleText: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#007AFF',
+  },
+  // Config Panel
+  configPanel: {
+    maxHeight: 300,
+    marginHorizontal: 20,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    marginBottom: 8,
+  },
+  configPanelContent: {
+    padding: 14,
+  },
+  configLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#8E8E93',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 8,
+    marginTop: 4,
+  },
+  matchTypeScroll: {
+    marginBottom: 12,
+  },
+  matchTypeRow: {
+    flexDirection: 'row',
+    gap: 6,
+  },
+  matchTypeChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 10,
+    backgroundColor: '#F2F2F7',
+  },
+  matchTypeChipActive: {
+    backgroundColor: '#007AFF',
+  },
+  matchTypeText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#3A3A3C',
+  },
+  matchTypeTextActive: {
+    color: '#FFFFFF',
+  },
+  teamNamesRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 12,
+  },
+  teamNameCol: {
+    flex: 1,
+  },
+  configInput: {
+    backgroundColor: '#F2F2F7',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    height: 40,
+    fontSize: 15,
+    color: '#1C1C1E',
+  },
+  colorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 12,
+  },
+  colorBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  colorBtnSelected: {
+    borderWidth: 3,
+    borderColor: '#007AFF',
+  },
+  colorLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#8E8E93',
+  },
+  // Selection
   selectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingBottom: 12,
+    paddingBottom: 8,
   },
   selectionCount: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '600',
     color: '#8E8E93',
   },
   selectAllText: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '600',
     color: '#007AFF',
   },
@@ -365,7 +653,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   selectStrengthNum: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '900',
     color: '#1C1C1E',
   },
@@ -431,20 +719,15 @@ const styles = StyleSheet.create({
   teamHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 8,
   },
-  teamBadge: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+  jerseyBadge: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 10,
-  },
-  teamBadgeText: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#FFFFFF',
   },
   teamName: {
     fontSize: 20,
@@ -452,16 +735,30 @@ const styles = StyleSheet.create({
     color: '#1C1C1E',
     flex: 1,
   },
-  avgBadge: {
-    backgroundColor: 'rgba(0,0,0,0.06)',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 10,
+  teamStatsRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 12,
   },
-  avgText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#3A3A3C',
+  teamStatBadge: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.05)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  teamStatLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#8E8E93',
+  },
+  teamStatValue: {
+    fontSize: 16,
+    fontWeight: '900',
+    color: '#1C1C1E',
   },
   vsContainer: {
     alignItems: 'center',
@@ -522,7 +819,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '900',
     color: '#1C1C1E',
-    width: 32,
+    width: 36,
     textAlign: 'center',
   },
 });

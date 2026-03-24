@@ -16,7 +16,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { createPlayer, ROLES, ROLE_COLORS } from '../../src/api';
+import { createPlayer, ROLES, ROLE_COLORS, STRENGTH_VALUES } from '../../src/api';
 
 export default function AddPlayerScreen() {
   const router = useRouter();
@@ -176,30 +176,32 @@ export default function AddPlayerScreen() {
 
             {/* Strength */}
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Valore di Forza</Text>
-              <View style={styles.strengthRow}>
-                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((v) => (
-                  <TouchableOpacity
-                    key={v}
-                    testID={`strength-${v}`}
-                    style={[
-                      styles.strengthBtn,
-                      v === strength && styles.strengthBtnActive,
-                    ]}
-                    onPress={() => setStrength(v)}
-                    activeOpacity={0.7}
-                  >
-                    <Text
+              <Text style={styles.label}>Valore di Forza: {strength}</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                <View style={styles.strengthRow}>
+                  {STRENGTH_VALUES.map((v) => (
+                    <TouchableOpacity
+                      key={v}
+                      testID={`strength-${v}`}
                       style={[
-                        styles.strengthBtnText,
-                        v === strength && styles.strengthBtnTextActive,
+                        styles.strengthBtn,
+                        v === strength && styles.strengthBtnActive,
                       ]}
+                      onPress={() => setStrength(v)}
+                      activeOpacity={0.7}
                     >
-                      {v}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
+                      <Text
+                        style={[
+                          styles.strengthBtnText,
+                          v === strength && styles.strengthBtnTextActive,
+                        ]}
+                      >
+                        {Number.isInteger(v) ? v : v.toFixed(1)}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </ScrollView>
             </View>
 
             {/* Save Button */}

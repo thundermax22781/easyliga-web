@@ -26,6 +26,9 @@ api_router = APIRouter(prefix="/api")
 
 VALID_ROLES = ["Portiere", "Difensore", "Centrocampista", "Attaccante"]
 
+VALID_COLORS = ["Bianca", "Rossa", "Gialla", "Nera", "Verde"]
+VALID_MATCH_TYPES = [5, 6, 7, 8, 9, 10, 11]
+
 class PlayerCreate(BaseModel):
     name: str
     surname: str
@@ -33,7 +36,7 @@ class PlayerCreate(BaseModel):
     date_of_birth: str  # ISO format YYYY-MM-DD
     photo: Optional[str] = None  # base64 string
     role: str
-    strength: int = Field(ge=1, le=10)
+    strength: float = Field(ge=1, le=10)
 
 class PlayerUpdate(BaseModel):
     name: Optional[str] = None
@@ -42,7 +45,7 @@ class PlayerUpdate(BaseModel):
     date_of_birth: Optional[str] = None
     photo: Optional[str] = None
     role: Optional[str] = None
-    strength: Optional[int] = Field(default=None, ge=1, le=10)
+    strength: Optional[float] = Field(default=None, ge=1, le=10)
 
 class PlayerResponse(BaseModel):
     id: str
@@ -53,19 +56,29 @@ class PlayerResponse(BaseModel):
     age: int
     photo: Optional[str] = None
     role: str
-    strength: int
+    strength: float
     created_at: str
     updated_at: str
 
 class TeamGenerateRequest(BaseModel):
     player_ids: List[str]
     players_per_team: int = 5
+    team_a_name: str = "Squadra A"
+    team_b_name: str = "Squadra B"
+    team_a_color: str = "Bianca"
+    team_b_color: str = "Rossa"
 
 class TeamResponse(BaseModel):
     team_a: List[PlayerResponse]
     team_b: List[PlayerResponse]
     team_a_avg_strength: float
     team_b_avg_strength: float
+    team_a_avg_age: float
+    team_b_avg_age: float
+    team_a_name: str
+    team_b_name: str
+    team_a_color: str
+    team_b_color: str
 
 def calculate_age(dob_str: str) -> int:
     dob = date.fromisoformat(dob_str)
@@ -98,6 +111,8 @@ async def root():
 async def create_player(player: PlayerCreate):
     if player.role not in VALID_ROLES:
         raise HTTPException(status_code=400, detail=f"Ruolo non valido. Scegli tra: {VALID_ROLES}")
+    if player.strength * 2 != int(player.strength * 2):
+        raise HTTPException(status_code=400, detail="La forza deve essere un multiplo di 0.5")
     
     now = datetime.now(timezone.utc).isoformat()
     doc = {
@@ -119,8 +134,8 @@ async def create_player(player: PlayerCreate):
 async def get_players(
     search: Optional[str] = Query(None),
     role: Optional[str] = Query(None),
-    min_strength: Optional[int] = Query(None, ge=1, le=10),
-    max_strength: Optional[int] = Query(None, ge=1, le=10),
+    min_strength: Optional[float] = Query(None, ge=1, le=10),
+    max_strength: Optional[float] = Query(None, ge=1, le=10),
     sort_by: Optional[str] = Query("nickname"),
     sort_order: Optional[str] = Query("asc"),
 ):
@@ -215,11 +230,20 @@ async def generate_teams(req: TeamGenerateRequest):
     avg_a = sum_a / len(team_a) if team_a else 0
     avg_b = sum_b / len(team_b) if team_b else 0
     
+    age_a = sum(calculate_age(p["date_of_birth"]) for p in team_a) / len(team_a) if team_a else 0
+    age_b = sum(calculate_age(p["date_of_birth"]) for p in team_b) / len(team_b) if team_b else 0
+    
     return {
         "team_a": [player_doc_to_response(p) for p in team_a],
         "team_b": [player_doc_to_response(p) for p in team_b],
         "team_a_avg_strength": round(avg_a, 1),
         "team_b_avg_strength": round(avg_b, 1),
+        "team_a_avg_age": round(age_a, 1),
+        "team_b_avg_age": round(age_b, 1),
+        "team_a_name": req.team_a_name,
+        "team_b_name": req.team_b_name,
+        "team_a_color": req.team_a_color,
+        "team_b_color": req.team_b_color,
     }
 
 app.include_router(api_router)

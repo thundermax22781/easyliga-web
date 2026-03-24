@@ -108,7 +108,9 @@ export default function PlayersScreen() {
         </View>
       </View>
       <View style={styles.strengthBadge}>
-        <Text style={styles.strengthNumber}>{item.strength}</Text>
+        <Text style={styles.strengthNumber}>
+          {Number.isInteger(item.strength) ? item.strength : item.strength.toFixed(1)}
+        </Text>
         <Text style={styles.strengthLabel}>FRZ</Text>
       </View>
     </TouchableOpacity>
@@ -374,7 +376,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F2F2F7',
   },
   strengthNumber: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: '900',
     color: '#1C1C1E',
   },
