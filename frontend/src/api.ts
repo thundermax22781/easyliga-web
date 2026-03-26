@@ -26,8 +26,8 @@ export interface Player {
 export interface TeamResult {
   team_a: Player[];
   team_b: Player[];
-  team_a_avg_strength: number;
-  team_b_avg_strength: number;
+  team_a_total_strength: number;
+  team_b_total_strength: number;
   team_a_avg_age: number;
   team_b_avg_age: number;
   team_a_name: string;

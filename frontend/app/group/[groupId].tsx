@@ -181,7 +181,7 @@ export default function GroupDetailScreen() {
 
   const sortByRole = (arr: Player[]) => [...arr].sort((a, b) => (ROLE_ORDER[a.role] ?? 99) - (ROLE_ORDER[b.role] ?? 99));
 
-  const calcAvgStrength = (arr: Player[]) => arr.length ? Math.round((arr.reduce((s, p) => s + p.strength, 0) / arr.length) * 10) / 10 : 0;
+  const calcTotalStrength = (arr: Player[]) => arr.length ? Math.round(arr.reduce((s, p) => s + p.strength, 0) * 10) / 10 : 0;
   const calcAvgAge = (arr: Player[]) => arr.length ? Math.round((arr.reduce((s, p) => s + p.age, 0) / arr.length) * 10) / 10 : 0;
 
   const movePlayerToOtherTeam = (playerId: string, fromTeam: 'a' | 'b') => {
@@ -208,8 +208,8 @@ export default function GroupDetailScreen() {
       ...teams,
       team_a: newA,
       team_b: newB,
-      team_a_avg_strength: calcAvgStrength(newA),
-      team_b_avg_strength: calcAvgStrength(newB),
+      team_a_total_strength: calcTotalStrength(newA),
+      team_b_total_strength: calcTotalStrength(newB),
       team_a_avg_age: calcAvgAge(newA),
       team_b_avg_age: calcAvgAge(newB),
     });
@@ -252,11 +252,11 @@ export default function GroupDetailScreen() {
                 </View>
                 <View style={styles.teamStatsRow}>
                   <View style={styles.teamStatBadge}>
-                    <Text style={styles.teamStatLabel}>Forza</Text>
-                    <Text style={styles.teamStatValue}>{teams.team_a_avg_strength}</Text>
+                    <Text style={styles.teamStatLabel}>Forza tot.</Text>
+                    <Text style={styles.teamStatValue}>{teams.team_a_total_strength}</Text>
                   </View>
                   <View style={styles.teamStatBadge}>
-                    <Text style={styles.teamStatLabel}>Età</Text>
+                    <Text style={styles.teamStatLabel}>Età media</Text>
                     <Text style={styles.teamStatValue}>{teams.team_a_avg_age}</Text>
                   </View>
                 </View>
@@ -295,11 +295,11 @@ export default function GroupDetailScreen() {
                 </View>
                 <View style={styles.teamStatsRow}>
                   <View style={styles.teamStatBadge}>
-                    <Text style={styles.teamStatLabel}>Forza</Text>
-                    <Text style={styles.teamStatValue}>{teams.team_b_avg_strength}</Text>
+                    <Text style={styles.teamStatLabel}>Forza tot.</Text>
+                    <Text style={styles.teamStatValue}>{teams.team_b_total_strength}</Text>
                   </View>
                   <View style={styles.teamStatBadge}>
-                    <Text style={styles.teamStatLabel}>Età</Text>
+                    <Text style={styles.teamStatLabel}>Età media</Text>
                     <Text style={styles.teamStatValue}>{teams.team_b_avg_age}</Text>
                   </View>
                 </View>

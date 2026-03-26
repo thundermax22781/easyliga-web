@@ -89,8 +89,8 @@ class TeamGenerateRequest(BaseModel):
 class TeamResponse(BaseModel):
     team_a: List[PlayerResponse]
     team_b: List[PlayerResponse]
-    team_a_avg_strength: float
-    team_b_avg_strength: float
+    team_a_total_strength: float
+    team_b_total_strength: float
     team_a_avg_age: float
     team_b_avg_age: float
     team_a_name: str
@@ -438,8 +438,8 @@ async def generate_teams(req: TeamGenerateRequest):
     return {
         "team_a": [player_doc_to_response(p) for p in team_a],
         "team_b": [player_doc_to_response(p) for p in team_b],
-        "team_a_avg_strength": round(avg_a, 1),
-        "team_b_avg_strength": round(avg_b, 1),
+        "team_a_total_strength": round(sum_a, 1),
+        "team_b_total_strength": round(sum_b, 1),
         "team_a_avg_age": round(age_a, 1),
         "team_b_avg_age": round(age_b, 1),
         "team_a_name": req.team_a_name,
