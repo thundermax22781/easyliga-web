@@ -27,6 +27,7 @@ api_router = APIRouter(prefix="/api")
 # --- Models ---
 
 VALID_ROLES = ["Portiere", "Difensore", "Centrocampista", "Attaccante"]
+ROLE_ORDER = {"Portiere": 0, "Difensore": 1, "Centrocampista": 2, "Attaccante": 3}
 
 VALID_COLORS = ["Bianca", "Rossa", "Gialla", "Nera", "Verde"]
 VALID_MATCH_TYPES = [5, 6, 7, 8, 9, 10, 11]
@@ -424,9 +425,9 @@ async def generate_teams(req: TeamGenerateRequest):
             team_b.append(p)
             sum_b += p["strength"]
     
-    # Shuffle within teams for variety
-    random.shuffle(team_a)
-    random.shuffle(team_b)
+    # Sort within teams by role order: Portiere, Difensore, Centrocampista, Attaccante
+    team_a.sort(key=lambda p: ROLE_ORDER.get(p["role"], 99))
+    team_b.sort(key=lambda p: ROLE_ORDER.get(p["role"], 99))
     
     avg_a = sum_a / len(team_a) if team_a else 0
     avg_b = sum_b / len(team_b) if team_b else 0

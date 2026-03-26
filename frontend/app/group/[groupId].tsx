@@ -177,10 +177,50 @@ export default function GroupDetailScreen() {
     Linking.openURL(url);
   };
 
+  const ROLE_ORDER: Record<string, number> = { Portiere: 0, Difensore: 1, Centrocampista: 2, Attaccante: 3 };
+
+  const sortByRole = (arr: Player[]) => [...arr].sort((a, b) => (ROLE_ORDER[a.role] ?? 99) - (ROLE_ORDER[b.role] ?? 99));
+
+  const calcAvgStrength = (arr: Player[]) => arr.length ? Math.round((arr.reduce((s, p) => s + p.strength, 0) / arr.length) * 10) / 10 : 0;
+  const calcAvgAge = (arr: Player[]) => arr.length ? Math.round((arr.reduce((s, p) => s + p.age, 0) / arr.length) * 10) / 10 : 0;
+
+  const movePlayerToOtherTeam = (playerId: string, fromTeam: 'a' | 'b') => {
+    if (!teams) return;
+    let newA = [...teams.team_a];
+    let newB = [...teams.team_b];
+
+    if (fromTeam === 'a') {
+      const idx = newA.findIndex((p) => p.id === playerId);
+      if (idx === -1) return;
+      const [player] = newA.splice(idx, 1);
+      newB.push(player);
+    } else {
+      const idx = newB.findIndex((p) => p.id === playerId);
+      if (idx === -1) return;
+      const [player] = newB.splice(idx, 1);
+      newA.push(player);
+    }
+
+    newA = sortByRole(newA);
+    newB = sortByRole(newB);
+
+    setTeams({
+      ...teams,
+      team_a: newA,
+      team_b: newB,
+      team_a_avg_strength: calcAvgStrength(newA),
+      team_b_avg_strength: calcAvgStrength(newB),
+      team_a_avg_age: calcAvgAge(newA),
+      team_b_avg_age: calcAvgAge(newB),
+    });
+  };
+
   // --- TEAM RESULTS VIEW ---
   if (teams) {
     const teamAHex = getJerseyHex(teams.team_a_color);
     const teamBHex = getJerseyHex(teams.team_b_color);
+    const sortedA = sortByRole(teams.team_a);
+    const sortedB = sortByRole(teams.team_b);
 
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
@@ -193,6 +233,9 @@ export default function GroupDetailScreen() {
             <Ionicons name="refresh" size={22} color="#007AFF" />
           </TouchableOpacity>
         </View>
+
+        <Text style={styles.swapHint}>Tocca la freccia per spostare un giocatore</Text>
+
         <FlatList
           data={[1]}
           keyExtractor={() => 'teams'}
@@ -205,6 +248,7 @@ export default function GroupDetailScreen() {
                     <Ionicons name="shirt" size={18} color={getJerseyTextColor(teams.team_a_color)} />
                   </View>
                   <Text style={styles.teamName} numberOfLines={1}>{teams.team_a_name}</Text>
+                  <Text style={styles.teamPlayerCount}>{sortedA.length}</Text>
                 </View>
                 <View style={styles.teamStatsRow}>
                   <View style={styles.teamStatBadge}>
@@ -216,9 +260,8 @@ export default function GroupDetailScreen() {
                     <Text style={styles.teamStatValue}>{teams.team_a_avg_age}</Text>
                   </View>
                 </View>
-                {teams.team_a.map((p, i) => (
+                {sortedA.map((p, i) => (
                   <View key={p.id} style={styles.teamPlayerRow}>
-                    <Text style={styles.teamPlayerIdx}>{i + 1}</Text>
                     <View style={[styles.tpAvatar, { backgroundColor: ROLE_COLORS[p.role] + '20' }]}>
                       <Text style={[styles.tpAvatarText, { color: ROLE_COLORS[p.role] }]}>{getInitials(p.nickname)}</Text>
                     </View>
@@ -227,6 +270,14 @@ export default function GroupDetailScreen() {
                       <Text style={[styles.tpRole, { color: ROLE_COLORS[p.role] }]}>{p.role}</Text>
                     </View>
                     <Text style={styles.tpStrength}>{Number.isInteger(p.strength) ? p.strength : p.strength.toFixed(1)}</Text>
+                    <TouchableOpacity
+                      testID={`swap-a-${p.id}`}
+                      style={styles.swapBtn}
+                      onPress={() => movePlayerToOtherTeam(p.id, 'a')}
+                      activeOpacity={0.6}
+                    >
+                      <Ionicons name="arrow-forward" size={16} color="#007AFF" />
+                    </TouchableOpacity>
                   </View>
                 ))}
               </View>
@@ -240,6 +291,7 @@ export default function GroupDetailScreen() {
                     <Ionicons name="shirt" size={18} color={getJerseyTextColor(teams.team_b_color)} />
                   </View>
                   <Text style={styles.teamName} numberOfLines={1}>{teams.team_b_name}</Text>
+                  <Text style={styles.teamPlayerCount}>{sortedB.length}</Text>
                 </View>
                 <View style={styles.teamStatsRow}>
                   <View style={styles.teamStatBadge}>
@@ -251,9 +303,16 @@ export default function GroupDetailScreen() {
                     <Text style={styles.teamStatValue}>{teams.team_b_avg_age}</Text>
                   </View>
                 </View>
-                {teams.team_b.map((p, i) => (
+                {sortedB.map((p, i) => (
                   <View key={p.id} style={styles.teamPlayerRow}>
-                    <Text style={styles.teamPlayerIdx}>{i + 1}</Text>
+                    <TouchableOpacity
+                      testID={`swap-b-${p.id}`}
+                      style={styles.swapBtn}
+                      onPress={() => movePlayerToOtherTeam(p.id, 'b')}
+                      activeOpacity={0.6}
+                    >
+                      <Ionicons name="arrow-back" size={16} color="#007AFF" />
+                    </TouchableOpacity>
                     <View style={[styles.tpAvatar, { backgroundColor: ROLE_COLORS[p.role] + '20' }]}>
                       <Text style={[styles.tpAvatarText, { color: ROLE_COLORS[p.role] }]}>{getInitials(p.nickname)}</Text>
                     </View>
@@ -646,6 +705,7 @@ const styles = StyleSheet.create({
   teamHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
   jerseyBadge: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', marginRight: 10 },
   teamName: { fontSize: 20, fontWeight: '700', color: '#1C1C1E', flex: 1 },
+  teamPlayerCount: { fontSize: 14, fontWeight: '700', color: '#8E8E93', backgroundColor: 'rgba(0,0,0,0.06)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10, overflow: 'hidden' },
   teamStatsRow: { flexDirection: 'row', gap: 8, marginBottom: 12 },
   teamStatBadge: { flex: 1, backgroundColor: 'rgba(0,0,0,0.05)', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   teamStatLabel: { fontSize: 12, fontWeight: '600', color: '#8E8E93' },
@@ -661,6 +721,8 @@ const styles = StyleSheet.create({
   tpName: { fontSize: 15, fontWeight: '700', color: '#1C1C1E' },
   tpRole: { fontSize: 12, fontWeight: '600' },
   tpStrength: { fontSize: 18, fontWeight: '900', color: '#1C1C1E', width: 36, textAlign: 'center' },
+  swapBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(0,122,255,0.1)', alignItems: 'center', justifyContent: 'center', marginLeft: 6 },
+  swapHint: { fontSize: 13, fontWeight: '500', color: '#8E8E93', textAlign: 'center', marginBottom: 8, fontStyle: 'italic' },
   // Shared
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   emptyText: { fontSize: 18, fontWeight: '600', color: '#8E8E93', marginTop: 16 },

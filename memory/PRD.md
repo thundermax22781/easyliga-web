@@ -5,26 +5,28 @@ App mobile per gestire un database di giocatori di calcetto amatoriale. Permette
 
 ## Funzionalità Principali
 
-### 1. Database Giocatori (CRUD)
-- **Creazione**: Nome, Cognome, Nickname (visualizzato), Data di nascita, Ruolo, Valore di Forza (1-10)
-- **Modifica**: Tutti gli attributi modificabili
-- **Eliminazione**: Con conferma (long press o pulsante)
-- **Dettaglio**: Pagina profilo con tutte le informazioni e età calcolata automaticamente
+### 1. Multi-Database (Gruppi)
+- Crea gruppi separati per gestire sessioni diverse (es. "Martedì sera", "Giovedì pomeriggio")
+- Ogni gruppo ha il proprio set di giocatori isolato
+- CRUD completo sui gruppi
 
-### 2. Ricerca e Filtri
-- Ricerca per nome, cognome o nickname
+### 2. Database Giocatori (CRUD)
+- Creazione: Nome, Cognome, Nickname, Data di Nascita (età auto-calcolata), Ruolo, Forza (1-10 con step 0.5)
+- Modifica e eliminazione
+- Importazione massiva da Excel (.xlsx)
+- Template Excel scaricabile
+
+### 3. Ricerca e Filtri
+- Ricerca per nome/cognome/nickname
 - Filtro per ruolo: Portiere, Difensore, Centrocampista, Attaccante
-- Filtro per valore di forza (range)
 
-### 3. Generazione Squadre Equilibrate
-- Selezione giocatori dalla lista
-- Algoritmo di bilanciamento basato sulla forza
-- Visualizzazione Squadra A vs Squadra B con media forza
-- Possibilità di rigenerare le squadre
-
-### 4. Calcolo Età Automatico
-- Età calcolata dalla data di nascita
-- Si aggiorna automaticamente al compleanno
+### 4. Generazione Squadre Equilibrate
+- Tipo partita: Calcetto 5, Calcio 6, 7, 8, 9, 10, 11
+- Nomi squadre personalizzabili
+- Selezione colore maglia (Bianca, Rossa, Gialla, Nera, Verde)
+- Ordinamento giocatori per ruolo (POR → DIF → CEN → ATT)
+- Spostamento manuale giocatori tra squadre con ricalcolo statistiche
+- Media forza e età media per squadra
 
 ## Architettura Tecnica
 - **Frontend**: React Native Expo (SDK 54) con Expo Router
