@@ -210,6 +210,10 @@ export function getTemplateUrl(): string {
   return `${API_BASE}/players/template`;
 }
 
+export function getExportUrl(groupId: string): string {
+  return `${API_BASE}/players/export?group_id=${groupId}`;
+}
+
 export async function generateTeams(
   playerIds: string[],
   playersPerTeam: number = 5,

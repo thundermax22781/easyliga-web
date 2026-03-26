@@ -229,6 +229,53 @@ async def get_players(
     docs = await db.players.find(query, {"_id": 0}).sort(sort_field, sort_dir).to_list(1000)
     return [player_doc_to_response(d) for d in docs]
 
+@api_router.get("/players/export")
+async def export_players(group_id: str = Query(...)):
+    """Export players of a group as Excel file"""
+    from starlette.responses import StreamingResponse
+    
+    group = await db.groups.find_one({"id": group_id}, {"_id": 0})
+    group_name = group["name"] if group else "giocatori"
+    
+    docs = await db.players.find({"group_id": group_id}, {"_id": 0}).sort("nickname", 1).to_list(1000)
+    
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Giocatori"
+    
+    headers = ["Nickname", "Nome", "Cognome", "Data di Nascita", "Età", "Ruolo", "Forza"]
+    header_font = openpyxl.styles.Font(bold=True, color="FFFFFF")
+    header_fill = openpyxl.styles.PatternFill(start_color="007AFF", end_color="007AFF", fill_type="solid")
+    for col, h in enumerate(headers, 1):
+        cell = ws.cell(row=1, column=col, value=h)
+        cell.font = header_font
+        cell.fill = header_fill
+    
+    for i, doc in enumerate(docs, 2):
+        player = player_doc_to_response(doc)
+        ws.cell(row=i, column=1, value=player["nickname"])
+        ws.cell(row=i, column=2, value=player["name"])
+        ws.cell(row=i, column=3, value=player["surname"])
+        ws.cell(row=i, column=4, value=player["date_of_birth"])
+        ws.cell(row=i, column=5, value=player["age"])
+        ws.cell(row=i, column=6, value=player["role"])
+        ws.cell(row=i, column=7, value=player["strength"])
+    
+    for col in range(1, 8):
+        ws.column_dimensions[openpyxl.utils.get_column_letter(col)].width = 20
+    
+    buffer = io.BytesIO()
+    wb.save(buffer)
+    buffer.seek(0)
+    
+    safe_name = "".join(c for c in group_name if c.isalnum() or c in " _-").strip().replace(" ", "_")
+    
+    return StreamingResponse(
+        buffer,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename={safe_name}_giocatori.xlsx"}
+    )
+
 @api_router.get("/players/template")
 async def download_template():
     """Download Excel template for player import"""

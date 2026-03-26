@@ -25,6 +25,7 @@ import {
   generateTeams,
   importPlayersExcel,
   getTemplateUrl,
+  getExportUrl,
   Player,
   ROLES,
   ROLE_COLORS,
@@ -170,6 +171,12 @@ export default function GroupDetailScreen() {
     } finally {
       setImporting(false);
     }
+  };
+
+  const handleExportExcel = () => {
+    if (!groupId) return;
+    const url = getExportUrl(groupId);
+    Linking.openURL(url);
   };
 
   const handleDownloadTemplate = () => {
@@ -344,6 +351,13 @@ export default function GroupDetailScreen() {
           <Text style={styles.headerTitle} numberOfLines={1}>{groupName}</Text>
           {activeTab === 'players' && (
             <View style={styles.headerBtns}>
+              <TouchableOpacity
+                testID="export-excel-btn"
+                style={styles.importBtn}
+                onPress={handleExportExcel}
+              >
+                <Ionicons name="download-outline" size={20} color="#007AFF" />
+              </TouchableOpacity>
               <TouchableOpacity
                 testID="import-excel-btn"
                 style={styles.importBtn}
