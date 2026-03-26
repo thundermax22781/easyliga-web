@@ -15,11 +15,12 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { createPlayer, ROLES, ROLE_COLORS, STRENGTH_VALUES } from '../../src/api';
 
 export default function AddPlayerScreen() {
   const router = useRouter();
+  const { groupId } = useLocalSearchParams<{ groupId: string }>();
   const [name, setName] = useState('');
   const [surname, setSurname] = useState('');
   const [nickname, setNickname] = useState('');
@@ -64,6 +65,7 @@ export default function AddPlayerScreen() {
         date_of_birth: dob,
         role,
         strength,
+        group_id: groupId || '',
       });
       router.back();
     } catch (e: any) {

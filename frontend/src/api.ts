@@ -2,6 +2,13 @@ const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL || '';
 
 const API_BASE = `${BACKEND_URL}/api`;
 
+export interface Group {
+  id: string;
+  name: string;
+  player_count: number;
+  created_at: string;
+}
+
 export interface Player {
   id: string;
   name: string;
@@ -61,9 +68,45 @@ for (let i = 1; i <= 10; i += 0.5) {
   STRENGTH_VALUES.push(i);
 }
 
+// --- Group API ---
+
+export async function fetchGroups(): Promise<Group[]> {
+  const res = await fetch(`${API_BASE}/groups`);
+  if (!res.ok) throw new Error('Errore nel caricamento gruppi');
+  return res.json();
+}
+
+export async function createGroup(name: string): Promise<Group> {
+  const res = await fetch(`${API_BASE}/groups`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name }),
+  });
+  if (!res.ok) throw new Error('Errore nella creazione del gruppo');
+  return res.json();
+}
+
+export async function updateGroup(id: string, name: string): Promise<Group> {
+  const res = await fetch(`${API_BASE}/groups/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name }),
+  });
+  if (!res.ok) throw new Error('Errore nella modifica del gruppo');
+  return res.json();
+}
+
+export async function deleteGroup(id: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/groups/${id}`, { method: 'DELETE' });
+  if (!res.ok) throw new Error('Errore nella cancellazione del gruppo');
+}
+
+// --- Player API ---
+
 export async function fetchPlayers(params?: {
   search?: string;
   role?: string;
+  group_id?: string;
   min_strength?: number;
   max_strength?: number;
   sort_by?: string;
@@ -72,6 +115,7 @@ export async function fetchPlayers(params?: {
   const query = new URLSearchParams();
   if (params?.search) query.append('search', params.search);
   if (params?.role) query.append('role', params.role);
+  if (params?.group_id) query.append('group_id', params.group_id);
   if (params?.min_strength) query.append('min_strength', String(params.min_strength));
   if (params?.max_strength) query.append('max_strength', String(params.max_strength));
   if (params?.sort_by) query.append('sort_by', params.sort_by);
@@ -96,6 +140,7 @@ export async function createPlayer(data: {
   photo?: string | null;
   role: string;
   strength: number;
+  group_id: string;
 }): Promise<Player> {
   const res = await fetch(`${API_BASE}/players`, {
     method: 'POST',
@@ -136,6 +181,33 @@ export async function updatePlayer(
 export async function deletePlayer(id: string): Promise<void> {
   const res = await fetch(`${API_BASE}/players/${id}`, { method: 'DELETE' });
   if (!res.ok) throw new Error('Errore nella cancellazione');
+}
+
+export async function importPlayersExcel(
+  file: { uri: string; name: string; mimeType?: string },
+  groupId: string
+): Promise<{ imported: number; errors: string[]; players: Player[] }> {
+  const formData = new FormData();
+  formData.append('file', {
+    uri: file.uri,
+    name: file.name,
+    type: file.mimeType || 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  } as any);
+  formData.append('group_id', groupId);
+
+  const res = await fetch(`${API_BASE}/players/import`, {
+    method: 'POST',
+    body: formData,
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || 'Errore durante l\'importazione');
+  }
+  return res.json();
+}
+
+export function getTemplateUrl(): string {
+  return `${API_BASE}/players/template`;
 }
 
 export async function generateTeams(

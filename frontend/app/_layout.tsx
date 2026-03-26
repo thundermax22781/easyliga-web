@@ -11,20 +11,15 @@ export default function RootLayout() {
           contentStyle: { backgroundColor: '#F2F2F7' },
         }}
       >
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen name="index" options={{ headerShown: false }} />
+        <Stack.Screen name="group/[groupId]" options={{ headerShown: false }} />
         <Stack.Screen
           name="player/add"
-          options={{
-            headerShown: false,
-            presentation: 'modal',
-          }}
+          options={{ headerShown: false, presentation: 'modal' }}
         />
         <Stack.Screen
           name="player/[id]"
-          options={{
-            headerShown: false,
-            presentation: 'modal',
-          }}
+          options={{ headerShown: false, presentation: 'modal' }}
         />
       </Stack>
     </>
