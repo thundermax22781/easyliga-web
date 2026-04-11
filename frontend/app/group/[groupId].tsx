@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -7,46 +7,69 @@ import {
   TextInput,
   StyleSheet,
   ActivityIndicator,
-  Alert,
   RefreshControl,
   ScrollView,
   Modal,
   KeyboardAvoidingView,
   Platform,
   Keyboard,
-  TouchableWithoutFeedback,
+  Image,
+  Share,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import {
   fetchPlayers,
   deletePlayer,
   generateTeams,
   importPlayersExcel,
-  getTemplateUrl,
-  getExportUrl,
+  exportPlayersExcel,
+  fetchGroups,
+  saveMatchResult,
+  calculateStandings,
+  updateGroup,
+  fetchMatches,
+  deleteMatch,
+  createFullBackup,
+  restoreFullBackup,
   Player,
   ROLES,
   ROLE_COLORS,
   TeamResult,
   JERSEY_COLORS,
   MATCH_TYPES,
+  Group,
+  PlayerStats,
+  Match,
 } from '../../src/api';
+import { useTheme } from '../../src/ThemeContext';
 import * as DocumentPicker from 'expo-document-picker';
-import * as Linking from 'expo-linking';
+import ViewShot from "react-native-view-shot";
+import * as Sharing from 'expo-sharing';
+import * as XLSX from 'xlsx';
+import * as FileSystem from 'expo-file-system';
 
-type TabType = 'players' | 'teams';
+type TabType = 'players' | 'teams' | 'standings' | 'matches';
 
 export default function GroupDetailScreen() {
   const router = useRouter();
+  const { isDarkMode, toggleTheme } = useTheme();
   const { groupId, name } = useLocalSearchParams<{ groupId: string; name: string }>();
   const groupName = name ? decodeURIComponent(name) : 'Gruppo';
+  const viewShotRef = useRef<any>(null);
 
   const [activeTab, setActiveTab] = useState<TabType>('players');
   const [players, setPlayers] = useState<Player[]>([]);
+  const [group, setGroup] = useState<Group | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+
+  // Standings & Matches state
+  const [standings, setStandings] = useState<PlayerStats[]>([]);
+  const [matches, setMatches] = useState<Match[]>([]);
 
   // Players tab state
   const [search, setSearch] = useState('');
@@ -54,39 +77,114 @@ export default function GroupDetailScreen() {
   const [importing, setImporting] = useState(false);
 
   // Teams tab state
+  const [teamSearch, setTeamSearch] = useState('');
+  const [teamSelectedRole, setTeamSelectedRole] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [generating, setGenerating] = useState(false);
   const [teams, setTeams] = useState<TeamResult | null>(null);
+  const [showIndividualStrength, setShowIndividualStrength] = useState(true);
   const [matchType, setMatchType] = useState(5);
   const [teamAName, setTeamAName] = useState('Squadra A');
   const [teamBName, setTeamBName] = useState('Squadra B');
   const [teamAColor, setTeamAColor] = useState('Bianca');
   const [teamBColor, setTeamBColor] = useState('Rossa');
-  const [showConfig, setShowConfig] = useState(false);
 
-  const loadPlayers = useCallback(async () => {
+  // Result Recording Modal
+  const [showResultModal, setShowResultModal] = useState(false);
+  const [editingMatchId, setEditingMatchId] = useState<string | null>(null);
+  const [scoreA, setScoreA] = useState('0');
+  const [scoreB, setScoreB] = useState('0');
+  const [matchGoals, setMatchGoals] = useState<Record<string, number>>({});
+  const [matchAssists, setMatchAssists] = useState<Record<string, number>>({});
+  const [teamAOwnGoals, setTeamAOwnGoals] = useState(0);
+  const [teamBOwnGoals, setTeamBOwnGoals] = useState(0);
+  const [teamAParticipants, setTeamAParticipants] = useState<Player[]>([]);
+  const [teamBParticipants, setTeamBParticipants] = useState<Player[]>([]);
+
+  // Date and Time State
+  const [matchDescription, setMatchDescription] = useState('');
+  const [matchDate, setMatchDate] = useState(new Date());
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showTimePicker, setShowTimePicker] = useState(false);
+
+  const [matchLocation, setMatchLocation] = useState('');
+  const [showConfig, setShowConfig] = useState(false);
+  const [sharing, setSharing] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
+
+  const dynamicStyles = {
+    container: { backgroundColor: isDarkMode ? '#1C1C1E' : '#F2F2F7' },
+    text: { color: isDarkMode ? '#FFFFFF' : '#1C1C1E' },
+    subText: { color: isDarkMode ? '#AEAEB2' : '#8E8E93' },
+    card: { backgroundColor: isDarkMode ? '#2C2C2E' : '#FFF' },
+    input: { backgroundColor: isDarkMode ? '#3A3A3C' : '#F2F2F7', color: isDarkMode ? '#FFF' : '#1C1C1E' },
+    tabBar: { backgroundColor: isDarkMode ? '#2C2C2E' : '#E5E5EA' },
+    tabActive: { backgroundColor: isDarkMode ? '#3A3A3C' : '#FFFFFF' },
+    modalContent: { backgroundColor: isDarkMode ? '#2C2C2E' : '#FFF' },
+    optionCard: { backgroundColor: isDarkMode ? '#3A3A3C' : '#F2F2F7' },
+    divider: { backgroundColor: isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)' }
+  };
+
+  const filteredPlayersForTeams = useMemo(() => {
+    let filtered = players;
+    if (teamSearch) {
+      const s = teamSearch.toLowerCase();
+      filtered = filtered.filter(p =>
+        p.nickname.toLowerCase().includes(s) ||
+        (p.name && p.name.toLowerCase().includes(s))
+      );
+    }
+    if (teamSelectedRole) {
+      filtered = filtered.filter(p => p.role === teamSelectedRole);
+    }
+    return filtered;
+  }, [players, teamSearch, teamSelectedRole]);
+
+  const loadData = useCallback(async () => {
     if (!groupId) return;
     try {
-      const data = await fetchPlayers({
-        group_id: groupId,
-        search: search || undefined,
-        role: selectedRole || undefined,
-      });
-      setPlayers(data);
+      const groups = await fetchGroups();
+      const currentGroup = groups.find(g => g.id === groupId);
+      if (currentGroup) setGroup(currentGroup);
+
+      if (activeTab === 'standings') {
+        const stats = await calculateStandings(groupId);
+        setStandings(stats);
+      } else if (activeTab === 'matches') {
+        const matchData = await fetchMatches(groupId);
+        setMatches(matchData);
+      } else {
+        const playersData = await fetchPlayers({
+          group_id: groupId,
+          search: activeTab === 'players' ? (search || undefined) : undefined,
+          role: activeTab === 'players' ? (selectedRole || undefined) : undefined,
+        });
+        setPlayers(playersData);
+      }
     } catch (e) {
       console.error(e);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [groupId, search, selectedRole]);
+  }, [groupId, search, selectedRole, activeTab]);
 
   useFocusEffect(
     useCallback(() => {
       setLoading(true);
-      loadPlayers();
-    }, [loadPlayers])
+      loadData();
+    }, [loadData])
   );
+
+  const handleUpdateGroupSettings = async (updates: Partial<Group>) => {
+    if (!groupId) return;
+    try {
+      const updatedGroup = await updateGroup(groupId, updates);
+      setGroup(updatedGroup);
+    } catch (e) {
+      Alert.alert('Errore', 'Impossibile aggiornare le impostazioni');
+    }
+  };
 
   const handleDeletePlayer = (player: Player) => {
     Alert.alert('Elimina Giocatore', `Vuoi eliminare ${player.nickname}?`, [
@@ -97,7 +195,7 @@ export default function GroupDetailScreen() {
         onPress: async () => {
           try {
             await deletePlayer(player.id);
-            loadPlayers();
+            loadData();
           } catch (e) {
             Alert.alert('Errore', 'Impossibile eliminare il giocatore');
           }
@@ -109,26 +207,48 @@ export default function GroupDetailScreen() {
   const togglePlayer = (id: string) => {
     setSelectedIds((prev) => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        const player = players.find(p => p.id === id);
+        if (player?.role === 'Portiere') {
+          const selectedPlayers = players.filter(p => next.has(p.id));
+          const portiereCount = selectedPlayers.filter(p => p.role === 'Portiere').length;
+          if (portiereCount >= 2) {
+            Alert.alert('Limite Portieri', 'Puoi selezionare al massimo 2 portieri.');
+            return prev;
+          }
+        }
+        const maxPlayers = matchType * 2;
+        if (next.size >= maxPlayers) {
+          Alert.alert('Limite Raggiunto', `Puoi selezionare al massimo ${maxPlayers} giocatori.`);
+          return prev;
+        }
+        next.add(id);
+      }
       return next;
     });
   };
 
   const selectAll = () => {
-    if (selectedIds.size === players.length) setSelectedIds(new Set());
-    else setSelectedIds(new Set(players.map((p) => p.id)));
+    const maxToSelect = matchType * 2;
+    if (selectedIds.size === maxToSelect || selectedIds.size === players.length) {
+      setSelectedIds(new Set());
+      return;
+    }
+    const finalSelection = players.slice(0, maxToSelect);
+    setSelectedIds(new Set(finalSelection.map(p => p.id)));
   };
 
   const handleGenerate = async () => {
-    const minPlayers = matchType * 2;
-    if (selectedIds.size < minPlayers) {
-      Alert.alert('Attenzione', `Per ${matchType === 5 ? 'Calcetto 5' : 'Calcio ' + matchType} servono almeno ${minPlayers} giocatori.`);
+    const requiredPlayers = matchType * 2;
+    if (selectedIds.size < requiredPlayers) {
+      Alert.alert('Attenzione', `Servono esattamente ${requiredPlayers} giocatori.`);
       return;
     }
     setGenerating(true);
     try {
-      const result = await generateTeams(Array.from(selectedIds), matchType, teamAName, teamBName, teamAColor, teamBColor);
+      const result = await generateTeams(Array.from(selectedIds), matchType, groupId, teamAName, teamBName, teamAColor, teamBColor, matchDate.toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long' }), matchDate.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }), matchLocation, matchDescription);
       setTeams(result);
     } catch (e: any) {
       Alert.alert('Errore', e.message || 'Errore nella generazione');
@@ -137,611 +257,871 @@ export default function GroupDetailScreen() {
     }
   };
 
-  const getInitials = (nickname: string) => nickname.substring(0, 2).toUpperCase();
-  const getJerseyHex = (colorName: string) => JERSEY_COLORS.find((c) => c.value === colorName)?.hex || '#FFFFFF';
-  const getJerseyTextColor = (colorName: string) => (colorName === 'Bianca' || colorName === 'Gialla') ? '#1C1C1E' : '#FFFFFF';
+  const swapPlayer = (playerId: string, fromTeam: 'a' | 'b') => {
+    if (!teams) return;
+    const playerToMove = (fromTeam === 'a' ? teams.team_a : teams.team_b).find(p => p.id === playerId);
+    if (!playerToMove) return;
 
-  const handleImportExcel = async () => {
-    try {
-      const result = await DocumentPicker.getDocumentAsync({
-        type: ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/vnd.ms-excel'],
-        copyToCacheDirectory: true,
-      });
-      
-      if (result.canceled || !result.assets || result.assets.length === 0) return;
-      
-      const file = result.assets[0];
-      setImporting(true);
-      
-      const importResult = await importPlayersExcel(
-        { uri: file.uri, name: file.name, mimeType: file.mimeType || undefined },
-        groupId || ''
-      );
-      
-      let message = `${importResult.imported} giocator${importResult.imported === 1 ? 'e importato' : 'i importati'} con successo!`;
-      if (importResult.errors.length > 0) {
-        message += `\n\n${importResult.errors.length} errori:\n${importResult.errors.slice(0, 5).join('\n')}`;
-        if (importResult.errors.length > 5) message += `\n...e altri ${importResult.errors.length - 5}`;
+    if (playerToMove.role === 'Portiere') {
+      const otherTeamKey = fromTeam === 'a' ? 'b' : 'a';
+      const otherPortiere = (fromTeam === 'a' ? teams.team_b : teams.team_a).find(p => p.role === 'Portiere');
+
+      if (otherPortiere) {
+        // Scambio dei due portieri
+        const newTeamA = fromTeam === 'a'
+          ? [...teams.team_a.filter(p => p.id !== playerId), otherPortiere]
+          : [...teams.team_a.filter(p => p.id !== otherPortiere.id), playerToMove];
+
+        const newTeamB = fromTeam === 'b'
+          ? [...teams.team_b.filter(p => p.id !== playerId), otherPortiere]
+          : [...teams.team_b.filter(p => p.id !== otherPortiere.id), playerToMove];
+
+        setTeams({
+          ...teams,
+          team_a: newTeamA,
+          team_b: newTeamB,
+          team_a_total_strength: Number(newTeamA.reduce((acc, p) => acc + p.strength, 0).toFixed(1)),
+          team_b_total_strength: Number(newTeamB.reduce((acc, p) => acc + p.strength, 0).toFixed(1)),
+        });
+        return;
       }
-      
-      Alert.alert('Importazione', message);
-      loadPlayers();
+    }
+
+    const newTeamA = fromTeam === 'a'
+      ? teams.team_a.filter(p => p.id !== playerId)
+      : [...teams.team_a, playerToMove];
+
+    const newTeamB = fromTeam === 'b'
+      ? teams.team_b.filter(p => p.id !== playerId)
+      : [...teams.team_b, playerToMove];
+
+    const getSum = (t: Player[]) => t.reduce((acc, p) => acc + p.strength, 0);
+    const getAvgAge = (t: Player[]) => t.length ? t.reduce((acc, p) => acc + p.age, 0) / t.length : 0;
+
+    setTeams({
+      ...teams,
+      team_a: newTeamA,
+      team_b: newTeamB,
+      team_a_total_strength: Number(getSum(newTeamA).toFixed(1)),
+      team_b_total_strength: Number(getSum(newTeamB).toFixed(1)),
+      team_a_avg_age: Number(getAvgAge(newTeamA).toFixed(1)),
+      team_b_avg_age: Number(getAvgAge(newTeamB).toFixed(1)),
+    });
+  };
+
+  const handleOpenResultModal = (match?: Match) => {
+    if (match) {
+      setEditingMatchId(match.id);
+      setScoreA(match.team_a_score.toString());
+      setScoreB(match.team_b_score.toString());
+      setMatchGoals(match.goals || {});
+      setMatchAssists(match.assists || {});
+      setTeamAOwnGoals(match.team_a_own_goals || 0);
+      setTeamBOwnGoals(match.team_b_own_goals || 0);
+
+      const aPlayers = players.filter(p => match.team_a_players.includes(p.id));
+      const bPlayers = players.filter(p => match.team_b_players.includes(p.id));
+      setTeamAParticipants(aPlayers);
+      setTeamBParticipants(bPlayers);
+    } else if (teams) {
+      setEditingMatchId(null);
+      setScoreA('0');
+      setScoreB('0');
+      setMatchGoals({});
+      setMatchAssists({});
+      setTeamAOwnGoals(0);
+      setTeamBOwnGoals(0);
+      setTeamAParticipants(teams.team_a);
+      setTeamBParticipants(teams.team_b);
+    }
+    setShowResultModal(true);
+  };
+
+  const handleSaveResult = async () => {
+    if (!groupId || (!teams && !editingMatchId)) return;
+    try {
+      if (editingMatchId) {
+        const match = matches.find(m => m.id === editingMatchId);
+        if (!match) return;
+        await saveMatchResult({
+          ...match,
+          team_a_score: parseInt(scoreA) || 0,
+          team_b_score: parseInt(scoreB) || 0,
+          goals: group?.show_scorers ? matchGoals : undefined,
+          assists: group?.show_assists ? matchAssists : undefined,
+          team_a_own_goals: teamAOwnGoals,
+          team_b_own_goals: teamBOwnGoals,
+        });
+      } else if (teams) {
+        await saveMatchResult({
+          group_id: groupId,
+          team_a_players: teams.team_a.map(p => p.id),
+          team_b_players: teams.team_b.map(p => p.id),
+          team_a_score: parseInt(scoreA) || 0,
+          team_b_score: parseInt(scoreB) || 0,
+          team_a_name: teams.team_a_name,
+          team_b_name: teams.team_b_name,
+          date: matchDate.toISOString(),
+          description: matchDescription || teams.description,
+          goals: group?.show_scorers ? matchGoals : undefined,
+          assists: group?.show_assists ? matchAssists : undefined,
+          team_a_own_goals: teamAOwnGoals,
+          team_b_own_goals: teamBOwnGoals,
+        });
+      }
+      Alert.alert('Successo', 'Risultato registrato!');
+      setShowResultModal(false);
+      setTeams(null);
+      setActiveTab('matches');
+      loadData();
     } catch (e: any) {
-      Alert.alert('Errore', e.message || 'Impossibile importare il file');
+      Alert.alert('Errore', 'Impossibile salvare il risultato');
+    }
+  };
+
+  const handleDeleteMatch = (matchId: string) => {
+    Alert.alert('Elimina Partita', 'Vuoi eliminare questa partita dallo storico?', [
+      { text: 'Annulla', style: 'cancel' },
+      { text: 'Elimina', style: 'destructive', onPress: async () => {
+          await deleteMatch(matchId);
+          loadData();
+      }}
+    ]);
+  };
+
+  const handleShareImage = async () => {
+    if (!viewShotRef.current) return;
+    setSharing(true);
+    setTimeout(async () => {
+      try {
+        const uri = await viewShotRef.current.capture();
+        await Sharing.shareAsync(uri, { mimeType: 'image/png', dialogTitle: 'Condividi Squadre Equiliga' });
+      } catch (e) {
+        Alert.alert('Errore', 'Impossibile generare l\'immagine');
+      } finally {
+        setSharing(false);
+      }
+    }, 100);
+  };
+
+  const handleExportPlayers = async () => {
+    try {
+      const data = await exportPlayersExcel(groupId!);
+      const ws = XLSX.utils.json_to_sheet(data);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Giocatori");
+      const base64 = XLSX.write(wb, { type: 'base64', bookType: 'xlsx' });
+      const filename = FileSystem.cacheDirectory + `giocatori_${groupName.replace(/\s/g, '_')}.xlsx`;
+      await FileSystem.writeAsStringAsync(filename, base64, { encoding: FileSystem.EncodingType.Base64 });
+      await Sharing.shareAsync(filename);
+    } catch (e) {
+      Alert.alert('Errore', 'Impossibile esportare i giocatori');
+    }
+  };
+
+  const handleImportPlayers = async () => {
+    try {
+      const res = await DocumentPicker.getDocumentAsync({ type: ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'text/csv'] });
+      if (res.canceled) return;
+      setImporting(true);
+      const file = res.assets[0];
+      const base64 = await FileSystem.readAsStringAsync(file.uri, { encoding: FileSystem.EncodingType.Base64 });
+      const wb = XLSX.read(base64, { type: 'base64' });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const data = XLSX.utils.sheet_to_json(ws);
+      await importPlayersExcel(groupId!, data);
+      Alert.alert('Successo', 'Giocatori importati correttamente');
+      loadData();
+    } catch (e) {
+      Alert.alert('Errore', 'Impossibile importare i giocatori. Controlla il formato del file.');
     } finally {
       setImporting(false);
     }
   };
 
-  const handleExportExcel = () => {
-    if (!groupId) return;
-    const url = getExportUrl(groupId);
-    Linking.openURL(url);
-  };
-
-  const handleDownloadTemplate = () => {
-    const url = getTemplateUrl();
-    Linking.openURL(url);
-  };
-
-  const ROLE_ORDER: Record<string, number> = { Portiere: 0, Difensore: 1, Centrocampista: 2, Attaccante: 3 };
-
-  const sortByRole = (arr: Player[]) => [...arr].sort((a, b) => (ROLE_ORDER[a.role] ?? 99) - (ROLE_ORDER[b.role] ?? 99));
-
-  const calcTotalStrength = (arr: Player[]) => arr.length ? Math.round(arr.reduce((s, p) => s + p.strength, 0) * 10) / 10 : 0;
-  const calcAvgAge = (arr: Player[]) => arr.length ? Math.round((arr.reduce((s, p) => s + p.age, 0) / arr.length) * 10) / 10 : 0;
-
-  const movePlayerToOtherTeam = (playerId: string, fromTeam: 'a' | 'b') => {
-    if (!teams) return;
-    let newA = [...teams.team_a];
-    let newB = [...teams.team_b];
-
-    if (fromTeam === 'a') {
-      const idx = newA.findIndex((p) => p.id === playerId);
-      if (idx === -1) return;
-      const [player] = newA.splice(idx, 1);
-      newB.push(player);
-    } else {
-      const idx = newB.findIndex((p) => p.id === playerId);
-      if (idx === -1) return;
-      const [player] = newB.splice(idx, 1);
-      newA.push(player);
+  const handleCreateGroupBackup = async () => {
+    try {
+      const json = await createFullBackup(groupId!);
+      const filename = FileSystem.cacheDirectory + `backup_${groupName.replace(/\s/g, '_')}.json`;
+      await FileSystem.writeAsStringAsync(filename, json);
+      await Sharing.shareAsync(filename, { dialogTitle: 'Salva backup gruppo' });
+    } catch (e) {
+      Alert.alert('Errore', 'Impossibile creare il backup');
     }
-
-    newA = sortByRole(newA);
-    newB = sortByRole(newB);
-
-    setTeams({
-      ...teams,
-      team_a: newA,
-      team_b: newB,
-      team_a_total_strength: calcTotalStrength(newA),
-      team_b_total_strength: calcTotalStrength(newB),
-      team_a_avg_age: calcAvgAge(newA),
-      team_b_avg_age: calcAvgAge(newB),
-    });
   };
 
-  // --- TEAM RESULTS VIEW ---
-  if (teams) {
-    const teamAHex = getJerseyHex(teams.team_a_color);
-    const teamBHex = getJerseyHex(teams.team_b_color);
-    const sortedA = sortByRole(teams.team_a);
-    const sortedB = sortByRole(teams.team_b);
+  const handleRestoreGroupBackup = async () => {
+    try {
+      const res = await DocumentPicker.getDocumentAsync({ type: 'application/json' });
+      if (res.canceled) return;
+      const file = res.assets[0];
+      const json = await FileSystem.readAsStringAsync(file.uri);
+
+      Alert.alert('Ripristina Backup', 'Questo sovrascriverà tutti i dati attuali del gruppo. Continuare?', [
+        { text: 'Annulla', style: 'cancel' },
+        { text: 'Ripristina', style: 'destructive', onPress: async () => {
+          try {
+            await restoreFullBackup(groupId!, json);
+            Alert.alert('Successo', 'Gruppo ripristinato correttamente');
+            loadData();
+          } catch (e: any) {
+            Alert.alert('Errore', e.message);
+          }
+        }}
+      ]);
+    } catch (e) {
+      Alert.alert('Errore', 'Impossibile caricare il file di backup');
+    }
+  };
+
+  const handleShareToken = (type: 'admin' | 'viewer') => {
+    if (!group) return;
+    const token = type === 'admin' ? group.id : group.id; // Al momento usiamo l'ID come token unico
+    const roleName = type === 'admin' ? 'Amministratore' : 'Visualizzatore';
+    const message = `Entra nel gruppo "${group.name}" su Equiliga come ${roleName}!\n\nCodice di accesso:\n${token}`;
+    Share.share({ message });
+  };
+
+  const getInitials = (nickname: string) => nickname.substring(0, 2).toUpperCase();
+  const getJerseyHex = (colorName: string) => JERSEY_COLORS.find((c) => c.value === colorName)?.hex || '#FFFFFF';
+  const getJerseyTextColor = (colorName: string) => (colorName === 'Bianca' || colorName === 'Gialla') ? '#1C1C1E' : '#FFFFFF';
+
+  const calculateTotalScore = (goals: Record<string, number>, teamAOG: number, teamBOG: number) => {
+    let scoreA = teamBOG; // Team A points from Team B own goals
+    let scoreB = teamAOG; // Team B points from Team A own goals
+
+    const teamAPlayerIds = teamAParticipants.map(p => p.id);
+    const teamBPlayerIds = teamBParticipants.map(p => p.id);
+
+    Object.entries(goals).forEach(([pid, val]) => {
+      if (teamAPlayerIds.includes(pid)) scoreA += val;
+      if (teamBPlayerIds.includes(pid)) scoreB += val;
+    });
+
+    setScoreA(scoreA.toString());
+    setScoreB(scoreB.toString());
+  };
+
+  const updateMatchStat = (playerId: string, type: 'goals' | 'assists', delta: number) => {
+    if (type === 'goals') {
+      const newGoals = { ...matchGoals, [playerId]: Math.max(0, (matchGoals[playerId] || 0) + delta) };
+      setMatchGoals(newGoals);
+      calculateTotalScore(newGoals, teamAOwnGoals, teamBOwnGoals);
+    } else {
+      setMatchAssists(prev => ({ ...prev, [playerId]: Math.max(0, (prev[playerId] || 0) + delta) }));
+    }
+  };
+
+  const updateOwnGoals = (team: 'a' | 'b', delta: number) => {
+    if (team === 'a') {
+      const newVal = Math.max(0, teamAOwnGoals + delta);
+      setTeamAOwnGoals(newVal);
+      calculateTotalScore(matchGoals, newVal, teamBOwnGoals);
+    } else {
+      const newVal = Math.max(0, teamBOwnGoals + delta);
+      setTeamBOwnGoals(newVal);
+      calculateTotalScore(matchGoals, teamAOwnGoals, newVal);
+    }
+  };
+
+  const renderStandings = () => {
+    if (loading) return <View style={styles.center}><ActivityIndicator size="large" color="#007AFF" /></View>;
+    if (standings.length === 0) return <View style={styles.center}><Ionicons name="trophy-outline" size={64} color="#D1D1D6" /><Text style={[styles.emptyText, dynamicStyles.subText]}>Nessuna partita giocata</Text></View>;
 
     return (
-      <SafeAreaView style={styles.container} edges={['top']}>
-        <View style={styles.header}>
-          <TouchableOpacity testID="back-from-result-btn" onPress={() => setTeams(null)} style={styles.backBtn}>
-            <Ionicons name="arrow-back" size={24} color="#007AFF" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle} numberOfLines={1}>Squadre</Text>
-          <TouchableOpacity testID="regenerate-btn" onPress={handleGenerate} style={styles.backBtn}>
-            <Ionicons name="refresh" size={22} color="#007AFF" />
-          </TouchableOpacity>
-        </View>
-
-        <Text style={styles.swapHint}>Tocca la freccia per spostare un giocatore</Text>
-
-        <FlatList
-          data={[1]}
-          keyExtractor={() => 'teams'}
-          renderItem={() => (
-            <View style={styles.teamsContainer}>
-              {/* Team A */}
-              <View style={[styles.teamCard, { backgroundColor: teamAHex + '12' }]}>  
-                <View style={styles.teamHeader}>
-                  <View style={[styles.jerseyBadge, { backgroundColor: teamAHex, borderWidth: teamAHex === '#FFFFFF' ? 1 : 0, borderColor: '#D1D1D6' }]}>
-                    <Ionicons name="shirt" size={18} color={getJerseyTextColor(teams.team_a_color)} />
-                  </View>
-                  <Text style={styles.teamName} numberOfLines={1}>{teams.team_a_name}</Text>
-                  <Text style={styles.teamPlayerCount}>{sortedA.length}</Text>
-                </View>
-                <View style={styles.teamStatsRow}>
-                  <View style={styles.teamStatBadge}>
-                    <Text style={styles.teamStatLabel}>Forza tot.</Text>
-                    <Text style={styles.teamStatValue}>{teams.team_a_total_strength}</Text>
-                  </View>
-                  <View style={styles.teamStatBadge}>
-                    <Text style={styles.teamStatLabel}>Età media</Text>
-                    <Text style={styles.teamStatValue}>{teams.team_a_avg_age}</Text>
-                  </View>
-                </View>
-                {sortedA.map((p, i) => (
-                  <View key={p.id} style={styles.teamPlayerRow}>
-                    <View style={[styles.tpAvatar, { backgroundColor: ROLE_COLORS[p.role] + '20' }]}>
-                      <Text style={[styles.tpAvatarText, { color: ROLE_COLORS[p.role] }]}>{getInitials(p.nickname)}</Text>
-                    </View>
-                    <View style={styles.tpInfo}>
-                      <Text style={styles.tpName}>{p.nickname}</Text>
-                      <Text style={[styles.tpRole, { color: ROLE_COLORS[p.role] }]}>{p.role}</Text>
-                    </View>
-                    <Text style={styles.tpStrength}>{Number.isInteger(p.strength) ? p.strength : p.strength.toFixed(1)}</Text>
-                    <TouchableOpacity
-                      testID={`swap-a-${p.id}`}
-                      style={styles.swapBtn}
-                      onPress={() => movePlayerToOtherTeam(p.id, 'a')}
-                      activeOpacity={0.6}
-                    >
-                      <Ionicons name="arrow-forward" size={16} color="#007AFF" />
-                    </TouchableOpacity>
-                  </View>
-                ))}
-              </View>
-              <View style={styles.vsContainer}>
-                <View style={styles.vsBadge}><Text style={styles.vsText}>VS</Text></View>
-              </View>
-              {/* Team B */}
-              <View style={[styles.teamCard, { backgroundColor: getJerseyHex(teams.team_b_color) + '12' }]}>
-                <View style={styles.teamHeader}>
-                  <View style={[styles.jerseyBadge, { backgroundColor: getJerseyHex(teams.team_b_color), borderWidth: getJerseyHex(teams.team_b_color) === '#FFFFFF' ? 1 : 0, borderColor: '#D1D1D6' }]}>
-                    <Ionicons name="shirt" size={18} color={getJerseyTextColor(teams.team_b_color)} />
-                  </View>
-                  <Text style={styles.teamName} numberOfLines={1}>{teams.team_b_name}</Text>
-                  <Text style={styles.teamPlayerCount}>{sortedB.length}</Text>
-                </View>
-                <View style={styles.teamStatsRow}>
-                  <View style={styles.teamStatBadge}>
-                    <Text style={styles.teamStatLabel}>Forza tot.</Text>
-                    <Text style={styles.teamStatValue}>{teams.team_b_total_strength}</Text>
-                  </View>
-                  <View style={styles.teamStatBadge}>
-                    <Text style={styles.teamStatLabel}>Età media</Text>
-                    <Text style={styles.teamStatValue}>{teams.team_b_avg_age}</Text>
-                  </View>
-                </View>
-                {sortedB.map((p, i) => (
-                  <View key={p.id} style={styles.teamPlayerRow}>
-                    <TouchableOpacity
-                      testID={`swap-b-${p.id}`}
-                      style={styles.swapBtn}
-                      onPress={() => movePlayerToOtherTeam(p.id, 'b')}
-                      activeOpacity={0.6}
-                    >
-                      <Ionicons name="arrow-back" size={16} color="#007AFF" />
-                    </TouchableOpacity>
-                    <View style={[styles.tpAvatar, { backgroundColor: ROLE_COLORS[p.role] + '20' }]}>
-                      <Text style={[styles.tpAvatarText, { color: ROLE_COLORS[p.role] }]}>{getInitials(p.nickname)}</Text>
-                    </View>
-                    <View style={styles.tpInfo}>
-                      <Text style={styles.tpName}>{p.nickname}</Text>
-                      <Text style={[styles.tpRole, { color: ROLE_COLORS[p.role] }]}>{p.role}</Text>
-                    </View>
-                    <Text style={styles.tpStrength}>{Number.isInteger(p.strength) ? p.strength : p.strength.toFixed(1)}</Text>
-                  </View>
-                ))}
-              </View>
+      <FlatList
+        data={standings}
+        keyExtractor={(item) => item.player_id}
+        renderItem={({ item, index }) => (
+          <View style={[styles.pCard, dynamicStyles.card]}>
+            <View style={styles.standingRank}><Text style={[styles.rankText, dynamicStyles.subText]}>{index + 1}</Text></View>
+            <View style={styles.pInfo}>
+              <Text style={[styles.pNickname, dynamicStyles.text]}>{item.nickname}</Text>
+              <Text style={[styles.pRoleText, { color: ROLE_COLORS[item.role] }]}>{item.role}</Text>
             </View>
-          )}
-          contentContainerStyle={{ paddingBottom: 40 }}
-        />
-      </SafeAreaView>
-    );
-  }
-
-  // --- MAIN VIEW ---
-  return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
-        {/* Header */}
-        <View style={styles.header}>
-          <TouchableOpacity testID="back-to-groups-btn" onPress={() => router.back()} style={styles.backBtn}>
-            <Ionicons name="arrow-back" size={24} color="#007AFF" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle} numberOfLines={1}>{groupName}</Text>
-          {activeTab === 'players' && (
-            <View style={styles.headerBtns}>
-              <TouchableOpacity
-                testID="export-excel-btn"
-                style={styles.importBtn}
-                onPress={handleExportExcel}
-              >
-                <Ionicons name="download-outline" size={20} color="#007AFF" />
-              </TouchableOpacity>
-              <TouchableOpacity
-                testID="import-excel-btn"
-                style={styles.importBtn}
-                onPress={handleImportExcel}
-                disabled={importing}
-              >
-                {importing ? (
-                  <ActivityIndicator size="small" color="#007AFF" />
-                ) : (
-                  <Ionicons name="document-text" size={20} color="#007AFF" />
-                )}
-              </TouchableOpacity>
-              <TouchableOpacity
-                testID="add-player-btn"
-                style={styles.addBtn}
-                onPress={() => router.push(`/player/add?groupId=${groupId}`)}
-              >
-                <Ionicons name="add" size={24} color="#FFFFFF" />
-              </TouchableOpacity>
+            <View style={styles.standingStats}>
+              <View style={styles.statBox}><Text style={[styles.statValue, dynamicStyles.text]}>{item.points}</Text><Text style={styles.statLabel}>PT</Text></View>
+              {group?.show_scorers && <View style={styles.statBox}><Text style={[styles.statValue, { color: '#FF3B30' }]}>{item.individual_goals}</Text><Text style={styles.statLabel}>GOL</Text></View>}
+              {group?.show_assists && <View style={styles.statBox}><Text style={[styles.statValue, { color: '#34C759' }]}>{item.individual_assists}</Text><Text style={styles.statLabel}>AST</Text></View>}
+              <View style={styles.statBox}><Text style={[styles.statValue, dynamicStyles.subText]}>{item.played}</Text><Text style={styles.statLabel}>PG</Text></View>
             </View>
-          )}
-          {activeTab === 'teams' && <View style={{ width: 40 }} />}
-        </View>
-
-        {/* Tab Switcher */}
-        <View style={styles.tabBar}>
-          <TouchableOpacity
-            testID="tab-players"
-            style={[styles.tab, activeTab === 'players' && styles.tabActive]}
-            onPress={() => setActiveTab('players')}
-          >
-            <Ionicons name="people" size={18} color={activeTab === 'players' ? '#007AFF' : '#8E8E93'} />
-            <Text style={[styles.tabText, activeTab === 'players' && styles.tabTextActive]}>Giocatori</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            testID="tab-teams"
-            style={[styles.tab, activeTab === 'teams' && styles.tabActive]}
-            onPress={() => setActiveTab('teams')}
-          >
-            <Ionicons name="football" size={18} color={activeTab === 'teams' ? '#007AFF' : '#8E8E93'} />
-            <Text style={[styles.tabText, activeTab === 'teams' && styles.tabTextActive]}>Genera Squadre</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* PLAYERS TAB */}
-        {activeTab === 'players' && (
-          <View style={{ flex: 1 }}>
-            <View style={styles.searchContainer}>
-              <Ionicons name="search" size={20} color="#8E8E93" style={{ marginRight: 8 }} />
-              <TextInput
-                testID="search-input"
-                style={styles.searchInput}
-                placeholder="Cerca per nome o nickname..."
-                placeholderTextColor="#C7C7CC"
-                value={search}
-                onChangeText={setSearch}
-                returnKeyType="search"
-              />
-              {search.length > 0 && (
-                <TouchableOpacity onPress={() => setSearch('')} testID="clear-search-btn">
-                  <Ionicons name="close-circle" size={20} color="#C7C7CC" />
-                </TouchableOpacity>
-              )}
-            </View>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterScroll} contentContainerStyle={styles.filterContainer}>
-              <TouchableOpacity
-                testID="filter-all"
-                style={[styles.filterChip, !selectedRole && styles.filterChipActive]}
-                onPress={() => setSelectedRole(null)}
-              >
-                <Text style={[styles.filterText, !selectedRole && styles.filterTextActive]}>Tutti</Text>
-              </TouchableOpacity>
-              {ROLES.map((role) => (
-                <TouchableOpacity
-                  key={role}
-                  testID={`filter-${role.toLowerCase()}`}
-                  style={[styles.filterChip, selectedRole === role && { backgroundColor: ROLE_COLORS[role] }]}
-                  onPress={() => setSelectedRole(selectedRole === role ? null : role)}
-                >
-                  <Text style={[styles.filterText, selectedRole === role && { color: '#FFFFFF' }]}>{role}</Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-            <View style={styles.countRow}>
-              <Text style={styles.countText}>{players.length} giocator{players.length === 1 ? 'e' : 'i'}</Text>
-            </View>
-            {loading ? (
-              <View style={styles.center}><ActivityIndicator size="large" color="#007AFF" /></View>
-            ) : players.length === 0 ? (
-              <View style={styles.center}>
-                <Ionicons name="people-outline" size={64} color="#D1D1D6" />
-                <Text style={styles.emptyText}>Nessun giocatore</Text>
-                <Text style={styles.emptySubtext}>Tocca + per aggiungere o importa da Excel</Text>
-                <TouchableOpacity
-                  testID="import-excel-empty-btn"
-                  style={styles.importExcelBtn}
-                  onPress={handleImportExcel}
-                  disabled={importing}
-                >
-                  {importing ? (
-                    <ActivityIndicator color="#FFFFFF" />
-                  ) : (
-                    <>
-                      <Ionicons name="document-text" size={20} color="#FFFFFF" style={{ marginRight: 8 }} />
-                      <Text style={styles.importExcelText}>Importa da Excel</Text>
-                    </>
-                  )}
-                </TouchableOpacity>
-                <TouchableOpacity
-                  testID="download-template-btn"
-                  onPress={handleDownloadTemplate}
-                  style={{ marginTop: 12 }}
-                >
-                  <Text style={styles.templateLink}>Scarica template Excel</Text>
-                </TouchableOpacity>
-              </View>
-            ) : (
-              <FlatList
-                testID="player-list"
-                data={players}
-                keyExtractor={(item) => item.id}
-                renderItem={({ item }) => (
-                  <TouchableOpacity
-                    testID={`player-card-${item.id}`}
-                    style={styles.pCard}
-                    activeOpacity={0.7}
-                    onPress={() => router.push(`/player/${item.id}`)}
-                    onLongPress={() => handleDeletePlayer(item)}
-                  >
-                    <View style={[styles.pAvatar, { backgroundColor: ROLE_COLORS[item.role] + '20' }]}>
-                      <Text style={[styles.pAvatarText, { color: ROLE_COLORS[item.role] }]}>{getInitials(item.nickname)}</Text>
-                    </View>
-                    <View style={styles.pInfo}>
-                      <Text style={styles.pNickname} numberOfLines={1}>{item.nickname}</Text>
-                      <View style={styles.pMetaRow}>
-                        <View style={[styles.pRoleBadge, { backgroundColor: ROLE_COLORS[item.role] + '18' }]}>
-                          <Text style={[styles.pRoleText, { color: ROLE_COLORS[item.role] }]}>{item.role}</Text>
-                        </View>
-                        <Text style={styles.pAge}>{item.age} anni</Text>
-                      </View>
-                    </View>
-                    <View style={styles.pStrBadge}>
-                      <Text style={styles.pStrNum}>{Number.isInteger(item.strength) ? item.strength : item.strength.toFixed(1)}</Text>
-                      <Text style={styles.pStrLabel}>FRZ</Text>
-                    </View>
-                  </TouchableOpacity>
-                )}
-                contentContainerStyle={styles.listContent}
-                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadPlayers(); }} tintColor="#007AFF" />}
-                showsVerticalScrollIndicator={false}
-              />
-            )}
           </View>
         )}
+        contentContainerStyle={styles.listContent}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadData(); }} />}
+      />
+    );
+  };
 
-        {/* TEAMS TAB */}
-        {activeTab === 'teams' && (
+  const renderMatches = () => {
+    if (loading) return <View style={styles.center}><ActivityIndicator size="large" color="#007AFF" /></View>;
+    return (
+      <FlatList
+        data={matches}
+        keyExtractor={(item) => item.id}
+        renderItem={({ item }) => (
+          <View style={[styles.matchCard, dynamicStyles.card]}>
+            <View style={styles.matchDateRow}>
+              <View>
+                {item.description && <Text style={[styles.matchDescText, dynamicStyles.text]}>{item.description}</Text>}
+                <Text style={[styles.matchDateText, dynamicStyles.subText]}>{new Date(item.date).toLocaleDateString('it-IT', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })}</Text>
+              </View>
+              <View style={{flexDirection: 'row', gap: 10}}>
+                <TouchableOpacity onPress={() => handleOpenResultModal(item)}><Ionicons name="create-outline" size={20} color="#007AFF" /></TouchableOpacity>
+                <TouchableOpacity onPress={() => handleDeleteMatch(item.id)}><Ionicons name="trash-outline" size={20} color="#FF3B30" /></TouchableOpacity>
+              </View>
+            </View>
+            <View style={styles.matchScoreRow}>
+              <View style={styles.teamScoreInfo}><Text style={[styles.teamScoreName, dynamicStyles.text]} numberOfLines={1}>{item.team_a_name}</Text></View>
+              <View style={[styles.scoreBadge, { backgroundColor: isDarkMode ? '#3A3A3C' : '#F2F2F7' }]}>
+                <Text style={[styles.scoreValue, dynamicStyles.text]}>{item.team_a_score} - {item.team_b_score}</Text>
+              </View>
+              <View style={styles.teamScoreInfo}><Text style={[styles.teamScoreName, dynamicStyles.text, {textAlign: 'right'}]} numberOfLines={1}>{item.team_b_name}</Text></View>
+            </View>
+          </View>
+        )}
+        contentContainerStyle={styles.listContent}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadData(); }} />}
+      />
+    );
+  };
+
+  const renderTeamsResult = () => {
+    if (!teams) return null;
+    const teamAHex = getJerseyHex(teams.team_a_color);
+    const teamBHex = getJerseyHex(teams.team_b_color);
+    return (
+      <View style={{ flex: 1 }}>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => setTeams(null)} style={styles.backBtn}><Ionicons name="arrow-back" size={24} color="#007AFF" /></TouchableOpacity>
+          <View style={styles.teamsHeaderControls}>
+            <Text style={[styles.headerTitle, dynamicStyles.text]} numberOfLines={1} ellipsizeMode="tail">Squadre</Text>
+            <View style={styles.headerBtns}>
+               <TouchableOpacity onPress={toggleTheme} style={styles.iconShareBtn}><Ionicons name={isDarkMode ? "sunny-outline" : "moon-outline"} size={22} color={isDarkMode ? "#FFD60A" : "#007AFF"} /></TouchableOpacity>
+               <TouchableOpacity onPress={handleGenerate} style={styles.iconShareBtn}><Ionicons name="refresh" size={22} color="#007AFF" /></TouchableOpacity>
+               <TouchableOpacity onPress={() => setShowIndividualStrength(!showIndividualStrength)} style={styles.iconShareBtn}><Ionicons name={showIndividualStrength ? "eye-outline" : "eye-off-outline"} size={22} color="#007AFF" /></TouchableOpacity>
+               <TouchableOpacity onPress={handleShareImage} style={styles.iconShareBtn} disabled={sharing}><Ionicons name="share-social-outline" size={22} color="#007AFF" /></TouchableOpacity>
+               <TouchableOpacity onPress={() => handleOpenResultModal()} style={styles.iconShareBtn}><Ionicons name="trophy-outline" size={22} color="#FFD60A" /></TouchableOpacity>
+            </View>
+          </View>
+        </View>
+        <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
+          {/* Match Details Editor - Visible only when not sharing */}
+          {!sharing && (
+            <View style={[styles.configContainer, dynamicStyles.card, { marginHorizontal: 20, marginBottom: 12, padding: 12 }]}>
+              <Text style={[styles.configSectionTitle, dynamicStyles.text, { marginBottom: 10 }]}>Dettagli Partita</Text>
+              <TextInput style={[styles.searchInput, dynamicStyles.text, { height: 40, borderBottomWidth: 1, borderBottomColor: isDarkMode ? '#3A3A3C' : '#E5E5EA', marginBottom: 10 }]} placeholder="Descrizione (es. Giornata 1)" placeholderTextColor={isDarkMode ? "#8E8E93" : "#C7C7CC"} value={matchDescription} onChangeText={setMatchDescription} />
+              <View style={{flexDirection: 'row', gap: 10, marginBottom: 10}}>
+                <TouchableOpacity onPress={() => setShowDatePicker(true)} style={[styles.filterChip, {flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center'}]}>
+                  <Ionicons name="calendar-outline" size={16} color="#007AFF" style={{marginRight: 6}} />
+                  <Text style={dynamicStyles.text}>{matchDate.toLocaleDateString('it-IT')}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => setShowTimePicker(true)} style={[styles.filterChip, {flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center'}]}>
+                  <Ionicons name="time-outline" size={16} color="#007AFF" style={{marginRight: 6}} />
+                  <Text style={dynamicStyles.text}>{matchDate.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}</Text>
+                </TouchableOpacity>
+              </View>
+              <View style={{flexDirection: 'row', alignItems: 'center', backgroundColor: isDarkMode ? '#3A3A3C' : '#F2F2F7', borderRadius: 10, paddingHorizontal: 10}}>
+                <Ionicons name="location-outline" size={18} color="#8E8E93" />
+                <TextInput style={[styles.searchInput, dynamicStyles.text, { height: 40, marginLeft: 6 }]} placeholder="Luogo partita..." placeholderTextColor={isDarkMode ? "#8E8E93" : "#C7C7CC"} value={matchLocation} onChangeText={setMatchLocation} />
+              </View>
+            </View>
+          )}
+
+          {showDatePicker && (
+            <DateTimePicker value={matchDate} mode="date" display="default" onChange={(e, d) => { setShowDatePicker(false); if(d) setMatchDate(d); }} />
+          )}
+          {showTimePicker && (
+            <DateTimePicker value={matchDate} mode="time" display="default" onChange={(e, d) => { setShowTimePicker(false); if(d) setMatchDate(d); }} />
+          )}
+
+          <ViewShot ref={viewShotRef} options={{ format: "png", quality: 0.9 }} style={{ backgroundColor: isDarkMode ? '#1C1C1E' : '#F2F2F7', padding: sharing ? 20 : 10 }}>
+            <View style={styles.teamsContainer}>
+              <View style={styles.teamsMetaInfo}>
+                {matchDescription ? <Text style={[styles.teamsDescText, dynamicStyles.text]}>{matchDescription}</Text> : (teams.description ? <Text style={[styles.teamsDescText, dynamicStyles.text]}>{teams.description}</Text> : null)}
+                <View style={styles.teamsDateTimeLoc}>
+                  <Text style={[styles.teamsMetaText, dynamicStyles.subText]}>
+                    {matchDate.toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long' })} ore {matchDate.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}
+                  </Text>
+                  {matchLocation && <Text style={[styles.teamsMetaText, dynamicStyles.subText]}>{matchLocation}</Text>}
+                </View>
+              </View>
+
+              {[ { team: teams.team_a, name: teams.team_a_name, hex: teamAHex, color: teams.team_a_color, key: 'a' as const, strength: teams.team_a_total_strength, age: teams.team_a_avg_age }, { team: teams.team_b, name: teams.team_b_name, hex: teamBHex, color: teams.team_b_color, key: 'b' as const, strength: teams.team_b_total_strength, age: teams.team_b_avg_age } ].map((t, i) => (
+                <View key={i} style={[styles.teamCard, dynamicStyles.card, { borderLeftWidth: 4, borderLeftColor: t.hex }]}>
+                  <View style={styles.teamHeader}>
+                    <View style={[styles.jerseyBadge, { backgroundColor: t.hex, borderWidth: t.hex === '#FFFFFF' ? 1 : 0, borderColor: '#D1D1D6' }]}><Ionicons name="shirt" size={18} color={getJerseyTextColor(t.color)} /></View>
+                    <View style={{flex: 1}}>
+                      <Text style={[styles.teamName, dynamicStyles.text]}>{t.name}</Text>
+                      <Text style={styles.teamStatsSub}>{t.strength} Forza • {t.age} Età media</Text>
+                    </View>
+                  </View>
+                  {t.team.map((p) => (
+                    <View key={p.id} style={styles.teamPlayerRow}>
+                      <View style={[styles.tpAvatar, { backgroundColor: ROLE_COLORS[p.role] + '20' }]}><Text style={[styles.tpAvatarText, { color: ROLE_COLORS[p.role] }]}>{getInitials(p.nickname)}</Text></View>
+                      <View style={styles.tpInfo}><Text style={[styles.tpName, dynamicStyles.text]}>{p.nickname}</Text><Text style={[styles.tpRole, { color: ROLE_COLORS[p.role] }]}>{p.role}</Text></View>
+
+                      <View style={styles.tpRight}>
+                        {showIndividualStrength && (
+                          <View style={[styles.pStrBadge, { backgroundColor: isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)', flexDirection: 'row', gap: 8, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 10 }]}>
+                            <View style={{alignItems: 'center'}}><Text style={[styles.tpAge, dynamicStyles.subText, {fontSize: 13, fontWeight: '700'}]}>{p.age}</Text><Text style={styles.pStrLabel}>ANNI</Text></View>
+                            <View style={[styles.pDivider, dynamicStyles.divider, { height: 16 }]} />
+                            <View style={{alignItems: 'center'}}><Text style={[styles.tpStrength, dynamicStyles.text, { fontSize: 17, width: 'auto' }]}>{p.strength}</Text><Text style={styles.pStrLabel}>FRZ</Text></View>
+                          </View>
+                        )}
+                        {!sharing && (
+                          <TouchableOpacity onPress={() => swapPlayer(p.id, t.key)} style={styles.swapBtn}><Ionicons name="swap-horizontal" size={20} color="#007AFF" /></TouchableOpacity>
+                        )}
+                      </View>
+                    </View>
+                  ))}
+                </View>
+              ))}
+            </View>
+          </ViewShot>
+          <TouchableOpacity style={styles.mainShareBtn} onPress={() => handleOpenResultModal()}><Ionicons name="save-outline" size={20} color="#FFF" style={{marginRight: 8}} /><Text style={styles.mainShareBtnText}>Registra Risultato Partita</Text></TouchableOpacity>
+        </ScrollView>
+      </View>
+    );
+  };
+
+  const renderPlayerStatRow = (p: Player) => (
+    <View key={p.id} style={styles.statRow}>
+      <View style={[styles.tpAvatar, { backgroundColor: ROLE_COLORS[p.role] + '20', width: 28, height: 28, borderRadius: 14 }]}>
+        <Text style={[styles.tpAvatarText, { color: ROLE_COLORS[p.role], fontSize: 10 }]}>{getInitials(p.nickname)}</Text>
+      </View>
+      <Text style={[styles.statName, dynamicStyles.text]} numberOfLines={1}>{p.nickname}</Text>
+      <View style={styles.statControls}>
+        {group?.show_scorers && (
+          <View style={styles.statGroup}>
+            <TouchableOpacity onPress={() => updateMatchStat(p.id, 'goals', -1)}><Ionicons name="remove-circle-outline" size={22} color="#8E8E93" /></TouchableOpacity>
+            <Text style={[styles.statValueText, { color: '#FF3B30' }]}>{matchGoals[p.id] || 0} G</Text>
+            <TouchableOpacity onPress={() => updateMatchStat(p.id, 'goals', 1)}><Ionicons name="add-circle-outline" size={22} color="#FF3B30" /></TouchableOpacity>
+          </View>
+        )}
+        {group?.show_assists && (
+          <View style={styles.statGroup}>
+            <TouchableOpacity onPress={() => updateMatchStat(p.id, 'assists', -1)}><Ionicons name="remove-circle-outline" size={22} color="#8E8E93" /></TouchableOpacity>
+            <Text style={[styles.statValueText, { color: '#34C759' }]}>{matchAssists[p.id] || 0} A</Text>
+            <TouchableOpacity onPress={() => updateMatchStat(p.id, 'assists', 1)}><Ionicons name="add-circle-outline" size={22} color="#34C759" /></TouchableOpacity>
+          </View>
+        )}
+      </View>
+    </View>
+  );
+
+  return (
+    <SafeAreaView style={[styles.container, dynamicStyles.container]} edges={['top']}>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }} enabled={!teams}>
+        {teams ? renderTeamsResult() : (
           <View style={{ flex: 1 }}>
-            {/* Config Toggle */}
-            <TouchableOpacity
-              testID="toggle-config-btn"
-              style={styles.configToggle}
-              onPress={() => { Keyboard.dismiss(); setShowConfig(!showConfig); }}
-            >
-              <Ionicons name="settings-outline" size={20} color="#007AFF" />
-              <Text style={styles.configToggleText}>Impostazioni Partita</Text>
-              <Ionicons name={showConfig ? 'chevron-up' : 'chevron-down'} size={20} color="#007AFF" />
-            </TouchableOpacity>
+            <View style={styles.header}>
+              <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}><Ionicons name="arrow-back" size={24} color="#007AFF" /></TouchableOpacity>
+              <Text style={[styles.headerTitle, dynamicStyles.text]} numberOfLines={1} ellipsizeMode="tail">{groupName}</Text>
+              <View style={styles.headerBtns}>
+                <TouchableOpacity onPress={handleImportPlayers} style={styles.iconBtn} disabled={importing}>
+                  <Ionicons name="cloud-download-outline" size={24} color="#007AFF" />
+                </TouchableOpacity>
+                <TouchableOpacity onPress={handleExportPlayers} style={styles.iconBtn}>
+                  <Ionicons name="share-outline" size={24} color="#34C759" />
+                </TouchableOpacity>
+                <TouchableOpacity onPress={toggleTheme} style={styles.iconBtn}>
+                  <Ionicons name={isDarkMode ? "sunny-outline" : "moon-outline"} size={22} color={isDarkMode ? "#FFD60A" : "#007AFF"} />
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.iconBtn, showConfig && { backgroundColor: 'rgba(0,122,255,0.1)' }]} onPress={() => setShowConfig(!showConfig)}>
+                  <Ionicons name="settings-outline" size={22} color="#007AFF" />
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.addBtn} onPress={() => router.push(`/player/add?groupId=${groupId}`)}>
+                  <Ionicons name="add" size={24} color="#FFFFFF" />
+                </TouchableOpacity>
+              </View>
+            </View>
 
             {showConfig && (
-              <ScrollView style={styles.configPanel} contentContainerStyle={styles.configPanelContent} nestedScrollEnabled>
-                <Text style={styles.cfgLabel}>Tipo di Partita</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }}>
-                  <View style={styles.mtRow}>
-                    {MATCH_TYPES.map((mt) => (
-                      <TouchableOpacity key={mt.value} testID={`match-type-${mt.value}`} style={[styles.mtChip, matchType === mt.value && styles.mtChipActive]} onPress={() => setMatchType(mt.value)}>
-                        <Text style={[styles.mtText, matchType === mt.value && styles.mtTextActive]}>{mt.label}</Text>
+              <View style={[styles.configContainer, dynamicStyles.card]}>
+                <View style={styles.configSection}>
+                  <Text style={[styles.configSectionTitle, dynamicStyles.text]}>Tipo di Partita</Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 8 }}>
+                    {MATCH_TYPES.map((type) => (
+                      <TouchableOpacity key={type.value} style={[styles.matchTypeChip, matchType === type.value && styles.matchTypeChipActive]} onPress={() => setMatchType(type.value)}>
+                        <Text style={[styles.matchTypeLabel, matchType === type.value && styles.matchTypeLabelActive]}>{type.label}</Text>
                       </TouchableOpacity>
                     ))}
-                  </View>
-                </ScrollView>
-                <View style={styles.teamNamesRow}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.cfgLabel}>Squadra 1</Text>
-                    <TextInput testID="team-a-name-input" style={styles.cfgInput} value={teamAName} onChangeText={setTeamAName} placeholder="Squadra A" placeholderTextColor="#C7C7CC" />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.cfgLabel}>Squadra 2</Text>
-                    <TextInput testID="team-b-name-input" style={styles.cfgInput} value={teamBName} onChangeText={setTeamBName} placeholder="Squadra B" placeholderTextColor="#C7C7CC" />
-                  </View>
+                  </ScrollView>
                 </View>
-                <Text style={styles.cfgLabel}>Maglia Squadra 1</Text>
-                <View style={styles.colorRow}>
-                  {JERSEY_COLORS.map((c) => (
-                    <TouchableOpacity key={`a-${c.value}`} testID={`team-a-color-${c.value.toLowerCase()}`} style={[styles.colorBtn, { backgroundColor: c.hex, borderWidth: c.hex === '#FFFFFF' ? 1 : 0, borderColor: '#D1D1D6' }, teamAColor === c.value && styles.colorBtnSel]} onPress={() => setTeamAColor(c.value)}>
-                      {teamAColor === c.value && <Ionicons name="checkmark" size={16} color={c.hex === '#FFFFFF' || c.hex === '#FFCC00' ? '#1C1C1E' : '#FFF'} />}
+
+                {group?.storage_type === 'cloud' && (
+                  <View style={[styles.configSection, { marginTop: 15 }]}>
+                    <Text style={[styles.configSectionTitle, dynamicStyles.text]}>Condividi Gruppo Cloud</Text>
+                    <View style={{ flexDirection: 'row', gap: 10, marginTop: 8 }}>
+                      <TouchableOpacity
+                        style={[styles.matchTypeChip, { flex: 1, justifyContent: 'center', borderColor: '#007AFF' }]}
+                        onPress={() => handleShareToken('admin')}
+                      >
+                        <Ionicons name="shield-outline" size={16} color="#007AFF" style={{ marginRight: 6 }} />
+                        <Text style={[styles.matchTypeLabel, { color: '#007AFF' }]}>Token Admin</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[styles.matchTypeChip, { flex: 1, justifyContent: 'center', borderColor: '#34C759' }]}
+                        onPress={() => handleShareToken('viewer')}
+                      >
+                        <Ionicons name="eye-outline" size={16} color="#34C759" style={{ marginRight: 6 }} />
+                        <Text style={[styles.matchTypeLabel, { color: '#34C759' }]}>Token Viewer</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                )}
+
+                <View style={[styles.configSection, { marginTop: 15 }]}>
+                  <Text style={[styles.configSectionTitle, dynamicStyles.text]}>Backup Gruppo Completo</Text>
+                  <View style={{ flexDirection: 'row', gap: 10, marginTop: 8 }}>
+                    <TouchableOpacity style={[styles.matchTypeChip, { flex: 1, justifyContent: 'center', borderColor: '#007AFF' }]} onPress={handleCreateGroupBackup}>
+                      <Ionicons name="save-outline" size={16} color="#007AFF" style={{ marginRight: 6 }} />
+                      <Text style={[styles.matchTypeLabel, { color: '#007AFF' }]}>Esporta Backup</Text>
                     </TouchableOpacity>
-                  ))}
-                  <Text style={styles.colorLabel}>{teamAColor}</Text>
-                </View>
-                <Text style={styles.cfgLabel}>Maglia Squadra 2</Text>
-                <View style={styles.colorRow}>
-                  {JERSEY_COLORS.map((c) => (
-                    <TouchableOpacity key={`b-${c.value}`} testID={`team-b-color-${c.value.toLowerCase()}`} style={[styles.colorBtn, { backgroundColor: c.hex, borderWidth: c.hex === '#FFFFFF' ? 1 : 0, borderColor: '#D1D1D6' }, teamBColor === c.value && styles.colorBtnSel]} onPress={() => setTeamBColor(c.value)}>
-                      {teamBColor === c.value && <Ionicons name="checkmark" size={16} color={c.hex === '#FFFFFF' || c.hex === '#FFCC00' ? '#1C1C1E' : '#FFF'} />}
+                    <TouchableOpacity style={[styles.matchTypeChip, { flex: 1, justifyContent: 'center', borderColor: '#FF9500' }]} onPress={handleRestoreGroupBackup}>
+                      <Ionicons name="open-outline" size={16} color="#FF9500" style={{ marginRight: 6 }} />
+                      <Text style={[styles.matchTypeLabel, { color: '#FF9500' }]}>Ripristina Backup</Text>
                     </TouchableOpacity>
-                  ))}
-                  <Text style={styles.colorLabel}>{teamBColor}</Text>
+                  </View>
                 </View>
-              </ScrollView>
+
+                <View style={[styles.configSection, { marginTop: 15 }]}>
+                  <Text style={[styles.configSectionTitle, dynamicStyles.text]}>Classifiche e Bonus</Text>
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 8 }}>
+                    <TouchableOpacity style={[styles.matchTypeChip, group?.show_scorers && styles.matchTypeChipActive]} onPress={() => handleUpdateGroupSettings({ show_scorers: !group?.show_scorers })}>
+                      <Text style={[styles.matchTypeLabel, group?.show_scorers && styles.matchTypeLabelActive]}>Marcatori</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={[styles.matchTypeChip, group?.show_assists && styles.matchTypeChipActive]} onPress={() => handleUpdateGroupSettings({ show_assists: !group?.show_assists })}>
+                      <Text style={[styles.matchTypeLabel, group?.show_assists && styles.matchTypeLabelActive]}>Assist</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={[styles.matchTypeChip, group?.use_bonus && styles.matchTypeChipActive, { borderColor: '#FFD60A' }]} onPress={() => handleUpdateGroupSettings({ use_bonus: !group?.use_bonus })}>
+                      <Ionicons name="star" size={14} color={group?.use_bonus ? "#FFD60A" : "#8E8E93"} style={{marginRight: 4}} />
+                      <Text style={[styles.matchTypeLabel, group?.use_bonus && { color: '#FFD60A' }]}>Bonus Giocatore (+1 PT)</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={[styles.matchTypeChip, group?.use_clean_sheet_bonus && styles.matchTypeChipActive, { borderColor: '#34C759' }]} onPress={() => handleUpdateGroupSettings({ use_clean_sheet_bonus: !group?.use_clean_sheet_bonus })}>
+                      <Ionicons name="shield-checkmark" size={14} color={group?.use_clean_sheet_bonus ? "#34C759" : "#8E8E93"} style={{marginRight: 4}} />
+                      <Text style={[styles.matchTypeLabel, group?.use_clean_sheet_bonus && { color: '#34C759' }]}>Clean Sheet (+1 PT)</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={[styles.matchTypeChip, group?.use_gk_bonus && styles.matchTypeChipActive, { borderColor: '#FF9500' }]} onPress={() => handleUpdateGroupSettings({ use_gk_bonus: !group?.use_gk_bonus })}>
+                      <Ionicons name="hand-right" size={14} color={group?.use_gk_bonus ? "#FF9500" : "#8E8E93"} style={{marginRight: 4}} />
+                      <Text style={[styles.matchTypeLabel, group?.use_gk_bonus && { color: '#FF9500' }]}>Bonus Portiere (+1 PT)</Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  {group?.use_bonus && (
+                    <View style={{ marginTop: 10 }}>
+                      <Text style={[styles.configHint, dynamicStyles.subText]}>• Bonus Giocatore: +1 PT per {group?.bonus_goals_threshold || 2}+ goal e {group?.bonus_assists_threshold || 2}+ assist.</Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8 }}>
+                        <Text style={[styles.configSectionTitle, dynamicStyles.text, { fontSize: 11, textTransform: 'none' }]}>Soglia Goal: </Text>
+                        <TouchableOpacity onPress={() => handleUpdateGroupSettings({ bonus_goals_threshold: Math.max(1, (group?.bonus_goals_threshold || 2) - 1) })} style={styles.thresholdBtn}><Ionicons name="remove" size={16} color="#007AFF" /></TouchableOpacity>
+                        <Text style={[styles.thresholdValue, dynamicStyles.text]}>{group?.bonus_goals_threshold || 2}</Text>
+                        <TouchableOpacity onPress={() => handleUpdateGroupSettings({ bonus_goals_threshold: (group?.bonus_goals_threshold || 2) + 1 })} style={styles.thresholdBtn}><Ionicons name="add" size={16} color="#007AFF" /></TouchableOpacity>
+
+                        <Text style={[styles.configSectionTitle, dynamicStyles.text, { fontSize: 11, textTransform: 'none', marginLeft: 15 }]}>Soglia Assist: </Text>
+                        <TouchableOpacity onPress={() => handleUpdateGroupSettings({ bonus_assists_threshold: Math.max(1, (group?.bonus_assists_threshold || 2) - 1) })} style={styles.thresholdBtn}><Ionicons name="remove" size={16} color="#007AFF" /></TouchableOpacity>
+                        <Text style={[styles.thresholdValue, dynamicStyles.text]}>{group?.bonus_assists_threshold || 2}</Text>
+                        <TouchableOpacity onPress={() => handleUpdateGroupSettings({ bonus_assists_threshold: (group?.bonus_assists_threshold || 2) + 1 })} style={styles.thresholdBtn}><Ionicons name="add" size={16} color="#007AFF" /></TouchableOpacity>
+                      </View>
+                    </View>
+                  )}
+                  {group?.use_clean_sheet_bonus && (
+                    <Text style={[styles.configHint, dynamicStyles.subText]}>• Clean Sheet: +1 PT a tutti se la squadra non subisce goal.</Text>
+                  )}
+                  {group?.use_gk_bonus && (
+                    <View style={{ marginTop: 10 }}>
+                      <Text style={[styles.configHint, dynamicStyles.subText]}>• Bonus Portiere: +1 PT se subisce meno di {group?.gk_bonus_threshold} goal.</Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8 }}>
+                        <Text style={[styles.configSectionTitle, dynamicStyles.text, { fontSize: 11, textTransform: 'none' }]}>Soglia Goal: </Text>
+                        <TouchableOpacity onPress={() => handleUpdateGroupSettings({ gk_bonus_threshold: Math.max(1, (group?.gk_bonus_threshold || 5) - 1) })} style={styles.thresholdBtn}><Ionicons name="remove" size={16} color="#007AFF" /></TouchableOpacity>
+                        <Text style={[styles.thresholdValue, dynamicStyles.text]}>{group?.gk_bonus_threshold}</Text>
+                        <TouchableOpacity onPress={() => handleUpdateGroupSettings({ gk_bonus_threshold: (group?.gk_bonus_threshold || 5) + 1 })} style={styles.thresholdBtn}><Ionicons name="add" size={16} color="#007AFF" /></TouchableOpacity>
+                      </View>
+                    </View>
+                  )}
+                </View>
+              </View>
             )}
 
-            <View style={styles.selHeader}>
-              <Text style={styles.selCount}>{selectedIds.size} selezionat{selectedIds.size === 1 ? 'o' : 'i'} · min {matchType * 2}</Text>
-              <TouchableOpacity testID="select-all-btn" onPress={selectAll}>
-                <Text style={styles.selAllText}>{selectedIds.size === players.length ? 'Deseleziona' : 'Seleziona Tutti'}</Text>
-              </TouchableOpacity>
+            <View style={[styles.tabBar, dynamicStyles.tabBar]}>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                {[
+                  { id: 'players', icon: 'people', label: 'Giocatori' },
+                  { id: 'teams', icon: 'football', label: 'Genera' },
+                  { id: 'standings', icon: 'trophy', label: 'Classifica' },
+                  { id: 'matches', icon: 'list', label: 'Storico' }
+                ].map((t) => (
+                  <TouchableOpacity key={t.id} style={[styles.tab, activeTab === t.id && dynamicStyles.tabActive, { minWidth: 100 }]} onPress={() => setActiveTab(t.id as TabType)}>
+                    <Ionicons name={t.icon as any} size={18} color={activeTab === t.id ? '#007AFF' : '#8E8E93'} />
+                    <Text style={[styles.tabText, activeTab === t.id && styles.tabTextActive]}>{t.label}</Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
             </View>
 
-            {loading ? (
-              <View style={styles.center}><ActivityIndicator size="large" color="#007AFF" /></View>
-            ) : players.length === 0 ? (
-              <View style={styles.center}>
-                <Ionicons name="people-outline" size={64} color="#D1D1D6" />
-                <Text style={styles.emptyText}>Nessun giocatore</Text>
-                <Text style={styles.emptySubtext}>Aggiungi giocatori dal tab Giocatori</Text>
-              </View>
-            ) : (
-              <FlatList
-                testID="team-player-list"
-                data={players}
-                keyExtractor={(item) => item.id}
-                renderItem={({ item }) => {
-                  const isSel = selectedIds.has(item.id);
-                  return (
-                    <TouchableOpacity testID={`select-player-${item.id}`} style={[styles.selCard, isSel && styles.selCardActive]} onPress={() => togglePlayer(item.id)}>
-                      <View style={[styles.chk, isSel && styles.chkActive]}>
-                        {isSel && <Ionicons name="checkmark" size={16} color="#FFF" />}
-                      </View>
-                      <View style={[styles.selAvatar, { backgroundColor: ROLE_COLORS[item.role] + '20' }]}>
-                        <Text style={[styles.selAvatarText, { color: ROLE_COLORS[item.role] }]}>{getInitials(item.nickname)}</Text>
-                      </View>
-                      <View style={styles.selInfo}>
-                        <Text style={styles.selNick} numberOfLines={1}>{item.nickname}</Text>
-                        <Text style={[styles.selRole, { color: ROLE_COLORS[item.role] }]}>{item.role}</Text>
-                      </View>
-                      <View style={styles.selStr}>
-                        <Text style={styles.selStrNum}>{Number.isInteger(item.strength) ? item.strength : item.strength.toFixed(1)}</Text>
-                      </View>
+            {activeTab === 'players' && (
+              <View style={{ flex: 1 }}>
+                <View style={[styles.searchContainer, dynamicStyles.card]}>
+                  <Ionicons name="search" size={20} color="#8E8E93" style={{ marginRight: 8 }} />
+                  <TextInput style={[styles.searchInput, dynamicStyles.text]} placeholder="Cerca..." placeholderTextColor={isDarkMode ? "#8E8E93" : "#C7C7CC"} value={search} onChangeText={setSearch} />
+                </View>
+                <View style={styles.filtersWrapper}>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterContainer}>
+                    <TouchableOpacity style={[styles.filterChip, dynamicStyles.card, !selectedRole && styles.filterChipActive]} onPress={() => setSelectedRole(null)}>
+                      <Text style={[styles.filterText, !selectedRole && styles.filterChipActive ? { color: '#FFF' } : dynamicStyles.text]}>Tutti</Text>
                     </TouchableOpacity>
-                  );
-                }}
-                contentContainerStyle={styles.listContent}
-                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadPlayers(); }} tintColor="#007AFF" />}
-                showsVerticalScrollIndicator={false}
-              />
+                    {ROLES.map((role) => (
+                      <TouchableOpacity key={role} style={[styles.filterChip, dynamicStyles.card, selectedRole === role && { backgroundColor: ROLE_COLORS[role], borderColor: ROLE_COLORS[role] }]} onPress={() => setSelectedRole(selectedRole === role ? null : role)}>
+                        <Text style={[styles.filterText, selectedRole === role ? { color: '#FFFFFF' } : dynamicStyles.text]}>{role}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
+                <FlatList data={players} renderItem={({ item }) => (
+                  <TouchableOpacity style={[styles.pCard, dynamicStyles.card]} onPress={() => router.push(`/player/${item.id}?groupId=${groupId}`)} onLongPress={() => handleDeletePlayer(item)}>
+                    <View style={[styles.pAvatar, { backgroundColor: ROLE_COLORS[item.role] + '20' }]}><Text style={[styles.pAvatarText, { color: ROLE_COLORS[item.role] }]}>{getInitials(item.nickname)}</Text></View>
+                    <View style={styles.pInfo}><Text style={[styles.pNickname, dynamicStyles.text]}>{item.nickname}</Text><Text style={[styles.pRoleText, { color: ROLE_COLORS[item.role] }]}>{item.role}</Text></View>
+                    <View style={[styles.pStrBadge, { backgroundColor: isDarkMode ? '#3A3A3C' : '#F2F2F7', flexDirection: 'row', width: 100, gap: 10, paddingVertical: 4, borderRadius: 12, justifyContent: 'center' }]}>
+                      <View style={{alignItems: 'center'}}><Text style={[styles.pAge, dynamicStyles.subText, {fontSize: 14, fontWeight: '700'}]}>{item.age}</Text><Text style={styles.pStrLabel}>ANNI</Text></View>
+                      <View style={[styles.pDivider, dynamicStyles.divider]} />
+                      <View style={{alignItems: 'center'}}><Text style={[styles.pStrNum, dynamicStyles.text]}>{item.strength}</Text><Text style={styles.pStrLabel}>FRZ</Text></View>
+                    </View>
+                  </TouchableOpacity>
+                )} contentContainerStyle={styles.listContent} />
+              </View>
             )}
 
-            {players.length > 0 && (
-              <View style={styles.genBar}>
-                <TouchableOpacity
-                  testID="generate-teams-btn"
-                  style={[styles.genBtn, selectedIds.size < matchType * 2 && styles.genBtnDisabled]}
-                  onPress={handleGenerate}
-                  disabled={generating || selectedIds.size < matchType * 2}
-                >
-                  {generating ? <ActivityIndicator color="#FFF" /> : (
-                    <>
-                      <Ionicons name="football" size={20} color="#FFF" style={{ marginRight: 8 }} />
-                      <Text style={styles.genText}>Genera {matchType === 5 ? 'Calcetto 5' : 'Calcio ' + matchType}</Text>
-                    </>
-                  )}
-                </TouchableOpacity>
+            {activeTab === 'teams' && (
+              <View style={{flex: 1}}>
+                 <View style={[styles.searchContainer, dynamicStyles.card, { marginBottom: 8 }]}>
+                   <Ionicons name="search" size={20} color="#8E8E93" style={{ marginRight: 8 }} />
+                   <TextInput style={[styles.searchInput, dynamicStyles.text]} placeholder="Cerca giocatore..." placeholderTextColor={isDarkMode ? "#8E8E93" : "#C7C7CC"} value={teamSearch} onChangeText={setTeamSearch} />
+                 </View>
+                 <View style={styles.filtersWrapper}>
+                   <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterContainer}>
+                     <TouchableOpacity style={[styles.filterChip, dynamicStyles.card, !teamSelectedRole && styles.filterChipActive]} onPress={() => setTeamSelectedRole(null)}>
+                       <Text style={[styles.filterText, !teamSelectedRole && styles.filterChipActive ? { color: '#FFF' } : dynamicStyles.text]}>Tutti</Text>
+                     </TouchableOpacity>
+                     {ROLES.map((role) => (
+                       <TouchableOpacity key={role} style={[styles.filterChip, dynamicStyles.card, teamSelectedRole === role && { backgroundColor: ROLE_COLORS[role], borderColor: ROLE_COLORS[role] }]} onPress={() => setTeamSelectedRole(teamSelectedRole === role ? null : role)}>
+                         <Text style={[styles.filterText, teamSelectedRole === role ? { color: '#FFFFFF' } : dynamicStyles.text]}>{role}</Text>
+                       </TouchableOpacity>
+                     ))}
+                   </ScrollView>
+                 </View>
+                 <View style={styles.selHeader}><Text style={[styles.selCount, dynamicStyles.subText]}>{selectedIds.size} / {matchType * 2}</Text><TouchableOpacity onPress={selectAll}><Text style={styles.selAllText}>Tutti</Text></TouchableOpacity></View>
+
+                 <FlatList data={filteredPlayersForTeams} renderItem={({ item }) => {
+                   const isSel = selectedIds.has(item.id);
+                   return (
+                     <TouchableOpacity style={[styles.selCard, dynamicStyles.card, isSel && styles.selCardActive]} onPress={() => togglePlayer(item.id)}>
+                       <View style={[styles.chk, isSel && styles.chkActive]}>{isSel && <Ionicons name="checkmark" size={16} color="#FFF" />}</View>
+                       <Text style={[styles.selNick, dynamicStyles.text]}>{item.nickname}</Text>
+                       <Text style={[styles.selRole, { color: ROLE_COLORS[item.role] }]}>{item.role}</Text>
+                       <View style={[styles.pStrBadge, { backgroundColor: isDarkMode ? '#3A3A3C' : '#F2F2F7', flexDirection: 'row', width: 85, gap: 8, paddingVertical: 4, borderRadius: 10, justifyContent: 'center', marginLeft: 10 }]}>
+                         <View style={{alignItems: 'center'}}><Text style={[styles.pAge, dynamicStyles.subText, {fontSize: 12, fontWeight: '700'}]}>{item.age}</Text><Text style={styles.pStrLabel}>ANNI</Text></View>
+                         <View style={[styles.pDivider, dynamicStyles.divider, { height: 14 }]} />
+                         <View style={{alignItems: 'center'}}><Text style={[styles.pStrNum, dynamicStyles.text, { fontSize: 14 }]}>{item.strength}</Text><Text style={styles.pStrLabel}>FRZ</Text></View>
+                       </View>
+                     </TouchableOpacity>
+                   );
+                 }} contentContainerStyle={styles.listContent} />
+                 <View style={styles.genBar}><TouchableOpacity style={[styles.genBtn, selectedIds.size !== matchType * 2 && styles.genBtnDisabled]} onPress={handleGenerate} disabled={generating || selectedIds.size !== matchType * 2}><Text style={styles.genText}>Genera Squadre</Text></TouchableOpacity></View>
               </View>
             )}
+
+            {activeTab === 'standings' && renderStandings()}
+            {activeTab === 'matches' && renderMatches()}
           </View>
         )}
+
+        {/* Modal Registrazione Risultato */}
+        <Modal visible={showResultModal} transparent animationType="slide">
+          <View style={styles.modalOverlay}>
+            <View style={[styles.modalContent, dynamicStyles.modalContent, { height: '90%' }]}>
+              <View style={styles.modalHeader}>
+                <Text style={[styles.modalTitle, dynamicStyles.text]}>{editingMatchId ? 'Modifica Risultato' : 'Registra Risultato'}</Text>
+                <TouchableOpacity onPress={() => setShowResultModal(false)}><Ionicons name="close" size={24} color={isDarkMode ? "#FFF" : "#1C1C1E"} /></TouchableOpacity>
+              </View>
+              <ScrollView showsVerticalScrollIndicator={false}>
+                <View style={styles.scoreInputRow}>
+                  <View style={styles.scoreField}>
+                    <Text style={[styles.scoreLabel, dynamicStyles.text]} numberOfLines={1}>
+                      {editingMatchId ? matches.find(m => m.id === editingMatchId)?.team_a_name : teams?.team_a_name}
+                    </Text>
+                    <TextInput style={[styles.scoreInput, dynamicStyles.input]} keyboardType="numeric" value={scoreA} onChangeText={setScoreA} />
+                  </View>
+                  <Text style={[styles.vsTextModal, dynamicStyles.text]}>-</Text>
+                  <View style={styles.scoreField}>
+                    <Text style={[styles.scoreLabel, dynamicStyles.text, { textAlign: 'right' }]} numberOfLines={1}>
+                      {editingMatchId ? matches.find(m => m.id === editingMatchId)?.team_b_name : teams?.team_b_name}
+                    </Text>
+                    <TextInput style={[styles.scoreInput, dynamicStyles.input]} keyboardType="numeric" value={scoreB} onChangeText={setScoreB} />
+                  </View>
+                </View>
+
+                {(group?.show_scorers || group?.show_assists || group?.use_bonus || group?.use_clean_sheet_bonus || group?.use_gk_bonus) && (
+                  <>
+                    <View style={[styles.teamSectionHeader, { backgroundColor: isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }]}>
+                      <Ionicons name="shirt" size={16} color={getJerseyHex(editingMatchId ? matches.find(m => m.id === editingMatchId)?.team_a_color || 'Bianca' : teams?.team_a_color || 'Bianca')} />
+                      <Text style={[styles.teamSectionTitle, dynamicStyles.text]}>
+                        {editingMatchId ? matches.find(m => m.id === editingMatchId)?.team_a_name : teams?.team_a_name}
+                      </Text>
+                    </View>
+
+                    <View style={styles.statRow}>
+                      <Ionicons name="alert-circle-outline" size={22} color="#8E8E93" style={{ marginLeft: 5 }} />
+                      <Text style={[styles.statName, dynamicStyles.text]}>Autogol (Squadra A)</Text>
+                      <View style={styles.statControls}>
+                        <View style={styles.statGroup}>
+                          <TouchableOpacity onPress={() => updateOwnGoals('a', -1)}><Ionicons name="remove-circle-outline" size={22} color="#8E8E93" /></TouchableOpacity>
+                          <Text style={[styles.statValueText, dynamicStyles.text]}>{teamAOwnGoals}</Text>
+                          <TouchableOpacity onPress={() => updateOwnGoals('a', 1)}><Ionicons name="add-circle-outline" size={22} color="#8E8E93" /></TouchableOpacity>
+                        </View>
+                      </View>
+                    </View>
+
+                    {teamAParticipants.map(p => renderPlayerStatRow(p))}
+
+                    <View style={[styles.teamSectionHeader, { backgroundColor: isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)', marginTop: 20 }]}>
+                      <Ionicons name="shirt" size={16} color={getJerseyHex(editingMatchId ? matches.find(m => m.id === editingMatchId)?.team_b_color || 'Rossa' : teams?.team_b_color || 'Rossa')} />
+                      <Text style={[styles.teamSectionTitle, dynamicStyles.text]}>
+                        {editingMatchId ? matches.find(m => m.id === editingMatchId)?.team_b_name : teams?.team_b_name}
+                      </Text>
+                    </View>
+
+                    <View style={styles.statRow}>
+                      <Ionicons name="alert-circle-outline" size={22} color="#8E8E93" style={{ marginLeft: 5 }} />
+                      <Text style={[styles.statName, dynamicStyles.text]}>Autogol (Squadra B)</Text>
+                      <View style={styles.statControls}>
+                        <View style={styles.statGroup}>
+                          <TouchableOpacity onPress={() => updateOwnGoals('b', -1)}><Ionicons name="remove-circle-outline" size={22} color="#8E8E93" /></TouchableOpacity>
+                          <Text style={[styles.statValueText, dynamicStyles.text]}>{teamBOwnGoals}</Text>
+                          <TouchableOpacity onPress={() => updateOwnGoals('b', 1)}><Ionicons name="add-circle-outline" size={22} color="#8E8E93" /></TouchableOpacity>
+                        </View>
+                      </View>
+                    </View>
+
+                    {teamBParticipants.map(p => renderPlayerStatRow(p))}
+                  </>
+                )}
+              </ScrollView>
+              <TouchableOpacity style={styles.saveBtn} onPress={handleSaveResult}><Text style={styles.saveBtnText}>Salva Risultato</Text></TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F2F2F7' },
-  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingTop: 4, paddingBottom: 8 },
-  backBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
-  headerTitle: { flex: 1, fontSize: 20, fontWeight: '700', color: '#1C1C1E', textAlign: 'center' },
-  headerBtns: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  importBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(0,122,255,0.1)', alignItems: 'center', justifyContent: 'center' },
-  addBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#007AFF', alignItems: 'center', justifyContent: 'center' },
-  // Tabs
-  tabBar: { flexDirection: 'row', marginHorizontal: 20, backgroundColor: '#E5E5EA', borderRadius: 12, padding: 3, marginBottom: 12 },
+  container: { flex: 1 },
+  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, height: 60 },
+  backBtn: { marginRight: 12 },
+  headerTitle: { fontSize: 18, fontWeight: '700', flex: 1 },
+  headerBtns: { flexDirection: 'row', gap: 10, alignItems: 'center' },
+  iconBtn: { padding: 6 },
+  addBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#007AFF', alignItems: 'center', justifyContent: 'center' },
+  tabBar: { flexDirection: 'row', marginHorizontal: 20, borderRadius: 12, padding: 4, marginBottom: 12 },
   tab: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 10, borderRadius: 10, gap: 6 },
-  tabActive: { backgroundColor: '#FFFFFF' },
-  tabText: { fontSize: 14, fontWeight: '600', color: '#8E8E93' },
+  tabText: { fontSize: 13, fontWeight: '600', color: '#8E8E93' },
   tabTextActive: { color: '#007AFF' },
-  // Player list
-  searchContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF', marginHorizontal: 20, borderRadius: 12, paddingHorizontal: 12, height: 44, marginBottom: 8 },
-  searchInput: { flex: 1, fontSize: 16, color: '#1C1C1E', height: 44 },
-  filterScroll: { marginBottom: 8, paddingVertical: 4 },
-  filterContainer: { paddingHorizontal: 20, gap: 8, flexDirection: 'row' },
-  filterChip: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, backgroundColor: '#FFF' },
-  filterChipActive: { backgroundColor: '#007AFF' },
-  filterText: { fontSize: 14, fontWeight: '600', color: '#3A3A3C' },
-  filterTextActive: { color: '#FFF' },
-  countRow: { paddingHorizontal: 20, paddingVertical: 6 },
-  countText: { fontSize: 13, fontWeight: '500', color: '#8E8E93', textTransform: 'uppercase', letterSpacing: 0.5 },
   listContent: { paddingHorizontal: 20, paddingBottom: 100 },
-  pCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF', borderRadius: 16, padding: 14, marginBottom: 10, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 2 },
-  pAvatar: { width: 52, height: 52, borderRadius: 26, alignItems: 'center', justifyContent: 'center' },
-  pAvatarText: { fontSize: 18, fontWeight: '800' },
+  pCard: { flexDirection: 'row', alignItems: 'center', borderRadius: 16, padding: 12, marginBottom: 10 },
+  pAvatar: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
+  pAvatarText: { fontSize: 16, fontWeight: '800' },
   pInfo: { flex: 1, marginLeft: 12 },
-  pNickname: { fontSize: 17, fontWeight: '700', color: '#1C1C1E', marginBottom: 4 },
-  pMetaRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  pRoleBadge: { paddingHorizontal: 10, paddingVertical: 3, borderRadius: 10 },
-  pRoleText: { fontSize: 12, fontWeight: '700' },
-  pAge: { fontSize: 13, color: '#8E8E93', fontWeight: '500' },
-  pStrBadge: { alignItems: 'center', justifyContent: 'center', width: 48, height: 48, borderRadius: 12, backgroundColor: '#F2F2F7' },
-  pStrNum: { fontSize: 20, fontWeight: '900', color: '#1C1C1E' },
-  pStrLabel: { fontSize: 9, fontWeight: '700', color: '#8E8E93', letterSpacing: 1 },
-  // Teams tab
-  configToggle: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF', marginHorizontal: 20, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, marginBottom: 8, gap: 8 },
-  configToggleText: { flex: 1, fontSize: 15, fontWeight: '600', color: '#007AFF' },
-  configPanel: { maxHeight: 280, marginHorizontal: 20, backgroundColor: '#FFF', borderRadius: 12, marginBottom: 8 },
-  configPanelContent: { padding: 14 },
-  cfgLabel: { fontSize: 12, fontWeight: '700', color: '#8E8E93', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6, marginTop: 4 },
-  cfgInput: { backgroundColor: '#F2F2F7', borderRadius: 10, paddingHorizontal: 12, height: 40, fontSize: 15, color: '#1C1C1E' },
-  mtRow: { flexDirection: 'row', gap: 6 },
-  mtChip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10, backgroundColor: '#F2F2F7' },
-  mtChipActive: { backgroundColor: '#007AFF' },
-  mtText: { fontSize: 13, fontWeight: '700', color: '#3A3A3C' },
-  mtTextActive: { color: '#FFF' },
-  teamNamesRow: { flexDirection: 'row', gap: 10, marginBottom: 8 },
-  colorRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 8 },
-  colorBtn: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
-  colorBtnSel: { borderWidth: 3, borderColor: '#007AFF' },
-  colorLabel: { fontSize: 12, fontWeight: '600', color: '#8E8E93' },
-  selHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingBottom: 8 },
-  selCount: { fontSize: 14, fontWeight: '600', color: '#8E8E93' },
-  selAllText: { fontSize: 14, fontWeight: '600', color: '#007AFF' },
-  selCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF', borderRadius: 14, padding: 12, marginBottom: 8, borderWidth: 2, borderColor: 'transparent' },
-  selCardActive: { borderColor: '#007AFF', backgroundColor: 'rgba(0,122,255,0.04)' },
-  chk: { width: 24, height: 24, borderRadius: 12, borderWidth: 2, borderColor: '#D1D1D6', alignItems: 'center', justifyContent: 'center', marginRight: 10 },
-  chkActive: { backgroundColor: '#007AFF', borderColor: '#007AFF' },
-  selAvatar: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', marginRight: 10 },
-  selAvatarText: { fontSize: 14, fontWeight: '800' },
-  selInfo: { flex: 1 },
-  selNick: { fontSize: 16, fontWeight: '700', color: '#1C1C1E' },
-  selRole: { fontSize: 12, fontWeight: '600', marginTop: 2 },
-  selStr: { width: 36, height: 36, borderRadius: 10, backgroundColor: '#F2F2F7', alignItems: 'center', justifyContent: 'center' },
-  selStrNum: { fontSize: 16, fontWeight: '900', color: '#1C1C1E' },
-  genBar: { position: 'absolute', bottom: 0, left: 0, right: 0, padding: 20, paddingBottom: 32, backgroundColor: 'rgba(242,242,247,0.95)' },
-  genBtn: { flexDirection: 'row', backgroundColor: '#007AFF', borderRadius: 14, paddingVertical: 16, alignItems: 'center', justifyContent: 'center', shadowColor: '#007AFF', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 4 },
-  genBtnDisabled: { backgroundColor: '#C7C7CC', shadowOpacity: 0 },
-  genText: { color: '#FFF', fontSize: 17, fontWeight: '700' },
-  // Team results
-  teamsContainer: { paddingHorizontal: 20 },
-  teamCard: { borderRadius: 16, padding: 16, marginBottom: 8 },
-  teamHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
-  jerseyBadge: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', marginRight: 10 },
-  teamName: { fontSize: 20, fontWeight: '700', color: '#1C1C1E', flex: 1 },
-  teamPlayerCount: { fontSize: 14, fontWeight: '700', color: '#8E8E93', backgroundColor: 'rgba(0,0,0,0.06)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10, overflow: 'hidden' },
-  teamStatsRow: { flexDirection: 'row', gap: 8, marginBottom: 12 },
-  teamStatBadge: { flex: 1, backgroundColor: 'rgba(0,0,0,0.05)', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  teamStatLabel: { fontSize: 12, fontWeight: '600', color: '#8E8E93' },
-  teamStatValue: { fontSize: 16, fontWeight: '900', color: '#1C1C1E' },
-  vsContainer: { alignItems: 'center', marginVertical: 8 },
-  vsBadge: { width: 48, height: 48, borderRadius: 24, backgroundColor: '#1C1C1E', alignItems: 'center', justifyContent: 'center' },
-  vsText: { fontSize: 18, fontWeight: '900', color: '#FFF' },
-  teamPlayerRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, borderBottomWidth: 0.5, borderBottomColor: 'rgba(0,0,0,0.06)' },
-  teamPlayerIdx: { width: 24, fontSize: 14, fontWeight: '600', color: '#8E8E93', textAlign: 'center' },
-  tpAvatar: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', marginRight: 10 },
-  tpAvatarText: { fontSize: 13, fontWeight: '800' },
+  pNickname: { fontSize: 16, fontWeight: '700' },
+  pRoleText: { fontSize: 11, fontWeight: '600', marginTop: 2 },
+  pStrBadge: { alignItems: 'center', justifyContent: 'center' },
+  pDivider: { width: 1, height: 20, backgroundColor: 'rgba(0,0,0,0.1)' },
+  pStrNum: { fontSize: 18, fontWeight: '800' },
+  pStrLabel: { fontSize: 8, fontWeight: '700', color: '#8E8E93' },
+  standingRank: { width: 24, alignItems: 'center' },
+  rankText: { fontSize: 14, fontWeight: '700' },
+  standingStats: { flexDirection: 'row', gap: 12 },
+  statBox: { alignItems: 'center', minWidth: 28 },
+  statValue: { fontSize: 15, fontWeight: '800' },
+  statLabel: { fontSize: 8, fontWeight: '700', color: '#8E8E93', marginTop: 2 },
+  teamsHeaderControls: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 10 },
+  iconShareBtn: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
+  teamsContainer: { gap: 12 },
+  teamCard: { borderRadius: 16, padding: 16 },
+  teamHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
+  jerseyBadge: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center', marginRight: 10 },
+  teamName: { fontSize: 18, fontWeight: '700' },
+  teamPlayerRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 6 },
+  tpAvatar: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center', marginRight: 10 },
+  tpAvatarText: { fontSize: 12, fontWeight: '800' },
   tpInfo: { flex: 1 },
-  tpName: { fontSize: 15, fontWeight: '700', color: '#1C1C1E' },
-  tpRole: { fontSize: 12, fontWeight: '600' },
-  tpStrength: { fontSize: 18, fontWeight: '900', color: '#1C1C1E', width: 36, textAlign: 'center' },
-  swapBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(0,122,255,0.1)', alignItems: 'center', justifyContent: 'center', marginLeft: 6 },
-  swapHint: { fontSize: 13, fontWeight: '500', color: '#8E8E93', textAlign: 'center', marginBottom: 8, fontStyle: 'italic' },
-  // Shared
+  tpName: { fontSize: 14, fontWeight: '600' },
+  tpRole: { fontSize: 10, fontWeight: '600' },
+  mainShareBtn: { flexDirection: 'row', backgroundColor: '#34C759', marginHorizontal: 20, marginTop: 16, paddingVertical: 14, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+  mainShareBtnText: { color: '#FFF', fontSize: 15, fontWeight: '700' },
+  selHeader: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 20, paddingBottom: 10 },
+  selCount: { fontSize: 14, fontWeight: '600' },
+  selAllText: { color: '#007AFF', fontWeight: '600' },
+  selCard: { flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 12, marginBottom: 8 },
+  selNick: { flex: 1, fontSize: 16, fontWeight: '600', marginLeft: 10 },
+  chk: { width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: '#D1D1D6', alignItems: 'center', justifyContent: 'center' },
+  chkActive: { backgroundColor: '#007AFF', borderColor: '#007AFF' },
+  genBar: { padding: 20 },
+  genBtn: { backgroundColor: '#007AFF', paddingVertical: 14, borderRadius: 12, alignItems: 'center' },
+  genBtnDisabled: { backgroundColor: '#C7C7CC' },
+  genText: { color: '#FFF', fontSize: 16, fontWeight: '700' },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  emptyText: { fontSize: 18, fontWeight: '600', color: '#8E8E93', marginTop: 16 },
-  emptySubtext: { fontSize: 14, color: '#C7C7CC', marginTop: 4 },
-  importExcelBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#007AFF', paddingHorizontal: 20, paddingVertical: 14, borderRadius: 14, marginTop: 20 },
-  importExcelText: { color: '#FFFFFF', fontSize: 16, fontWeight: '700' },
-  templateLink: { fontSize: 14, fontWeight: '600', color: '#007AFF', textDecorationLine: 'underline' },
+  emptyText: { fontSize: 16, marginTop: 12 },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  modalContent: { borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20 },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
+  modalTitle: { fontSize: 20, fontWeight: '800' },
+  scoreInputRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 20, marginBottom: 24 },
+  scoreField: { alignItems: 'center', flex: 1 },
+  scoreLabel: { fontSize: 14, fontWeight: '600', marginBottom: 8, width: '100%', textAlign: 'center' },
+  scoreInput: { width: '100%', height: 50, borderRadius: 12, textAlign: 'center', fontSize: 24, fontWeight: '800' },
+  vsTextModal: { fontSize: 24, fontWeight: '800', marginTop: 25 },
+  sectionTitle: { fontSize: 16, fontWeight: '800', marginBottom: 16, textTransform: 'uppercase' },
+  statRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, borderBottomWidth: 0.5, borderBottomColor: 'rgba(0,0,0,0.05)' },
+  statName: { flex: 1, fontSize: 15, fontWeight: '600', marginLeft: 10 },
+  statControls: { flexDirection: 'row', gap: 15, alignItems: 'center' },
+  statGroup: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  statValueText: { fontSize: 14, fontWeight: '800', minWidth: 35, textAlign: 'center' },
+  saveBtn: { backgroundColor: '#007AFF', paddingVertical: 16, borderRadius: 14, alignItems: 'center', marginTop: 20 },
+  saveBtnText: { color: '#FFF', fontSize: 16, fontWeight: '700' },
+  configContainer: { marginHorizontal: 20, borderRadius: 16, padding: 16, marginBottom: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8, elevation: 2 },
+  configSectionTitle: { fontSize: 13, fontWeight: '800', textTransform: 'uppercase' },
+  matchTypeChip: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10, borderWidth: 1, borderColor: '#E5E5EA', marginRight: 8, flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
+  matchTypeChipActive: { backgroundColor: 'rgba(0,122,255,0.1)', borderColor: '#007AFF' },
+  matchTypeLabel: { fontSize: 13, fontWeight: '600', color: '#8E8E93' },
+  matchTypeLabelActive: { color: '#007AFF' },
+  searchContainer: { flexDirection: 'row', alignItems: 'center', marginHorizontal: 20, borderRadius: 12, paddingHorizontal: 12, height: 44, marginBottom: 12 },
+  searchInput: { flex: 1, fontSize: 16, height: 44 },
+  filtersWrapper: { marginBottom: 12 },
+  filterContainer: { paddingHorizontal: 20, gap: 8, flexDirection: 'row' },
+  filterChip: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(0,0,0,0.05)' },
+  filterChipActive: { backgroundColor: '#007AFF', borderColor: '#007AFF' },
+  filterText: { fontSize: 14, fontWeight: '600' },
+  matchCard: { padding: 16, borderRadius: 16, marginBottom: 10 },
+  matchDateRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 },
+  matchDateText: { fontSize: 12, fontWeight: '600', textTransform: 'uppercase' },
+  matchScoreRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  teamScoreInfo: { flex: 1 },
+  teamScoreName: { fontSize: 15, fontWeight: '700' },
+  scoreBadge: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 10, marginHorizontal: 10 },
+  scoreValue: { fontSize: 18, fontWeight: '900' },
+  teamSectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8, paddingHorizontal: 12, borderRadius: 8, marginBottom: 5 },
+  teamSectionTitle: { fontSize: 14, fontWeight: '800', textTransform: 'uppercase' },
+  matchDescText: { fontSize: 14, fontWeight: '700', marginBottom: 2 },
+  teamsDescContainer: { padding: 12, borderRadius: 12, marginBottom: 8, alignItems: 'center' },
+  teamsDescText: { fontSize: 16, fontWeight: '700' },
+  configHint: { fontSize: 11, marginTop: 4, fontStyle: 'italic', lineHeight: 16 },
+  thresholdBtn: { width: 28, height: 28, borderRadius: 14, backgroundColor: 'rgba(0,122,255,0.1)', alignItems: 'center', justifyContent: 'center', marginHorizontal: 8 },
+  thresholdValue: { fontSize: 16, fontWeight: '800', width: 20, textAlign: 'center' },
+  teamsMetaInfo: { padding: 10, alignItems: 'center', gap: 4 },
+  teamsDateTimeLoc: { alignItems: 'center' },
+  teamsMetaText: { fontSize: 12, fontWeight: '600' },
+  teamStatsSub: { fontSize: 11, color: '#8E8E93', fontWeight: '600' },
+  tpRight: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  swapBtn: { width: 32, height: 32, borderRadius: 16, backgroundColor: 'rgba(0,122,255,0.1)', alignItems: 'center', justifyContent: 'center' },
 });
