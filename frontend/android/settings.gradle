@@ -22,7 +22,7 @@ extensions.configure(com.facebook.react.ReactSettingsExtension) { ex ->
   }
 }
 
-rootProject.name = 'Equiliga'
+rootProject.name = 'Easyliga'
 
 dependencyResolutionManagement {
   versionCatalogs {

@@ -86,9 +86,9 @@ android {
     buildToolsVersion rootProject.ext.buildToolsVersion
     compileSdk rootProject.ext.compileSdkVersion
 
-    namespace 'com.thundermax81.equiliga'
+    namespace 'com.thundermax81.easyliga'
     defaultConfig {
-        applicationId 'com.thundermax81.equiliga'
+        applicationId 'com.thundermax81.easyliga'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
