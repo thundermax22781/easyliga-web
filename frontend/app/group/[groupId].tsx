@@ -689,6 +689,27 @@ export default function GroupDetailScreen() {
       return b.points - a.points;
     });
 
+    // Definizione di tutte le colonne possibili
+    const statsCols = [
+      { id: 'points', short: 'PT', color: dynamicStyles.text.color, getValue: (i: any) => i.points },
+      { id: 'goals', short: 'G', color: '#FF3B30', getValue: (i: any) => i.individual_goals },
+      { id: 'assists', short: 'A', color: '#34C759', getValue: (i: any) => i.individual_assists },
+      { id: 'incisivity', short: 'INC', color: '#FF9500', getValue: (i: any) => i.incisivity },
+      { id: 'bonus', short: 'BON', color: '#5AC8FA', getValue: (i: any) => i.bonus_points },
+      { id: 'mg', short: 'MG', color: dynamicStyles.text.color, getValue: (i: any) => (i.individual_goals / (i.played || 1)).toFixed(1), bold: false },
+      { id: 'ma', short: 'MA', color: dynamicStyles.text.color, getValue: (i: any) => (i.individual_assists / (i.played || 1)).toFixed(1), bold: false },
+      { id: 'ms', short: 'MS', color: dynamicStyles.text.color, getValue: (i: any) => (i.goals_suffered / (i.played || 1)).toFixed(1), bold: false },
+      { id: 'played', short: 'PG', color: dynamicStyles.text.color, getValue: (i: any) => i.played, bold: false },
+      { id: 'won', short: 'V', color: '#34C759', getValue: (i: any) => i.won, bold: false },
+      { id: 'lost', short: 'P', color: '#FF3B30', getValue: (i: any) => i.lost, bold: false },
+      { id: 'drawn', short: 'PA', color: '#FF9500', getValue: (i: any) => i.drawn, bold: false },
+    ];
+
+    // Colonne da mostrare nello ScrollView (tutte tranne quella selezionata)
+    const scrollableCols = statsCols.filter(c => c.id !== sortBy);
+    // Colonna selezionata (da mostrare fissa tra andamento e ScrollView)
+    const selectedCol = statsCols.find(c => c.id === sortBy);
+
     return (
       <View style={{ flex: 1 }}>
         {/* Filtro Ordinamento */}
@@ -718,28 +739,18 @@ export default function GroupDetailScreen() {
 
         {/* Intestazione Classifica */}
         <View style={[styles.pCard, dynamicStyles.card, { borderBottomWidth: 2, paddingVertical: 10 }]}>
-           <View style={{ width: 155, flexDirection: 'row', alignItems: 'center' }}>
+           <View style={{ width: 140, flexDirection: 'row', alignItems: 'center' }}>
              <Text style={{ fontSize: 10, fontWeight: '900', color: '#8E8E93', marginLeft: 5 }}>POS. GIOCATORE</Text>
-             {sortBy !== 'points' && (
-               <View style={{ position: 'absolute', right: 5 }}>
-                 <Text style={{ fontSize: 9, fontWeight: '900', color: currentSort.color }}>{currentSort.short}</Text>
-               </View>
-             )}
            </View>
-           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-             <StatHeader label="PT" />
-             <StatHeader label="G" />
-             <StatHeader label="A" />
-             <StatHeader label="INC" />
-             <StatHeader label="BON" />
-             <StatHeader label="MG" />
-             <StatHeader label="MA" />
-             <StatHeader label="MS" />
-             <StatHeader label="PG" />
-             <StatHeader label="V" />
-             <StatHeader label="P" />
-             <StatHeader label="PA" />
-           </ScrollView>
+
+           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              {/* Colonna selezionata fissa nell'header */}
+              {selectedCol && <StatHeader label={selectedCol.short} color={selectedCol.color} />}
+
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                {scrollableCols.map(c => <StatHeader key={c.id} label={c.short} />)}
+              </ScrollView>
+           </View>
         </View>
 
         <FlatList
@@ -747,7 +758,7 @@ export default function GroupDetailScreen() {
           keyExtractor={(item) => item.player_id}
           renderItem={({ item, index }) => (
             <TouchableOpacity style={[styles.pCard, dynamicStyles.card, { paddingVertical: 12 }]} onPress={() => router.push(`/player/${item.player_id}?groupId=${groupId}`)}>
-              <View style={{ width: 155, flexDirection: 'row', alignItems: 'center', paddingRight: 5 }}>
+              <View style={{ width: 140, flexDirection: 'row', alignItems: 'center', paddingRight: 5 }}>
                 <View style={styles.standingRank}>
                   {index < 3 && sortBy === 'points' ? (
                     <View style={{ alignItems: 'center', justifyContent: 'center' }}>
@@ -766,36 +777,33 @@ export default function GroupDetailScreen() {
                 </View>
                 <Text style={[styles.pNickname, dynamicStyles.text, { fontSize: 13, flex: 1, marginLeft: 8 }]} numberOfLines={1}>{item.nickname}</Text>
 
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  {sortBy !== 'points' && (
-                    <Text style={{ fontSize: 14, fontWeight: '900', color: currentSort.color, width: 30, textAlign: 'right' }}>
-                      {(item as any)[currentSort.key]}
-                    </Text>
-                  )}
-                  {item.last_trend && (
-                    <View style={[styles.trendCircleMini, { backgroundColor: item.last_trend === 'W' ? '#34C759' : item.last_trend === 'D' ? '#FF9500' : '#FF3B30', width: 18, height: 18, borderRadius: 9 }]}>
-                      <Ionicons name={item.last_trend === 'W' ? "arrow-up" : item.last_trend === 'L' ? "arrow-down" : "remove"} size={12} color="#FFF" />
-                    </View>
-                  )}
-                </View>
+                {item.last_trend && (
+                  <View style={[styles.trendCircleMini, { backgroundColor: item.last_trend === 'W' ? '#34C759' : item.last_trend === 'D' ? '#FF9500' : '#FF3B30', width: 18, height: 18, borderRadius: 9, marginLeft: 4 }]}>
+                    <Ionicons name={item.last_trend === 'W' ? "arrow-up" : item.last_trend === 'L' ? "arrow-down" : "remove"} size={12} color="#FFF" />
+                  </View>
+                )}
               </View>
 
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ alignItems: 'center' }}>
-                <StatValue value={item.points} color={dynamicStyles.text.color} />
-                <StatValue value={item.individual_goals} color="#FF3B30" />
-                <StatValue value={item.individual_assists} color="#34C759" />
-                <StatValue value={item.incisivity} color="#FF9500" />
-                <StatValue value={item.bonus_points} color="#5AC8FA" />
-                <StatValue value={(item.individual_goals / (item.played || 1)).toFixed(1)} bold={false} />
-                <StatValue value={(item.individual_assists / (item.played || 1)).toFixed(1)} bold={false} />
-                <StatValue value={(item.goals_suffered / (item.played || 1)).toFixed(1)} bold={false} />
-                <StatValue value={item.played} bold={false} />
-                <StatValue value={item.won} bold={false} color="#34C759" />
-                <StatValue value={item.lost} bold={false} color="#FF3B30" />
-                <StatValue value={item.drawn} bold={false} color="#FF9500" />
-              </ScrollView>
+              <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+                {/* Dato selezionato fisso tra andamento e ScrollView */}
+                {selectedCol && (
+                  <StatValue value={selectedCol.getValue(item)} color={selectedCol.color} bold={selectedCol.bold !== false} />
+                )}
+
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ alignItems: 'center' }}>
+                  {scrollableCols.map(c => (
+                    <StatValue key={c.id} value={c.getValue(item)} color={c.color} bold={c.bold !== false} />
+                  ))}
+                </ScrollView>
+              </View>
             </TouchableOpacity>
           )}
+          contentContainerStyle={{ paddingBottom: 100 }}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadData(true); }} />}
+        />
+      </View>
+    );
+  };
           contentContainerStyle={{ paddingBottom: 100 }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadData(true); }} />}
         />
