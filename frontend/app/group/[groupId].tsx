@@ -278,23 +278,19 @@ export default function GroupDetailScreen() {
     const playerToMove = sourceList[pIdx];
 
     if (playerToMove.role === 'Portiere') {
-      // Cerca il portiere nell'altra squadra
+      // Regola ferrea Portiere: se lo sposto, devo scambiarlo con l'altro portiere (se esiste)
       const targetGkIdx = targetList.findIndex(p => p.role === 'Portiere');
       if (targetGkIdx !== -1) {
-        // Scambia i portieri
         const targetGk = targetList[targetGkIdx];
         sourceList[pIdx] = targetGk;
         targetList[targetGkIdx] = playerToMove;
       } else {
-        // Se non c'è un portiere nell'altra squadra (caso raro), sposta e basta
         sourceList.splice(pIdx, 1);
         targetList.push(playerToMove);
       }
     } else {
-      // Comportamento standard per gli altri ruoli: scambia con l'ultimo giocatore non portiere
+      // MOVIMENTO MANUALE LIBERO: Sposta il giocatore senza bilanciamento automatico
       sourceList.splice(pIdx, 1);
-      const playerFromTarget = targetList.pop();
-      if (playerFromTarget) sourceList.push(playerFromTarget);
       targetList.push(playerToMove);
     }
 
@@ -352,9 +348,8 @@ export default function GroupDetailScreen() {
       setMatchAssists({});
       setTeamAOwnGoals(0);
       setTeamBOwnGoals(0);
-      setMatchDescription('');
-      setMatchDate(new Date());
-      setMatchLocation(teams?.match_location || '');
+      // Rimosso il reset di matchDescription, matchDate e matchLocation
+      // per mantenere i dati inseriti nella scheda "Squadre"
       setEditMatchNameA(teams?.team_a_name || 'Squadra A');
       setEditMatchNameB(teams?.team_b_name || 'Squadra B');
       setEditMatchColorA(teams?.team_a_color || 'Bianca');
@@ -798,12 +793,6 @@ export default function GroupDetailScreen() {
               </View>
             </TouchableOpacity>
           )}
-          contentContainerStyle={{ paddingBottom: 100 }}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadData(true); }} />}
-        />
-      </View>
-    );
-  };
           contentContainerStyle={{ paddingBottom: 100 }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadData(true); }} />}
         />
