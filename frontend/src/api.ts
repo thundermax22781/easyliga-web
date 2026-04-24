@@ -456,7 +456,7 @@ export const restoreFullBackup = async (groupId: string, jsonString: string): Pr
 
 export const JERSEY_COLORS = [{ value: 'Bianca', hex: '#FFFFFF' }, { value: 'Rossa', hex: '#FF3B30' }, { value: 'Blu', hex: '#007AFF' }, { value: 'Verde', hex: '#34C759' }, { value: 'Gialla', hex: '#FFD60A' }, { value: 'Nera', hex: '#1C1C1E' }];
 export const ROLE_COLORS: Record<string, string> = { 'Attaccante': '#FF3B30', 'Mediana': '#34C759', 'Difensore': '#007AFF', 'Portiere': '#FF9500' };
-export const ROLES = ['Attaccante', 'Mediana', 'Difensore', 'Portiere'];
+export const ROLES = ['Portiere', 'Difensore', 'Mediana', 'Attaccante'];
 export const STRENGTH_VALUES = [1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5, 5.5, 6, 6.5, 7, 7.5, 8, 8.5, 9, 9.5, 10];
 export interface TeamResult { team_a: Player[]; team_b: Player[]; team_a_total_strength: number; team_b_total_strength: number; team_a_avg_age: number; team_b_avg_age: number; team_a_name: string; team_b_name: string; team_a_color: string; team_b_color: string; match_location?: string; description?: string; }
 

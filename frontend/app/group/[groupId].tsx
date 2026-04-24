@@ -592,9 +592,9 @@ export default function GroupDetailScreen() {
   };
 
   const renderRoleFilter = (current: string | null, setter: (r: string | null) => void) => (
-    <View style={{ flexDirection: 'row', paddingHorizontal: 12, marginBottom: 16 }}>
+    <View style={{ flexDirection: 'row', paddingHorizontal: 12, marginBottom: 8 }}>
       <View style={{ flexDirection: 'row', flex: 1, borderRadius: 12, overflow: 'hidden', borderWidth: 1, borderColor: isDarkMode ? '#3A3A3C' : '#E5E5EA' }}>
-        {['Attaccante', 'Mediana', 'Difensore', 'Portiere'].map((r, i) => {
+        {['Portiere', 'Difensore', 'Mediana', 'Attaccante'].map((r, i) => {
           const active = current === r;
           return (
             <TouchableOpacity
@@ -602,7 +602,7 @@ export default function GroupDetailScreen() {
               onPress={() => setter(active ? null : r)}
               style={{
                 flex: 1,
-                height: 40,
+                height: 36,
                 backgroundColor: active ? ROLE_COLORS[r] : (isDarkMode ? '#2C2C2E' : '#FFFFFF'),
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -839,13 +839,14 @@ export default function GroupDetailScreen() {
             </View>
           </View>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
-            <View style={[styles.teamScoreInfo, { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-start' }]}>
+            <View style={[styles.teamScoreInfo, { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end' }]}>
+              <Text style={[styles.teamScoreName, dynamicStyles.text, { flex: 1, textAlign: 'right' }]} numberOfLines={1}>{item.team_a_name}</Text>
               <Ionicons
                 name="shirt"
-                size={18}
+                size={28}
                 color={getJerseyHex(item.team_a_color)}
                 style={[
-                  { marginRight: 6 },
+                  { marginLeft: 8 },
                   getJerseyHex(item.team_a_color).toLowerCase() === '#ffffff' && {
                     textShadowColor: 'rgba(0,0,0,0.3)',
                     textShadowOffset: { width: 0, height: 1 },
@@ -853,19 +854,17 @@ export default function GroupDetailScreen() {
                   }
                 ]}
               />
-              <Text style={[styles.teamScoreName, dynamicStyles.text, { flex: 1 }]} numberOfLines={1}>{item.team_a_name}</Text>
             </View>
-            <View style={[styles.scoreBadge, { backgroundColor: isDarkMode ? '#3A3A3C' : '#F2F2F7', minWidth: 60 }]}>
-              <Text style={[styles.scoreValue, dynamicStyles.text]}>{item.team_a_score} - {item.team_b_score}</Text>
+            <View style={[styles.scoreBadge, { backgroundColor: isDarkMode ? '#3A3A3C' : '#F2F2F7', minWidth: 65, height: 38, justifyContent: 'center' }]}>
+              <Text style={[styles.scoreValue, dynamicStyles.text, { fontSize: 18 }]}>{item.team_a_score} - {item.team_b_score}</Text>
             </View>
-            <View style={[styles.teamScoreInfo, { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end' }]}>
-              <Text style={[styles.teamScoreName, dynamicStyles.text, { flex: 1, textAlign: 'right' }]} numberOfLines={1}>{item.team_b_name}</Text>
+            <View style={[styles.teamScoreInfo, { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-start' }]}>
               <Ionicons
                 name="shirt"
-                size={18}
+                size={28}
                 color={getJerseyHex(item.team_b_color)}
                 style={[
-                  { marginLeft: 6 },
+                  { marginRight: 8 },
                   getJerseyHex(item.team_b_color).toLowerCase() === '#ffffff' && {
                     textShadowColor: 'rgba(0,0,0,0.3)',
                     textShadowOffset: { width: 0, height: 1 },
@@ -873,6 +872,7 @@ export default function GroupDetailScreen() {
                   }
                 ]}
               />
+              <Text style={[styles.teamScoreName, dynamicStyles.text, { flex: 1 }]} numberOfLines={1}>{item.team_b_name}</Text>
             </View>
           </View>
         </View>
@@ -1550,7 +1550,7 @@ export default function GroupDetailScreen() {
 
             {activeTab === 'players' && (
               <View style={{ flex: 1 }}>
-                <View style={[styles.searchContainer, dynamicStyles.card, { marginHorizontal: 0, marginTop: 4, marginBottom: 12, borderRadius: 0, borderLeftWidth: 0, borderRightWidth: 0 }]}>
+                <View style={[styles.searchContainer, dynamicStyles.card, { marginHorizontal: 0, marginTop: 4, marginBottom: 8, borderRadius: 0, borderLeftWidth: 0, borderRightWidth: 0 }]}>
                   <Ionicons name="search" size={20} color="#8E8E93" style={{ marginLeft: 16, marginRight: 8 }} />
                   <TextInput style={[styles.searchInput, dynamicStyles.text]} placeholder="Cerca giocatore..." placeholderTextColor={isDarkMode ? "#8E8E93" : "#C7C7CC"} value={search} onChangeText={setSearch} />
                 </View>
@@ -1587,7 +1587,7 @@ export default function GroupDetailScreen() {
                    <TextInput style={[styles.searchInput, dynamicStyles.text]} placeholder="Cerca per selezione..." placeholderTextColor={isDarkMode ? "#8E8E93" : "#C7C7CC"} value={teamSearch} onChangeText={setTeamSearch} />
                  </View>
                  {renderRoleFilter(teamSelectedRole, setTeamSelectedRole)}
-                 <View style={[styles.selHeader, { marginTop: 8, marginBottom: 4 }]}><Text style={[styles.selCount, dynamicStyles.subText]}>{selectedIds.size} / {matchType * 2}</Text><TouchableOpacity onPress={selectAll}><Text style={styles.selAllText}>Tutti</Text></TouchableOpacity></View>
+                 <View style={[styles.selHeader, { marginTop: 0, marginBottom: 4 }]}><Text style={[styles.selCount, dynamicStyles.subText]}>{selectedIds.size} / {matchType * 2}</Text><TouchableOpacity onPress={selectAll}><Text style={styles.selAllText}>Tutti</Text></TouchableOpacity></View>
                  <FlatList data={filteredPlayersForTeams} renderItem={({ item }) => {
                    const isSel = selectedIds.has(item.id);
                    return (
@@ -1735,7 +1735,7 @@ const styles = StyleSheet.create({
   searchContainer: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, height: 44, borderRadius: 12, borderWidth: 1 },
   searchInput: { flex: 1, fontSize: 15 },
   listContent: { paddingHorizontal: 0, paddingBottom: 100 },
-  pCard: { flexDirection: 'row', alignItems: 'center', borderRadius: 0, paddingVertical: 8, paddingHorizontal: 16, marginBottom: 0, borderBottomWidth: 1, borderTopWidth: 0, borderLeftWidth: 0, borderRightWidth: 0 },
+  pCard: { flexDirection: 'row', alignItems: 'center', borderRadius: 0, paddingVertical: 6, paddingHorizontal: 16, marginBottom: 0, borderBottomWidth: 1, borderTopWidth: 0, borderLeftWidth: 0, borderRightWidth: 0 },
   pAvatar: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
   pAvatarText: { fontSize: 14, fontWeight: '800' },
   pInfo: { flex: 1, marginLeft: 10 },
@@ -1749,17 +1749,17 @@ const styles = StyleSheet.create({
   selHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 8 },
   selCount: { fontSize: 13, fontWeight: '700' },
   selAllText: { fontSize: 13, fontWeight: '700', color: '#007AFF' },
-  selCard: { flexDirection: 'row', alignItems: 'center', borderRadius: 0, paddingVertical: 10, paddingHorizontal: 16, marginBottom: 0, borderBottomWidth: 1, borderTopWidth: 0, borderLeftWidth: 0, borderRightWidth: 0 },
+  selCard: { flexDirection: 'row', alignItems: 'center', borderRadius: 0, paddingVertical: 6, paddingHorizontal: 16, marginBottom: 0, borderBottomWidth: 1, borderTopWidth: 0, borderLeftWidth: 0, borderRightWidth: 0 },
   selCardActive: { backgroundColor: 'rgba(0,122,255,0.05)' },
   chk: { width: 20, height: 20, borderRadius: 10, borderWidth: 2, borderColor: '#8E8E93', alignItems: 'center', justifyContent: 'center', marginRight: 10 },
   chkActive: { backgroundColor: '#007AFF', borderColor: '#007AFF' },
   selPlayerInfo: { flex: 1 },
   selNick: { fontSize: 16, fontWeight: '700' },
   selRole: { fontSize: 11, fontWeight: '600' },
-  genBar: { position: 'absolute', bottom: 5, left: 20, right: 20 },
-  genBtn: { backgroundColor: '#007AFF', borderRadius: 16, height: 56, alignItems: 'center', justifyContent: 'center', shadowColor: '#007AFF', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 4 },
+  genBar: { position: 'absolute', bottom: 2, left: 20, right: 20 },
+  genBtn: { backgroundColor: '#007AFF', borderRadius: 16, height: 48, alignItems: 'center', justifyContent: 'center', shadowColor: '#007AFF', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 4 },
   genBtnDisabled: { backgroundColor: '#AEAEB2' },
-  genText: { color: '#FFF', fontSize: 18, fontWeight: '800' },
+  genText: { color: '#FFF', fontSize: 16, fontWeight: '800' },
   standingRank: { width: 30, alignItems: 'center', justifyContent: 'center' },
   rankText: { fontSize: 14, fontWeight: '700' },
   standingStats: { flexDirection: 'row', gap: 12 },
