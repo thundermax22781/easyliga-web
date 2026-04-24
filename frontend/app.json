@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "Equiliga",
-    "slug": "equiliga",
+    "name": "Easyliga",
+    "slug": "easyliga",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "equiliga",
+    "scheme": "easyliga",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
@@ -21,7 +21,7 @@
         "backgroundColor": "#000000"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.thundermax81.equiliga"
+      "package": "com.thundermax81.easyliga"
     },
     "web": {
       "bundler": "metro",
@@ -34,8 +34,8 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/splash-icon.png",
-          "imageWidth": 200,
+          "image": "./assets/images/icon.png",
+          "imageWidth": 250,
           "resizeMode": "contain",
           "backgroundColor": "#000000"
         }

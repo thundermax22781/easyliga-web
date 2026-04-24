@@ -26,6 +26,7 @@ export default function AddPlayerScreen() {
   const { isDarkMode } = useTheme();
   const { groupId } = useLocalSearchParams<{ groupId: string }>();
   const [name, setName] = useState('');
+  const [surname, setSurname] = useState('');
   const [nickname, setNickname] = useState('');
   const [dob, setDob] = useState(new Date(2000, 0, 1));
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -56,7 +57,8 @@ export default function AddPlayerScreen() {
       await savePlayer({
         nickname: nickname.trim(),
         name: name.trim() || undefined,
-        date_of_birth: dob.toISOString().split('T')[0], // Usiamo date_of_birth per coerenza con lo schema Supabase
+        surname: surname.trim() || undefined,
+        date_of_birth: dob.toISOString().split('T')[0],
         role,
         strength,
         group_id: groupId,
@@ -94,13 +96,19 @@ export default function AddPlayerScreen() {
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={[styles.label, dynamicStyles.text]}>Nickname (Nome visualizzato)</Text>
-              <TextInput style={[styles.input, dynamicStyles.input]} value={nickname} onChangeText={setNickname} placeholder="Es. Il Capitano" placeholderTextColor={isDarkMode ? "#8E8E93" : "#C7C7CC"} />
+              <Text style={[styles.label, dynamicStyles.text]}>Nickname</Text>
+              <TextInput style={[styles.input, dynamicStyles.input]} value={nickname} onChangeText={setNickname} placeholder="Nickname" placeholderTextColor={isDarkMode ? "#8E8E93" : "#C7C7CC"} />
             </View>
 
-            <View style={styles.inputGroup}>
-              <Text style={[styles.label, dynamicStyles.text]}>Nome Reale (opzionale)</Text>
-              <TextInput style={[styles.input, dynamicStyles.input]} value={name} onChangeText={setName} placeholder="Mario Rossi" placeholderTextColor={isDarkMode ? "#8E8E93" : "#C7C7CC"} />
+            <View style={{ flexDirection: 'row', gap: 12, marginBottom: 12 }}>
+              <View style={[styles.inputGroup, { flex: 1, marginBottom: 0 }]}>
+                <Text style={[styles.label, dynamicStyles.text]}>Nome (opz.)</Text>
+                <TextInput style={[styles.input, dynamicStyles.input]} value={name} onChangeText={setName} placeholder="Es. Mario" placeholderTextColor={isDarkMode ? "#8E8E93" : "#C7C7CC"} />
+              </View>
+              <View style={[styles.inputGroup, { flex: 1, marginBottom: 0 }]}>
+                <Text style={[styles.label, dynamicStyles.text]}>Cognome (opz.)</Text>
+                <TextInput style={[styles.input, dynamicStyles.input]} value={surname} onChangeText={setSurname} placeholder="Es. Rossi" placeholderTextColor={isDarkMode ? "#8E8E93" : "#C7C7CC"} />
+              </View>
             </View>
 
             <View style={styles.inputGroup}>
@@ -175,22 +183,22 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 12 },
   closeBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   headerTitle: { fontSize: 18, fontWeight: '700' },
-  inputGroup: { marginBottom: 20 },
-  label: { fontSize: 15, fontWeight: '600', marginBottom: 8 },
-  input: { borderWidth: 1, borderRadius: 12, paddingHorizontal: 16, height: 50, fontSize: 17 },
+  inputGroup: { marginBottom: 12 },
+  label: { fontSize: 14, fontWeight: '600', marginBottom: 4 },
+  input: { borderWidth: 1, borderRadius: 12, paddingHorizontal: 16, height: 44, fontSize: 16 },
   datePickerButton: { flex: 1, flexDirection: 'row', alignItems: 'center', marginRight: 12 },
-  dateText: { fontSize: 17 },
+  dateText: { fontSize: 16 },
   ageContainer: { flexDirection: 'row', alignItems: 'center' },
-  ageBox: { width: 65, height: 65, borderRadius: 12, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
-  ageNumber: { fontSize: 22, fontWeight: '800', color: '#007AFF' },
-  ageLabel: { fontSize: 10, fontWeight: '700', marginTop: -2 },
+  ageBox: { width: 54, height: 54, borderRadius: 12, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  ageNumber: { fontSize: 20, fontWeight: '800', color: '#007AFF' },
+  ageLabel: { fontSize: 9, fontWeight: '700', marginTop: -2 },
   roleGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  roleOption: { paddingHorizontal: 18, paddingVertical: 12, borderRadius: 12, borderWidth: 2 },
-  roleOptionText: { fontSize: 15, fontWeight: '600' },
-  strengthPreviewBox: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderWidth: 1, borderRadius: 16, paddingHorizontal: 16, paddingVertical: 12 },
-  strengthDisplay: { alignItems: 'center', justifyContent: 'center', width: 65, height: 65, borderRadius: 12 },
-  strengthNumber: { fontSize: 24, fontWeight: '800' },
-  strengthSubText: { fontSize: 10, fontWeight: '700', marginTop: -2 },
+  roleOption: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10, borderWidth: 1.5 },
+  roleOptionText: { fontSize: 14, fontWeight: '600' },
+  strengthPreviewBox: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderWidth: 1, borderRadius: 16, paddingHorizontal: 12, paddingVertical: 8 },
+  strengthDisplay: { alignItems: 'center', justifyContent: 'center', width: 54, height: 54, borderRadius: 12 },
+  strengthNumber: { fontSize: 22, fontWeight: '800' },
+  strengthSubText: { fontSize: 9, fontWeight: '700', marginTop: -2 },
   saveButton: { backgroundColor: '#007AFF', borderRadius: 14, paddingVertical: 16, alignItems: 'center', justifyContent: 'center', marginTop: 12 },
   saveButtonText: { color: '#FFFFFF', fontSize: 17, fontWeight: '700' },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },

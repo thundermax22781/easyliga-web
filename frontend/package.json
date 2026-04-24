@@ -10,7 +10,8 @@
     "web": "expo start --web",
     "lint": "expo lint",
     "build:bundle": "if not exist \"android\\app\\src\\main\\assets\" mkdir \"android\\app\\src\\main\\assets\" && npx react-native bundle --platform android --dev false --entry-file index.js --bundle-output android/app/src/main/assets/index.android.bundle --assets-dest android/app/src/main/res",
-    "build:apk": "npm run build:bundle && cd android && .\\gradlew assembleRelease"
+    "build:apk": "npm run build:bundle && cd android && .\\gradlew assembleRelease",
+    "build:debug-clean": "cd android && .\\gradlew clean && cd .. && npm run build:bundle && cd android && .\\gradlew assembleDebug"
   },
   "dependencies": {
     "@babel/runtime": "^7.20.6",
@@ -52,6 +53,7 @@
     "react-native-reanimated": "~3.16.1",
     "react-native-safe-area-context": "4.12.0",
     "react-native-screens": "~4.4.0",
+    "react-native-svg": "15.8.0",
     "react-native-view-shot": "4.0.3",
     "react-native-web": "~0.19.13",
     "react-native-webview": "13.12.5",

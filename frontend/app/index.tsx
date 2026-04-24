@@ -20,8 +20,10 @@ import {
   fetchGroups,
   createGroup,
   deleteGroup,
+  leaveGroup,
   updateGroup,
   joinGroup,
+  syncCloudData,
   Group
 } from '../src/api';
 import { useTheme } from '../src/ThemeContext';
@@ -48,6 +50,12 @@ export default function GroupsScreen() {
 
   const loadGroups = async () => {
     try {
+      // Forza una sincronizzazione se siamo online
+      try {
+        await syncCloudData();
+      } catch (e) {
+        console.log("Offline or sync failed, using cache");
+      }
       const data = await fetchGroups();
       setGroups(data);
     } catch (e) {
@@ -91,8 +99,26 @@ export default function GroupsScreen() {
     }
   };
 
-  const handleDeleteGroup = (id: string) => {
-    Alert.alert('Elimina Gruppo', 'Sei sicuro di voler eliminare questo gruppo? I giocatori locali verranno persi.', [
+  const handleLeaveGroup = (id: string) => {
+    Alert.alert('Abbandona Gruppo', 'Vuoi rimuovere questo gruppo dalla tua lista? Non verrà eliminato dal cloud.', [
+      { text: 'Annulla', style: 'cancel' },
+      {
+        text: 'Abbandona',
+        style: 'destructive',
+        onPress: async () => {
+          await leaveGroup(id);
+          loadGroups();
+        },
+      },
+    ]);
+  };
+
+  const handleDeleteGroup = (id: string, storageType: string) => {
+    const message = storageType === 'cloud'
+      ? 'Sei sicuro di voler eliminare definitivamente questo gruppo dal cloud? Tutti i dati andranno persi per tutti gli utenti.'
+      : 'Sei sicuro di voler eliminare questo gruppo? I dati locali verranno persi.';
+
+    Alert.alert('Elimina Gruppo', message, [
       { text: 'Annulla', style: 'cancel' },
       {
         text: 'Elimina',
@@ -117,8 +143,10 @@ export default function GroupsScreen() {
   return (
     <SafeAreaView style={[styles.container, dynamicStyles.container]} edges={['top']}>
       <View style={styles.header}>
-        <Image source={require('../assets/images/react-logo.png')} style={styles.headerLogo} resizeMode="contain" />
-        <Text style={[styles.headerTitle, dynamicStyles.text]}>EQUILIGA</Text>
+        <View style={{ width: 40, height: 40, borderRadius: 20, overflow: 'hidden', backgroundColor: '#FFF', marginRight: 10, borderWidth: 1, borderColor: isDarkMode ? '#3A3A3C' : '#E5E5EA' }}>
+          <Image source={require('../assets/images/icon.png')} style={{ width: 40, height: 40 }} resizeMode="contain" />
+        </View>
+        <Text style={[styles.headerTitle, dynamicStyles.text]}>EASYLIGA</Text>
         <TouchableOpacity onPress={toggleTheme} style={styles.themeToggle}>
           <Ionicons
             name={isDarkMode ? "sunny-outline" : "moon-outline"}
@@ -161,10 +189,10 @@ export default function GroupsScreen() {
             renderItem={({ item }) => (
               <TouchableOpacity
                 style={[styles.groupCard, dynamicStyles.card]}
-                onPress={() => router.push(`/group/${item.id}?name=${encodeURIComponent(item.name)}`)}
+                onPress={() => router.push(`/group/${item.id}?name=${encodeURIComponent(item.name || 'Gruppo')}`)}
                 onLongPress={() => {
                   setEditGroup(item);
-                  setGroupName(item.name);
+                  setGroupName(item.name || '');
                   setModalVisible(true);
                 }}
               >
@@ -176,29 +204,47 @@ export default function GroupsScreen() {
                   />
                 </View>
                 <View style={styles.groupInfo}>
-                  <Text style={[styles.groupName, dynamicStyles.text]}>{item.name}</Text>
+                  <Text style={[styles.groupName, dynamicStyles.text]} numberOfLines={1}>{item.name || 'Senza Nome'}</Text>
                   <View style={styles.groupMeta}>
-                    <Text style={[styles.groupCount, dynamicStyles.subText]}>{item.player_count} giocatori</Text>
-                    <View style={styles.metaDot} />
-                    <Text style={[styles.storageTag, {color: item.storage_type === 'cloud' ? '#34C759' : (isDarkMode ? '#AEAEB2' : '#8E8E93')}]}>
+                    <Text style={[styles.groupCount, dynamicStyles.subText]}>{item.player_count || 0} giocatori</Text>
+                  </View>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 6, gap: 6 }}>
+                    {item.storage_type === 'cloud' && (
+                      <Text style={{ fontSize: 10, fontWeight: '900', color: (item.role === 'owner') ? '#FFB800' : (item.role === 'admin' ? '#007AFF' : '#FF3B30'), textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                        {item.role === 'owner' ? 'Proprietario' : item.role === 'admin' ? 'Amministratore' : 'SOLO LETTURA'}
+                      </Text>
+                    )}
+                    <View style={[styles.metaDot, { width: 3, height: 3, opacity: 0.5, marginHorizontal: 0 }]} />
+                    <Text style={[styles.storageTag, {color: item.storage_type === 'cloud' ? '#34C759' : (isDarkMode ? '#AEAEB2' : '#8E8E93'), fontSize: 10, fontWeight: '800', textTransform: 'uppercase'}]}>
                       {item.storage_type === 'cloud' ? 'Condiviso' : 'Locale'}
                     </Text>
                   </View>
                 </View>
                 <View style={styles.groupActions}>
-                  <TouchableOpacity
-                    onPress={() => {
-                      setEditGroup(item);
-                      setGroupName(item.name);
-                      setModalVisible(true);
-                    }}
-                    style={styles.editBtn}
-                  >
-                    <Ionicons name="create-outline" size={20} color="#007AFF" />
-                  </TouchableOpacity>
-                  <TouchableOpacity onPress={() => handleDeleteGroup(item.id)} style={styles.deleteBtn}>
-                    <Ionicons name="trash-outline" size={20} color="#FF3B30" />
-                  </TouchableOpacity>
+                  {item.role !== 'viewer' && (
+                    <TouchableOpacity
+                      onPress={() => {
+                        setEditGroup(item);
+                        setGroupName(item.name);
+                        setModalVisible(true);
+                      }}
+                      style={styles.editBtn}
+                    >
+                      <Ionicons name="create-outline" size={20} color="#007AFF" />
+                    </TouchableOpacity>
+                  )}
+
+                  {item.storage_type === 'cloud' && (
+                    <TouchableOpacity onPress={() => handleLeaveGroup(item.id)} style={styles.deleteBtn}>
+                      <Ionicons name="log-out-outline" size={20} color="#FF9500" />
+                    </TouchableOpacity>
+                  )}
+
+                  {((item.storage_type === 'cloud' && item.role === 'owner') || item.storage_type === 'local') && (
+                    <TouchableOpacity onPress={() => handleDeleteGroup(item.id, item.storage_type)} style={styles.deleteBtn}>
+                      <Ionicons name="trash-outline" size={20} color="#FF3B30" />
+                    </TouchableOpacity>
+                  )}
                 </View>
               </TouchableOpacity>
             )}
@@ -312,8 +358,8 @@ const styles = StyleSheet.create({
   addBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#007AFF', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 12, gap: 4 },
   addBtnText: { color: '#FFF', fontSize: 14, fontWeight: '700' },
   listContent: { paddingBottom: 100 },
-  groupCard: { flexDirection: 'row', alignItems: 'center', padding: 16, borderRadius: 20, marginBottom: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 10, elevation: 2 },
-  groupIcon: { width: 50, height: 50, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
+  groupCard: { flexDirection: 'row', alignItems: 'center', paddingVertical: 18, paddingHorizontal: 16, borderRadius: 22, marginBottom: 14, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.06, shadowRadius: 12, elevation: 3 },
+  groupIcon: { width: 50, height: 50, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
   groupInfo: { flex: 1, marginLeft: 15 },
   groupName: { fontSize: 18, fontWeight: '700' },
   groupMeta: { flexDirection: 'row', alignItems: 'center', marginTop: 4 },
