@@ -790,56 +790,25 @@ export default function PlayerDetailScreen() {
                 <TouchableOpacity onPress={() => setShowComparisonSelector(false)}><Ionicons name="close" size={28} color={isDarkMode ? "#FFF" : "#1C1C1E"} /></TouchableOpacity>
               </View>
               <View style={{ paddingHorizontal: 20, paddingBottom: 10 }}>
-                <View style={[styles.input, dynamicStyles.input, { flexDirection: 'row', alignItems: 'center', height: 44, paddingHorizontal: 12, marginBottom: 12, borderRadius: 12 }]}>
-                  <Ionicons name="search" size={20} color="#8E8E93" style={{ marginRight: 8 }} />
-                  <TextInput
-                    style={{ flex: 1, color: dynamicStyles.text.color, fontSize: 16 }}
-                    placeholder="Cerca giocatore..."
-                    placeholderTextColor="#8E8E93"
-                    value={comparisonSearch}
-                    onChangeText={setComparisonSearch}
-                  />
+                <View style={[styles.input, dynamicStyles.input, { flexDirection: 'row', alignItems: 'center', height: 44, paddingHorizontal: 12, marginBottom: 12 }]}>
+                  <Ionicons name="search" size={20} color="#8E8E93" style={{ marginRight: 8 }} /><TextInput style={{ flex: 1, color: dynamicStyles.text.color, fontSize: 16 }} placeholder="Cerca giocatore..." placeholderTextColor="#8E8E93" value={comparisonSearch} onChangeText={setComparisonSearch} />
                 </View>
-                <View style={{ flexDirection: 'row', borderRadius: 12, overflow: 'hidden', borderWidth: 1, borderColor: isDarkMode ? '#3A3A3C' : '#E5E5EA' }}>
-                  {ROLES.map((r, i) => (
-                    <TouchableOpacity
-                      key={r}
-                      onPress={() => setComparisonRole(comparisonRole === r ? null : r)}
-                      style={{
-                        flex: 1,
-                        height: 38,
-                        backgroundColor: comparisonRole === r ? getRoleColor(r) : (isDarkMode ? '#2C2C2E' : '#FFFFFF'),
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        borderLeftWidth: i === 0 ? 0 : 1,
-                        borderLeftColor: isDarkMode ? '#3A3A3C' : '#E5E5EA',
-                      }}
-                    >
-                      <Text style={{
-                        color: comparisonRole === r ? '#FFF' : (isDarkMode ? '#AEAEB2' : '#8E8E93'),
-                        fontSize: 8.5,
-                        fontWeight: '900',
-                        textAlign: 'center'
-                      }}>
-                        {r.toUpperCase()}
-                      </Text>
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                  {ROLES.map((r) => (
+                    <TouchableOpacity key={r} onPress={() => setComparisonRole(comparisonRole === r ? null : r)} style={{ flex: 1, height: 36, borderRadius: 10, backgroundColor: comparisonRole === r ? getRoleColor(r) : (isDarkMode ? '#2C2C2E' : '#F2F2F7'), alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: comparisonRole === r ? getRoleColor(r) : (isDarkMode ? '#3A3A3C' : '#E5E5EA') }}>
+                      <Text style={{ color: comparisonRole === r ? '#FFF' : (isDarkMode ? '#AEAEB2' : '#8E8E93'), fontSize: 9, fontWeight: '900' }}>{r.toUpperCase()}</Text>
                     </TouchableOpacity>
                   ))}
                 </View>
               </View>
               <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 20 }}>
-                {allPlayers
-                  .filter(p => (comparisonRole ? p.role === comparisonRole : true) && (comparisonSearch ? p.nickname.toLowerCase().includes(comparisonSearch.toLowerCase()) : true))
-                  .sort((a, b) => a.nickname.localeCompare(b.nickname, 'it', { sensitivity: 'base' }))
-                  .map(p => (
-                    <TouchableOpacity key={p.id} style={[styles.playerSelectItem, { borderBottomColor: isDarkMode ? '#3A3A3C' : '#E5E5EA' }]} onPress={() => handleStartComparison(p)}>
-                      <View style={{ flex: 1, marginLeft: 0 }}>
-                        <Text style={[styles.playerSelectName, dynamicStyles.text, { fontSize: 15, fontWeight: '700' }]}>{p.nickname}</Text>
-                        <Text style={{ fontSize: 10, color: getRoleColor(p.role), fontWeight: '600', textTransform: 'uppercase', marginTop: 1 }}>{p.role}</Text>
-                      </View>
-                      <Ionicons name="chevron-forward" size={18} color="#8E8E93" />
-                    </TouchableOpacity>
-                  ))}
+                {allPlayers.filter(p => (comparisonRole ? p.role === comparisonRole : true) && (comparisonSearch ? p.nickname.toLowerCase().includes(comparisonSearch.toLowerCase()) : true)).map(p => (
+                  <TouchableOpacity key={p.id} style={styles.playerSelectItem} onPress={() => handleStartComparison(p)}>
+                    <View style={[styles.miniAvatar, { backgroundColor: getRoleColor(p.role), marginBottom: 0 }]}><Text style={styles.miniAvatarText}>{getInitials(p.nickname)}</Text></View>
+                    <View style={{ flex: 1, marginLeft: 12 }}><Text style={[styles.playerSelectName, dynamicStyles.text]}>{p.nickname}</Text><Text style={{ fontSize: 12, color: getRoleColor(p.role), fontWeight: '600' }}>{p.role}</Text></View>
+                    <Ionicons name="chevron-forward" size={20} color="#8E8E93" />
+                  </TouchableOpacity>
+                ))}
               </ScrollView>
             </View>
           </View>
@@ -939,7 +908,7 @@ const styles = StyleSheet.create({
   chartTitle: { fontSize: 16, fontWeight: '700', marginBottom: 15, alignSelf: 'flex-start' },
   compHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 30, paddingVertical: 20 },
   compPlayerBox: { alignItems: 'center', width: '40%' },
-  miniAvatar: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', marginBottom: 0 },
+  miniAvatar: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
   miniAvatarText: { color: '#FFF', fontSize: 16, fontWeight: '800' },
   compPlayerName: { fontSize: 16, fontWeight: '800' },
   vsText: { fontSize: 18, fontWeight: '900', fontStyle: 'italic' },
@@ -954,8 +923,8 @@ const styles = StyleSheet.create({
   trendColumn: { gap: 6, alignItems: 'center' },
   trendCircleMini: { width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   trendTextMini: { color: '#FFF', fontSize: 10, fontWeight: '900' },
-  playerSelectItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 20, borderBottomWidth: 0.5 },
-  playerSelectName: { fontSize: 16, fontWeight: '700' },
+  playerSelectItem: { flexDirection: 'row', alignItems: 'center', padding: 15, borderBottomWidth: 0.5, borderBottomColor: '#E5E5EA' },
+  playerSelectName: { flex: 1, fontSize: 17, fontWeight: '600', marginLeft: 12 },
   editContent: { paddingHorizontal: 20, paddingBottom: 40 },
   inputGroup: { marginBottom: 12 },
   label: { fontSize: 14, fontWeight: '600', marginBottom: 4 },

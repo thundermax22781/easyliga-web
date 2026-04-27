@@ -1,7 +1,6 @@
 import { supabase } from './supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
-import { Platform } from 'react-native';
 
 export interface Group {
   id: string;
@@ -383,9 +382,9 @@ export const deleteMatch = async (matchId: string): Promise<void> => {
   }
 };
 
-export const calculateStandings = async (groupId: string, playersData?: Player[], matchesData?: Match[]): Promise<PlayerStats[]> => {
-  const players = playersData || await fetchPlayers({ group_id: groupId });
-  const matches = matchesData || await fetchMatches(groupId);
+export const calculateStandings = async (groupId: string): Promise<PlayerStats[]> => {
+  const players = await fetchPlayers({ group_id: groupId });
+  const matches = await fetchMatches(groupId);
   const groups = await fetchGroups();
   const group = groups.find(g => String(g.id).trim() === String(groupId).trim());
   const statsMap: Record<string, PlayerStats> = {};
@@ -455,18 +454,7 @@ export const restoreFullBackup = async (groupId: string, jsonString: string): Pr
   }
 };
 
-export const JERSEY_COLORS = [
-  { value: 'Bianca', hex: '#FFFFFF' },
-  { value: 'Rossa', hex: '#FF3B30' },
-  { value: 'Blu', hex: '#007AFF' },
-  { value: 'Verde', hex: '#34C759' },
-  { value: 'Gialla', hex: '#FFD60A' },
-  { value: 'Arancione', hex: '#FF9500' },
-  { value: 'Azzurra', hex: '#5AC8FA' },
-  { value: 'Viola', hex: '#5856D6' },
-  { value: 'Marrone', hex: '#A2845E' },
-  { value: 'Nera', hex: '#1C1C1E' }
-];
+export const JERSEY_COLORS = [{ value: 'Bianca', hex: '#FFFFFF' }, { value: 'Rossa', hex: '#FF3B30' }, { value: 'Blu', hex: '#007AFF' }, { value: 'Verde', hex: '#34C759' }, { value: 'Gialla', hex: '#FFD60A' }, { value: 'Nera', hex: '#1C1C1E' }];
 export const ROLE_COLORS: Record<string, string> = { 'Attaccante': '#FF3B30', 'Mediana': '#34C759', 'Difensore': '#007AFF', 'Portiere': '#FF9500' };
 export const ROLES = ['Portiere', 'Difensore', 'Mediana', 'Attaccante'];
 export const STRENGTH_VALUES = [1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5, 5.5, 6, 6.5, 7, 7.5, 8, 8.5, 9, 9.5, 10];
@@ -476,59 +464,57 @@ export const generateTeams = async (playerIds: string[], matchType: number, grou
   const players = await fetchPlayers({ group_id: groupId });
   const selected = players.filter(p => playerIds.includes(p.id));
 
+  // Separa portieri dagli altri
+  const gks = selected.filter(p => p.role === 'Portiere').sort((a, b) => b.strength - a.strength);
+  const others = selected.filter(p => p.role !== 'Portiere');
+
   let bestResult: { tA: Player[], tB: Player[], sA: number, sB: number, diff: number, score: number } | null = null;
 
   // Tentativi multipli per trovare il miglior bilanciamento possibile (minimo scarto)
-  const iterations = 800;
+  const iterations = 500;
   for (let i = 0; i < iterations; i++) {
+    const currentOthers = [...others].sort(() => Math.random() - 0.5); // Shuffle casuale
     const teamA: Player[] = [], teamB: Player[] = [];
     let sA = 0, sB = 0;
-    const remaining: Player[] = [];
 
-    // 1. Distribuzione per Ruoli (Garantisce almeno 1 per ruolo se disponibili >= 2)
-    ROLES.forEach(role => {
-      const inRole = selected.filter(p => p.role === role).sort(() => Math.random() - 0.5);
+    // Distribuisci portieri (1 per squadra)
+    if (gks.length >= 2) {
+      teamA.push(gks[0]); sA += gks[0].strength;
+      teamB.push(gks[1]); sB += gks[1].strength;
+    } else if (gks.length === 1) {
+      teamA.push(gks[0]); sA += gks[0].strength;
+    }
 
-      // Distribuiamo a coppie nei team A e B
-      while (inRole.length >= 2) {
-        const p1 = inRole.pop()!;
-        const p2 = inRole.pop()!;
+    // Distribuisci gli altri in modo greedy basato sullo scarto attuale
+    currentOthers.forEach(p => {
+      // Priorità a chi ha meno forza e meno giocatori (per non creare squadre 4 vs 6)
+      const forceBalance = sA <= sB;
+      const countBalance = teamA.length <= teamB.length;
 
-        // Alterniamo la squadra a cui assegnare il primo della coppia per varietà
-        if (Math.random() > 0.5) {
-          teamA.push(p1); sA += p1.strength;
-          teamB.push(p2); sB += p2.strength;
-        } else {
-          teamB.push(p1); sB += p1.strength;
-          teamA.push(p2); sA += p2.strength;
-        }
-      }
-
-      // Se avanza un giocatore spaiato in quel ruolo, va nel pool dei "rimanenti"
-      if (inRole.length === 1) remaining.push(inRole[0]);
-    });
-
-    // 2. Distribuzione dei Rimanenti (Pool greedy per bilanciare forza e numero)
-    remaining.sort((a, b) => b.strength - a.strength).forEach(p => {
-      // Priorità a chi ha meno giocatori o, a parità di numero, a chi ha meno forza
-      const targetA = teamA.length < teamB.length || (teamA.length === teamB.length && sA <= sB);
-
-      if (targetA) {
-        teamA.push(p); sA += p.strength;
+      // Cerchiamo di bilanciare sia la forza che il numero di componenti
+      if (teamA.length < matchType && (teamB.length >= matchType || forceBalance)) {
+        teamA.push(p);
+        sA += p.strength;
+      } else if (teamB.length < matchType) {
+        teamB.push(p);
+        sB += p.strength;
       } else {
-        teamB.push(p); sB += p.strength;
+        // Se una squadra è già piena (matchType), aggiungiamo all'altra
+        teamA.push(p);
+        sA += p.strength;
       }
     });
 
     const diff = Math.abs(sA - sB);
 
-    // 3. Penalità Identità (Scoraggia la generazione di squadre uguali alle precedenti)
+    // Se abbiamo una configurazione precedente, penalizziamo se è identica
     let identityPenalty = 0;
     if (previousTeamAIds && previousTeamAIds.length > 0) {
       const currentAIds = teamA.map(p => p.id);
       const intersection = currentAIds.filter(id => previousTeamAIds.includes(id));
+      // Se la squadra A è quasi identica alla precedente (tutti tranne 0 o 1 giocatore diversi)
       if (intersection.length >= teamA.length - 1) {
-        identityPenalty = 10; // Malus pesante per evitare ripetizioni
+        identityPenalty = 5; // Aggiungiamo un forte malus alla differenza per scartarla
       }
     }
 
@@ -536,7 +522,7 @@ export const generateTeams = async (playerIds: string[], matchType: number, grou
 
     if (!bestResult || totalScore < bestResult.score) {
       bestResult = { tA: teamA, tB: teamB, sA, sB, diff, score: totalScore };
-      if (totalScore <= 0.2) break; // Ottimo risultato trovato
+      if (totalScore <= 0.5) break;
     }
   }
 
@@ -586,30 +572,6 @@ export const exportPlayersExcel = async (groupId: string) => {
 
 export const scheduleBirthdayNotifications = async () => {
   try {
-    // 1. Controlla e richiedi i permessi (Fondamentale su Android 13+ e iOS)
-    const { status: existingStatus } = await Notifications.getPermissionsAsync();
-    let finalStatus = existingStatus;
-
-    if (existingStatus !== 'granted') {
-      const { status } = await Notifications.requestPermissionsAsync();
-      finalStatus = status;
-    }
-
-    if (finalStatus !== 'granted') return;
-
-    // Configura il canale per Android (Fondamentale per la visibilità)
-    if (Platform.OS === 'android') {
-      await Notifications.setNotificationChannelAsync('default', {
-        name: 'default',
-        importance: Notifications.AndroidImportance.MAX,
-        vibrationPattern: [0, 250, 250, 250],
-        lightColor: '#FF231F7C',
-      });
-    }
-
-    // Cancella notifiche precedenti per evitare doppioni
-    await Notifications.cancelAllScheduledNotificationsAsync();
-
     const groups = await fetchGroups();
     for (const g of groups) {
       const players = await fetchPlayers({ group_id: g.id });
@@ -617,17 +579,14 @@ export const scheduleBirthdayNotifications = async () => {
         if (p.date_of_birth) {
           const dob = new Date(p.date_of_birth);
           const today = new Date();
-
-          // Se è oggi il compleanno
           if (dob.getDate() === today.getDate() && dob.getMonth() === today.getMonth()) {
             await Notifications.scheduleNotificationAsync({
               content: {
                 title: "🎂 Buon Compleanno!",
                 body: `Oggi è il compleanno di ${p.nickname}! Auguri! ⚽`,
                 data: { playerId: p.id },
-                sound: true,
               },
-              trigger: null, // Subito
+              trigger: null, // Subito se è oggi
             });
           }
         }

@@ -43,8 +43,6 @@ import {
   restoreFullBackup,
   ROLE_COLORS,
   JERSEY_COLORS,
-  ROLES,
-  STRENGTH_VALUES,
   Player,
   Match,
   PlayerStats,
@@ -94,13 +92,6 @@ export default function GroupDetailScreen() {
 
   // Settings / Config
   const [showConfig, setShowConfig] = useState(false);
-  const [showColorPicker, setShowColorPicker] = useState<'a' | 'b' | null>(null);
-  const [showNameEditor, setShowNameEditor] = useState<'a' | 'b' | null>(null);
-  const [showPlayerEditor, setShowPlayerEditor] = useState<{ id: string, team: 'a' | 'b' } | null>(null);
-  const [tempRole, setTempRole] = useState('');
-  const [tempStrength, setTempStrength] = useState(5);
-  const [tempTeamName, setTempTeamName] = useState('');
-  const [tempJerseyColor, setTempJerseyColor] = useState('');
   const [importing, setImporting] = useState(false);
   const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'done'>('idle');
   const [hasUnsyncedChanges, setHasUnsyncedChanges] = useState(false);
@@ -132,43 +123,49 @@ export default function GroupDetailScreen() {
   const loadData = async (forceSync = false) => {
     if (!groupId) return;
     try {
-      // 1. Caricamento parallelo ultra-veloce
-      const [p, m, groups] = await Promise.all([
-        fetchPlayers({ group_id: groupId }),
-        fetchMatches(groupId),
-        fetchGroups()
-      ]);
-
-      // Imposta subito i dati (AsyncStorage è quasi istantaneo)
-      setPlayers(p);
-      setMatches(m);
-
+      // 1. Carica immediatamente i dati locali per la massima velocità (Offline-first)
+      const groups = await fetchGroups();
       const currentGroup = groups.find(g => g.id === groupId);
       if (currentGroup) {
         setGroup(currentGroup);
         setMatchType(currentGroup.match_type || 5);
       }
 
+      const [p, m] = await Promise.all([
+        fetchPlayers({ group_id: groupId }),
+        fetchMatches(groupId)
+      ]);
+
+      const s = await calculateStandings(groupId);
+
+      setPlayers(p);
+      setMatches(m);
+      setStandings(s);
+
+      // 2. Rimuovi subito il loader così l'utente vede i dati istantaneamente
       setLoading(false);
       setRefreshing(false);
 
-      // 2. Calcolo classifica in background passando i dati già pronti
-      calculateStandings(groupId, p, m).then(s => {
-        setStandings(s);
-      });
-
-      // 3. Sync Cloud asincrono
+      // 3. Se non è un forceSync, controlla in background se ci sono aggiornamenti nel cloud
       if (!forceSync) {
         checkSyncNeeded(groupId).then(needed => {
           setHasUnsyncedChanges(needed);
         });
       } else {
+        // Se è un forceSync (nuvoletta cliccata), esegui la sincronizzazione vera e propria
         setSyncStatus('syncing');
         await syncCloudData(groupId);
-        const [pU, mU] = await Promise.all([fetchPlayers({ group_id: groupId }), fetchMatches(groupId)]);
-        setPlayers(pU);
-        setMatches(mU);
-        calculateStandings(groupId, pU, mU).then(s => setStandings(s));
+
+        // Ricarica i dati dopo la sincronizzazione
+        const [pUpdated, mUpdated] = await Promise.all([
+          fetchPlayers({ group_id: groupId }),
+          fetchMatches(groupId)
+        ]);
+        const sUpdated = await calculateStandings(groupId);
+
+        setPlayers(pUpdated);
+        setMatches(mUpdated);
+        setStandings(sUpdated);
         setHasUnsyncedChanges(false);
         setSyncStatus('done');
       }
@@ -280,105 +277,51 @@ export default function GroupDetailScreen() {
 
     const playerToMove = sourceList[pIdx];
 
-    const performSwap = () => {
-      if (playerToMove.role === 'Portiere') {
-        const targetGkIdx = targetList.findIndex(p => p.role === 'Portiere');
-        if (targetGkIdx !== -1) {
-          const targetGk = targetList[targetGkIdx];
-          sourceList[pIdx] = targetGk;
-          targetList[targetGkIdx] = playerToMove;
-        } else {
-          sourceList.splice(pIdx, 1);
-          targetList.push(playerToMove);
-        }
+    if (playerToMove.role === 'Portiere') {
+      // Regola ferrea Portiere: se lo sposto, devo scambiarlo con l'altro portiere (se esiste)
+      const targetGkIdx = targetList.findIndex(p => p.role === 'Portiere');
+      if (targetGkIdx !== -1) {
+        const targetGk = targetList[targetGkIdx];
+        sourceList[pIdx] = targetGk;
+        targetList[targetGkIdx] = playerToMove;
       } else {
         sourceList.splice(pIdx, 1);
         targetList.push(playerToMove);
       }
-
-      if (fromTeam === 'a') {
-        newTeams.team_a = sourceList;
-        newTeams.team_b = targetList;
-      } else {
-        newTeams.team_b = sourceList;
-        newTeams.team_a = targetList;
-      }
-
-      newTeams.team_a_total_strength = Number(newTeams.team_a.reduce((acc, p) => acc + p.strength, 0).toFixed(1));
-      newTeams.team_b_total_strength = Number(newTeams.team_b.reduce((acc, p) => acc + p.strength, 0).toFixed(1));
-
-      setTeams(newTeams);
-    };
-
-    // Controllo squilibrio numerico (solo se non è un cambio portiere 1:1)
-    const willBeUneven = playerToMove.role !== 'Portiere' || targetList.findIndex(p => p.role === 'Portiere') === -1;
-
-    if (willBeUneven && sourceList.length - 1 !== targetList.length + 1) {
-       Alert.alert(
-         'Squadre Sbilanciate',
-         `Spostando ${playerToMove.nickname}, una squadra avrà ${sourceList.length - 1} giocatori e l'altra ${targetList.length + 1}. Vuoi procedere?`,
-         [
-           { text: 'Annulla', style: 'cancel' },
-           { text: 'Procedi', onPress: performSwap }
-         ]
-       );
     } else {
-      performSwap();
+      // MOVIMENTO MANUALE LIBERO: Sposta il giocatore senza bilanciamento automatico
+      sourceList.splice(pIdx, 1);
+      targetList.push(playerToMove);
     }
-  };
 
-  const handleOpenPlayerEditor = (player: Player, team: 'a' | 'b') => {
-    setTempRole(player.role);
-    setTempStrength(player.strength);
-    setShowPlayerEditor({ id: player.id, team });
-  };
+    if (fromTeam === 'a') {
+      newTeams.team_a = sourceList;
+      newTeams.team_b = targetList;
+    } else {
+      newTeams.team_b = sourceList;
+      newTeams.team_a = targetList;
+    }
 
-  const handleUpdatePlayerTemp = () => {
-    if (!showPlayerEditor || !teams) return;
-    const newTeams = { ...teams };
-    const teamKey = showPlayerEditor.team === 'a' ? 'team_a' : 'team_b';
-    const strengthKey = showPlayerEditor.team === 'a' ? 'team_a_total_strength' : 'team_b_total_strength';
+    newTeams.team_a_total_strength = Number(newTeams.team_a.reduce((acc, p) => acc + p.strength, 0).toFixed(1));
+    newTeams.team_b_total_strength = Number(newTeams.team_b.reduce((acc, p) => acc + p.strength, 0).toFixed(1));
 
-    newTeams[teamKey] = newTeams[teamKey].map(p =>
-      p.id === showPlayerEditor.id ? { ...p, role: tempRole, strength: tempStrength } : p
-    );
-
-    newTeams[strengthKey] = Number(newTeams[teamKey].reduce((acc, p) => acc + p.strength, 0).toFixed(1));
     setTeams(newTeams);
-    setShowPlayerEditor(null);
-  };
-
-  const handleResetPlayerTemp = () => {
-    if (!showPlayerEditor || !players) return;
-    const originalPlayer = players.find(p => p.id === showPlayerEditor.id);
-    if (originalPlayer) {
-      setTempRole(originalPlayer.role);
-      setTempStrength(originalPlayer.strength);
-    }
   };
 
   const updateTeamColor = (team: 'a' | 'b', color: string) => {
-    if (showResultModal) {
-      if (team === 'a') setEditMatchColorA(color);
-      else setEditMatchColorB(color);
-    } else if (teams) {
-      setTeams({
-        ...teams,
-        [team === 'a' ? 'team_a_color' : 'team_b_color']: color
-      });
-    }
+    if (!teams) return;
+    setTeams({
+      ...teams,
+      [team === 'a' ? 'team_a_color' : 'team_b_color']: color
+    });
   };
 
   const updateTeamName = (team: 'a' | 'b', name: string) => {
-    if (showResultModal) {
-      if (team === 'a') setEditMatchNameA(name);
-      else setEditMatchNameB(name);
-    } else if (teams) {
-      setTeams({
-        ...teams,
-        [team === 'a' ? 'team_a_name' : 'team_b_name']: name
-      });
-    }
+    if (!teams) return;
+    setTeams({
+      ...teams,
+      [team === 'a' ? 'team_a_name' : 'team_b_name']: name
+    });
   };
 
   const handleOpenResultModal = (matchToEdit?: Match) => {
@@ -418,19 +361,7 @@ export default function GroupDetailScreen() {
   const updateMatchStat = (playerId: string, type: 'goals' | 'assists', delta: number) => {
     if (type === 'goals') {
       const current = matchGoals[playerId] || 0;
-      const newValue = Math.max(0, current + delta);
-      const actualDelta = newValue - current;
-
-      setMatchGoals({ ...matchGoals, [playerId]: newValue });
-
-      if (actualDelta !== 0) {
-        const isTeamA = teams?.team_a.some(p => p.id === playerId);
-        if (isTeamA) {
-          setScoreA(prev => Math.max(0, parseInt(prev) + actualDelta).toString());
-        } else {
-          setScoreB(prev => Math.max(0, parseInt(prev) + actualDelta).toString());
-        }
-      }
+      setMatchGoals({ ...matchGoals, [playerId]: Math.max(0, current + delta) });
     } else {
       const current = matchAssists[playerId] || 0;
       setMatchAssists({ ...matchAssists, [playerId]: Math.max(0, current + delta) });
@@ -438,23 +369,8 @@ export default function GroupDetailScreen() {
   };
 
   const updateOwnGoals = (team: 'a' | 'b', delta: number) => {
-    if (team === 'a') {
-      const newVal = Math.max(0, teamAOwnGoals + delta);
-      const actualDelta = newVal - teamAOwnGoals;
-      setTeamAOwnGoals(newVal);
-      if (actualDelta !== 0) {
-        // L'autorete della squadra A va a favore della squadra B
-        setScoreB(prev => Math.max(0, parseInt(prev) + actualDelta).toString());
-      }
-    } else {
-      const newVal = Math.max(0, teamBOwnGoals + delta);
-      const actualDelta = newVal - teamBOwnGoals;
-      setTeamBOwnGoals(newVal);
-      if (actualDelta !== 0) {
-        // L'autorete della squadra B va a favore della squadra A
-        setScoreA(prev => Math.max(0, parseInt(prev) + actualDelta).toString());
-      }
-    }
+    if (team === 'a') setTeamAOwnGoals(Math.max(0, teamAOwnGoals + delta));
+    else setTeamBOwnGoals(Math.max(0, teamBOwnGoals + delta));
   };
 
   const handleSaveResult = async () => {
@@ -714,10 +630,7 @@ export default function GroupDetailScreen() {
   );
 
   const getJerseyHex = (color: string) => JERSEY_COLORS.find(c => c.value === color)?.hex || '#FFFFFF';
-  const getJerseyTextColor = (color: string) => {
-    const lightColors = ['Bianca', 'Gialla', 'Azzurra', 'Arancione'];
-    return lightColors.includes(color) ? '#1C1C1E' : '#FFFFFF';
-  };
+  const getJerseyTextColor = (color: string) => color === 'Bianca' || color === 'Gialla' ? '#1C1C1E' : '#FFFFFF';
   const getInitials = (n: string) => (n || 'G').substring(0, 2).toUpperCase();
 
   const dynamicStyles = {
@@ -730,64 +643,18 @@ export default function GroupDetailScreen() {
     divider: { backgroundColor: isDarkMode ? '#3A3A3C' : '#E5E5EA' }
   };
 
-  const filteredPlayersForTeams = React.useMemo(() => {
-    return players
-      .filter(p =>
-        (teamSelectedRole ? p.role === teamSelectedRole : true) &&
-        (teamSearch ? p.nickname.toLowerCase().includes(teamSearch.toLowerCase()) : true)
-      )
-      .sort((a, b) => a.nickname.localeCompare(b.nickname, 'it', { sensitivity: 'base' }));
-  }, [players, teamSelectedRole, teamSearch]);
+  const filteredPlayersForTeams = players.filter(p =>
+    (teamSelectedRole ? p.role === teamSelectedRole : true) &&
+    (teamSearch ? p.nickname.toLowerCase().includes(teamSearch.toLowerCase()) : true)
+  );
 
-  const filteredPlayersList = React.useMemo(() => {
-    return players
-      .filter(p =>
-        (selectedRole ? p.role === selectedRole : true) &&
-        (search ? p.nickname.toLowerCase().includes(search.toLowerCase()) : true)
-      )
-      .sort((a, b) => a.nickname.localeCompare(b.nickname, 'it', { sensitivity: 'base' }));
-  }, [players, selectedRole, search]);
+  const teamAParticipants = players.filter(p => (editingMatchId ? matches.find(m => m.id === editingMatchId)?.team_a_players : teams?.team_a.map(x => x.id))?.includes(p.id));
+  const teamBParticipants = players.filter(p => (editingMatchId ? matches.find(m => m.id === editingMatchId)?.team_b_players : teams?.team_b.map(x => x.id))?.includes(p.id));
 
-  const teamAParticipants = React.useMemo(() => {
-    if (editingMatchId) {
-      const m = matches.find(x => x.id === editingMatchId);
-      if (!m) return [];
-      return m.team_a_players.map(pid => players.find(p => p.id === pid)).filter(p => !!p) as Player[];
-    }
-    return teams?.team_a || [];
-  }, [editingMatchId, matches, players, teams]);
-
-  const teamBParticipants = React.useMemo(() => {
-    if (editingMatchId) {
-      const m = matches.find(x => x.id === editingMatchId);
-      if (!m) return [];
-      return m.team_b_players.map(pid => players.find(p => p.id === pid)).filter(p => !!p) as Player[];
-    }
-    return teams?.team_b || [];
-  }, [editingMatchId, matches, players, teams]);
-
-  const headerDefs: Record<string, string> = {
-    'PT': 'Punti Totali: calcolati in base a Vittorie (3pt), Pareggi (1pt) e Bonus.',
-    'G': 'Goal: numero totale di reti segnate dal giocatore.',
-    'A': 'Assist: numero totale di passaggi vincenti effettuati.',
-    'INC': 'Incisività: somma di Goal e Assist totali.',
-    'BON': 'Bonus: punti extra ottenuti (Clean Sheet, Man of the Match, ecc.).',
-    'MG': 'Media Goal: rapporto tra goal segnati e partite giocate.',
-    'MA': 'Media Assist: rapporto tra assist effettuati e partite giocate.',
-    'MS': 'Media Subiti: media dei goal subiti dalla squadra quando il giocatore era in campo (Minore è meglio).',
-    'PG': 'Partite Giocate: numero totale di presenze.',
-    'V': 'Vittorie: numero di partite vinte.',
-    'P': 'Sconfitte: numero di partite perse (Minore è meglio).',
-    'X': 'Pareggi: numero di partite terminate in parità.'
-  };
-
-  const StatHeader = ({ label, width = 45, color }: { label: string, width?: number, color?: string }) => (
-    <TouchableOpacity
-      style={{ width, alignItems: 'center' }}
-      onPress={() => Alert.alert(label, headerDefs[label] || '')}
-    >
-      <Text style={{ fontSize: 10, fontWeight: '900', color: color || '#8E8E93' }}>{label}</Text>
-    </TouchableOpacity>
+  const StatHeader = ({ label, width = 45 }: { label: string, width?: number }) => (
+    <View style={{ width, alignItems: 'center' }}>
+      <Text style={{ fontSize: 10, fontWeight: '900', color: '#8E8E93' }}>{label}</Text>
+    </View>
   );
 
   const StatValue = ({ value, width = 45, color, bold = true }: { value: any, width?: number, color?: string, bold?: boolean }) => (
@@ -805,34 +672,15 @@ export default function GroupDetailScreen() {
       { id: 'assists', label: 'Assist', key: 'individual_assists', short: 'A', color: '#34C759' },
       { id: 'incisivity', label: 'Incisività', key: 'incisivity', short: 'INC', color: '#FF9500' },
       { id: 'bonus', label: 'Bonus', key: 'bonus_points', short: 'BON', color: '#5AC8FA' },
-      { id: 'mg', label: 'M. Goal', key: 'individual_goals', short: 'MG', color: isDarkMode ? '#FFF' : '#1C1C1E' },
-      { id: 'ma', label: 'M. Assist', key: 'individual_assists', short: 'MA', color: isDarkMode ? '#FFF' : '#1C1C1E' },
-      { id: 'ms', label: 'M. Subiti', key: 'goals_suffered', short: 'MS', color: isDarkMode ? '#FFF' : '#1C1C1E' },
       { id: 'played', label: 'Partite', key: 'played', short: 'PG', color: '#8E8E93' },
-      { id: 'won', label: 'Vinte', key: 'won', short: 'V', color: '#34C759' },
-      { id: 'lost', label: 'Perse', key: 'lost', short: 'P', color: '#FF3B30' },
-      { id: 'drawn', label: 'Pari', key: 'drawn', short: 'X', color: '#FF9500' },
     ];
 
     const currentSort = sortOptions.find(o => o.id === sortBy) || sortOptions[0];
 
     const sortedData = [...standings].sort((a, b) => {
-      const key = currentSort.key as keyof PlayerStats;
-      let valA = a[key] as number;
-      let valB = b[key] as number;
-
-      // Logica speciale per medie (MG, MA, MS)
-      if (sortBy === 'mg') { valA = a.individual_goals / (a.played || 1); valB = b.individual_goals / (b.played || 1); }
-      if (sortBy === 'ma') { valA = a.individual_assists / (a.played || 1); valB = b.individual_assists / (b.played || 1); }
-      if (sortBy === 'ms') { valA = a.goals_suffered / (a.played || 1); valB = b.goals_suffered / (b.played || 1); }
-
-      // Ordinamento Crescente per Sconfitte (P) e Media Subiti (MS)
-      if (sortBy === 'lost' || sortBy === 'ms') {
-        if (valA !== valB) return valA - valB;
-      } else {
-        if (valB !== valA) return valB - valA;
-      }
-
+      const valA = (a as any)[currentSort.key];
+      const valB = (b as any)[currentSort.key];
+      if (valB !== valA) return valB - valA;
       return b.points - a.points;
     });
 
@@ -849,7 +697,7 @@ export default function GroupDetailScreen() {
       { id: 'played', short: 'PG', color: dynamicStyles.text.color, getValue: (i: any) => i.played, bold: false },
       { id: 'won', short: 'V', color: '#34C759', getValue: (i: any) => i.won, bold: false },
       { id: 'lost', short: 'P', color: '#FF3B30', getValue: (i: any) => i.lost, bold: false },
-      { id: 'drawn', short: 'X', color: '#FF9500', getValue: (i: any) => i.drawn, bold: false },
+      { id: 'drawn', short: 'PA', color: '#FF9500', getValue: (i: any) => i.drawn, bold: false },
     ];
 
     // Colonne da mostrare nello ScrollView (tutte tranne quella selezionata)
@@ -861,33 +709,26 @@ export default function GroupDetailScreen() {
       <View style={{ flex: 1 }}>
         {/* Filtro Ordinamento */}
         <View style={{ paddingHorizontal: 12, marginBottom: 10 }}>
-          <Text style={[dynamicStyles.subText, { fontSize: 10, fontWeight: '800', textTransform: 'uppercase', marginBottom: 6, marginLeft: 4 }]}>Ordina per:</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            <View style={{ flexDirection: 'row', borderRadius: 10, overflow: 'hidden', borderWidth: 1, borderColor: isDarkMode ? '#3A3A3C' : '#E5E5EA' }}>
-              {sortOptions.map((opt, i) => (
-                <TouchableOpacity
-                  key={opt.id}
-                  onPress={() => setSortBy(opt.id)}
-                  style={{
-                    paddingHorizontal: 12,
-                    height: 34,
-                    backgroundColor: sortBy === opt.id ? opt.color : (isDarkMode ? '#2C2C2E' : '#FFFFFF'),
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    borderLeftWidth: i === 0 ? 0 : 1,
-                    borderLeftColor: isDarkMode ? '#3A3A3C' : '#E5E5EA',
-                  }}
-                >
-                  <Text style={{
-                    fontSize: 9.5,
-                    fontWeight: '900',
-                    color: sortBy === opt.id ? (opt.id === 'points' && !isDarkMode ? '#FFF' : (opt.id === 'points' ? '#000' : '#FFF')) : (isDarkMode ? '#AEAEB2' : '#8E8E93')
-                  }}>
-                    {opt.label.toUpperCase()}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
+          <Text style={[dynamicStyles.subText, { fontSize: 10, fontWeight: '800', textTransform: 'uppercase', marginBottom: 8, marginLeft: 4 }]}>Ordina per:</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+            {sortOptions.map((opt) => (
+              <TouchableOpacity
+                key={opt.id}
+                onPress={() => setSortBy(opt.id)}
+                style={{
+                  paddingHorizontal: 12,
+                  paddingVertical: 6,
+                  borderRadius: 15,
+                  backgroundColor: sortBy === opt.id ? opt.color : (isDarkMode ? '#2C2C2E' : '#E5E5EA'),
+                  borderWidth: 1,
+                  borderColor: sortBy === opt.id ? opt.color : 'transparent'
+                }}
+              >
+                <Text style={{ fontSize: 11, fontWeight: '800', color: sortBy === opt.id ? (opt.id === 'points' && !isDarkMode ? '#FFF' : (opt.id === 'points' ? '#000' : '#FFF')) : (isDarkMode ? '#AEAEB2' : '#8E8E93') }}>
+                  {opt.label.toUpperCase()}
+                </Text>
+              </TouchableOpacity>
+            ))}
           </ScrollView>
         </View>
 
@@ -1062,9 +903,85 @@ export default function GroupDetailScreen() {
                   <Text style={dynamicStyles.text}>{matchDate.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}</Text>
                 </TouchableOpacity>
               </View>
-              <View style={{flexDirection: 'row', alignItems: 'center', backgroundColor: isDarkMode ? '#3A3A3C' : '#F2F2F7', borderRadius: 10, paddingHorizontal: 10}}>
+              <View style={{flexDirection: 'row', alignItems: 'center', backgroundColor: isDarkMode ? '#3A3A3C' : '#F2F2F7', borderRadius: 10, paddingHorizontal: 10, marginBottom: 12}}>
                 <Ionicons name="location-outline" size={18} color="#8E8E93" />
                 <TextInput style={[styles.searchInput, dynamicStyles.text, { height: 40, marginLeft: 6 }]} placeholder="Luogo partita..." placeholderTextColor={isDarkMode ? "#8E8E93" : "#C7C7CC"} value={matchLocation} onChangeText={setMatchLocation} />
+              </View>
+
+              <View style={[styles.detailDivider, dynamicStyles.divider, { marginHorizontal: 0, marginBottom: 12, opacity: 0.3 }]} />
+
+              <View style={{ flexDirection: 'row', gap: 10, marginBottom: 12 }}>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.configSectionTitle, dynamicStyles.text, { fontSize: 12, marginBottom: 4 }]}>Nome Squadra A</Text>
+                  <TextInput
+                    style={[styles.searchInput, dynamicStyles.text, { height: 36, backgroundColor: isDarkMode ? '#3A3A3C' : '#F2F2F7', borderRadius: 8, paddingHorizontal: 10, fontSize: 13, fontWeight: '700' }]}
+                    value={teams.team_a_name}
+                    onChangeText={(v) => updateTeamName('a', v)}
+                    placeholder="Squadra A"
+                    placeholderTextColor="#8E8E93"
+                  />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.configSectionTitle, dynamicStyles.text, { fontSize: 12, marginBottom: 4, textAlign: 'right' }]}>Nome Squadra B</Text>
+                  <TextInput
+                    style={[styles.searchInput, dynamicStyles.text, { height: 36, backgroundColor: isDarkMode ? '#3A3A3C' : '#F2F2F7', borderRadius: 8, paddingHorizontal: 10, fontSize: 13, fontWeight: '700', textAlign: 'right' }]}
+                    value={teams.team_b_name}
+                    onChangeText={(v) => updateTeamName('b', v)}
+                    placeholder="Squadra B"
+                    placeholderTextColor="#8E8E93"
+                  />
+                </View>
+              </View>
+
+              <Text style={[styles.configSectionTitle, dynamicStyles.text, { fontSize: 12, marginBottom: 8 }]}>Colori Divise</Text>
+              <View style={{ flexDirection: 'row', gap: 15 }}>
+                <View style={{ flex: 1 }}>
+                  <Text style={[dynamicStyles.subText, { fontSize: 10, marginBottom: 6, fontWeight: '700' }]}>{teams.team_a_name.toUpperCase()}</Text>
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                    {JERSEY_COLORS.map(c => (
+                      <TouchableOpacity
+                        key={c.value}
+                        onPress={() => updateTeamColor('a', c.value)}
+                        style={{
+                          width: 28,
+                          height: 28,
+                          borderRadius: 14,
+                          backgroundColor: c.hex,
+                          borderWidth: teams.team_a_color === c.value ? 3 : 1,
+                          borderColor: teams.team_a_color === c.value ? '#007AFF' : '#D1D1D6',
+                          justifyContent: 'center',
+                          alignItems: 'center'
+                        }}
+                      >
+                        {teams.team_a_color === c.value && <Ionicons name="checkmark" size={16} color={getJerseyTextColor(c.value)} />}
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+
+                <View style={{ flex: 1 }}>
+                  <Text style={[dynamicStyles.subText, { fontSize: 10, marginBottom: 6, fontWeight: '700', textAlign: 'right' }]}>{teams.team_b_name.toUpperCase()}</Text>
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'flex-end' }}>
+                    {JERSEY_COLORS.map(c => (
+                      <TouchableOpacity
+                        key={c.value}
+                        onPress={() => updateTeamColor('b', c.value)}
+                        style={{
+                          width: 28,
+                          height: 28,
+                          borderRadius: 14,
+                          backgroundColor: c.hex,
+                          borderWidth: teams.team_b_color === c.value ? 3 : 1,
+                          borderColor: teams.team_b_color === c.value ? '#007AFF' : '#D1D1D6',
+                          justifyContent: 'center',
+                          alignItems: 'center'
+                        }}
+                      >
+                        {teams.team_b_color === c.value && <Ionicons name="checkmark" size={16} color={getJerseyTextColor(c.value)} />}
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
               </View>
             </View>
           )}
@@ -1076,137 +993,61 @@ export default function GroupDetailScreen() {
             <DateTimePicker value={matchDate} mode="time" display="default" onChange={(e, d) => { setShowTimePicker(false); if(d) setMatchDate(d); }} />
           )}
 
-          <ViewShot ref={viewShotRef} options={{ format: "png", quality: 1.0 }} style={{ backgroundColor: isDarkMode ? '#111111' : '#F8F9FF', padding: sharing ? 20 : 10 }}>
+          <ViewShot ref={viewShotRef} options={{ format: "png", quality: 0.9 }} style={{ backgroundColor: isDarkMode ? '#1C1C1E' : '#F2F2F7', padding: sharing ? 25 : 10 }}>
             <View style={styles.teamsContainer}>
               {sharing && (
-                <View style={{ marginBottom: 25, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: isDarkMode ? '#1C1C1E' : '#FFFFFF', padding: 15, borderRadius: 20, borderWidth: 1, borderColor: isDarkMode ? '#333' : '#E5E5EA' }}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ color: '#007AFF', fontSize: 10, fontWeight: '900', letterSpacing: 2, marginBottom: 4 }}>MATCH PREVIEW</Text>
-                    <Text style={[styles.teamsDescText, { color: isDarkMode ? '#FFFFFF' : '#1C1C1E', fontSize: 22, marginBottom: 4 }]}>
-                      {matchDescription || (teams.description ? teams.description : 'Super Sfida')}
-                    </Text>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+                  <View style={[styles.teamsMetaInfo, { flex: 1, marginBottom: 0 }]}>
+                    {matchDescription ? <Text style={[styles.teamsDescText, { color: isDarkMode ? '#FFFFFF' : '#1C1C1E' }]}>{matchDescription}</Text> : (teams.description ? <Text style={[styles.teamsDescText, { color: isDarkMode ? '#FFFFFF' : '#1C1C1E' }]}>{teams.description}</Text> : null)}
                     <View style={styles.teamsDateTimeLoc}>
-                      <Text style={[styles.teamsMetaText, { color: isDarkMode ? '#AEAEB2' : '#8E8E93', fontSize: 13, fontWeight: '600' }]}>
-                        📅 {matchDate.toLocaleDateString('it-IT', { weekday: 'short', day: 'numeric', month: 'long' })}
+                      <Text style={[styles.teamsMetaText, { color: isDarkMode ? '#AEAEB2' : '#8E8E93', fontSize: 14 }]}>
+                        {matchDate.toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long' })} ore {matchDate.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}
                       </Text>
-                      <Text style={[styles.teamsMetaText, { color: isDarkMode ? '#AEAEB2' : '#8E8E93', fontSize: 13, fontWeight: '600' }]}>
-                        🕒 ore {matchDate.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}
-                        {matchLocation ? ` • 📍 ${matchLocation}` : ''}
-                      </Text>
+                      {matchLocation && <Text style={[styles.teamsMetaText, { color: isDarkMode ? '#AEAEB2' : '#8E8E93', fontSize: 14 }]}>{matchLocation}</Text>}
                     </View>
                   </View>
-                  <View style={{ width: 70, height: 70, borderRadius: 35, overflow: 'hidden', backgroundColor: '#FFF', borderWidth: 2, borderColor: '#007AFF', marginLeft: 10 }}>
-                    <Image source={require('../../assets/images/icon.png')} style={{ width: 70, height: 70 }} resizeMode="contain" />
+                  <View style={{ width: 60, height: 60, borderRadius: 30, overflow: 'hidden', backgroundColor: '#FFF', borderWidth: 1, borderColor: '#E5E5EA' }}>
+                    <Image source={require('../../assets/images/icon.png')} style={{ width: 60, height: 60 }} resizeMode="contain" />
                   </View>
                 </View>
               )}
 
-              {[
-                { team: teams.team_a, name: teams.team_a_name, hex: teamAHex, color: teams.team_a_color, key: 'a' as const, strength: teams.team_a_total_strength, age: teams.team_a_avg_age },
-                { team: teams.team_b, name: teams.team_b_name, hex: teamBHex, color: teams.team_b_color, key: 'b' as const, strength: teams.team_b_total_strength, age: teams.team_b_avg_age }
-              ].map((t, i) => (
-                <React.Fragment key={i}>
-                  <View style={[styles.teamCard, dynamicStyles.card, { borderLeftWidth: 0, borderWidth: sharing ? 2 : 0, borderColor: t.hex, padding: 12, marginBottom: sharing ? 16 : 12, zIndex: 1 }]}>
-                    <View style={[styles.teamHeader, { marginBottom: 10 }]}>
-                      <TouchableOpacity
-                        onPress={() => {
-                          if (!sharing) {
-                            setTempJerseyColor(t.color);
-                            setShowColorPicker(t.key);
-                          }
-                        }}
-                        disabled={sharing}
-                        style={[styles.jerseyBadge, { backgroundColor: t.hex, borderWidth: t.hex === '#FFFFFF' ? 1 : 0, borderColor: '#D1D1D6', width: 36, height: 36 }]}
-                      >
-                        <Ionicons name="shirt" size={18} color={getJerseyTextColor(t.color)} />
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        onPress={() => {
-                          if (!sharing) {
-                            setTempTeamName(t.name);
-                            setShowNameEditor(t.key);
-                          }
-                        }}
-                        disabled={sharing}
-                        style={{ flex: 1 }}
-                      >
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                          <Text style={[styles.teamName, dynamicStyles.text, { fontSize: 18 }]}>{t.name}</Text>
-                          {!sharing && <Ionicons name="pencil" size={14} color="#8E8E93" />}
-                        </View>
-                        <Text style={[styles.teamStatsSub, { fontSize: 11 }]}>{t.strength} Forza • {t.age} Età media</Text>
-                      </TouchableOpacity>
-                      {sharing && (
-                         <View style={{ backgroundColor: t.hex + '20', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10, borderWidth: 1, borderColor: t.hex + '40' }}>
-                            <Text style={{ fontSize: 14, fontWeight: '900', color: t.hex === '#FFFFFF' ? '#8E8E93' : t.hex }}>{t.strength}</Text>
-                         </View>
-                      )}
+              {[ { team: teams.team_a, name: teams.team_a_name, hex: teamAHex, color: teams.team_a_color, key: 'a' as const, strength: teams.team_a_total_strength, age: teams.team_a_avg_age }, { team: teams.team_b, name: teams.team_b_name, hex: teamBHex, color: teams.team_b_color, key: 'b' as const, strength: teams.team_b_total_strength, age: teams.team_b_avg_age } ].map((t, i) => (
+                <View key={i} style={[styles.teamCard, dynamicStyles.card, { borderLeftWidth: 0, borderWidth: sharing ? 2 : 0, borderColor: t.hex, padding: sharing ? 14 : 16, marginBottom: 16 }]}>
+                  <View style={styles.teamHeader}>
+                    <View style={[styles.jerseyBadge, { backgroundColor: t.hex, borderWidth: t.hex === '#FFFFFF' ? 1 : 0, borderColor: '#D1D1D6' }]}><Ionicons name="shirt" size={18} color={getJerseyTextColor(t.color)} /></View>
+                    <View style={{flex: 1}}>
+                      <Text style={[styles.teamName, dynamicStyles.text]}>{t.name}</Text>
+                      <Text style={styles.teamStatsSub}>{t.strength} Forza • {t.age} Età media</Text>
                     </View>
-                    {t.team.map((p) => (
-                      <View key={p.id} style={[styles.teamPlayerRow, { paddingVertical: 4 }]}>
-                        <TouchableOpacity
-                          style={[styles.tpInfo, { marginLeft: 0 }]}
-                          onPress={() => !sharing && handleOpenPlayerEditor(p, t.key)}
-                          disabled={sharing}
-                        >
-                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                            <Text style={[styles.tpName, dynamicStyles.text, { fontSize: 15 }]}>{p.nickname}</Text>
-                            {players.some(op => op.id === p.id && (op.role !== p.role || op.strength !== p.strength)) && (
-                              <Ionicons name="flash" size={14} color="#FF9500" />
-                            )}
+                  </View>
+                  {t.team.map((p) => (
+                    <View key={p.id} style={styles.teamPlayerRow}>
+                      <View style={[styles.tpAvatar, { backgroundColor: ROLE_COLORS[p.role] + '20' }]}><Text style={[styles.tpAvatarText, { color: ROLE_COLORS[p.role] }]}>{getInitials(p.nickname)}</Text></View>
+                      <View style={styles.tpInfo}><Text style={[styles.tpName, dynamicStyles.text]}>{p.nickname}</Text><Text style={[styles.tpRole, { color: ROLE_COLORS[p.role] }]}>{p.role}</Text></View>
+
+                      <View style={styles.tpRight}>
+                        {showIndividualStrength && (
+                          <View style={[styles.pStrBadge, { backgroundColor: isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)', flexDirection: 'row', gap: 8, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 10 }]}>
+                            <View style={{alignItems: 'center'}}><Text style={[styles.tpAge, dynamicStyles.subText, {fontSize: 13, fontWeight: '700'}]}>{p.age}</Text><Text style={styles.pStrLabel}>ANNI</Text></View>
+                            <View style={[styles.pDivider, dynamicStyles.divider, { height: 16 }]} />
+                            <View style={{alignItems: 'center'}}><Text style={[styles.tpStrength, dynamicStyles.text, { fontSize: 17, width: 'auto' }]}>{p.strength}</Text><Text style={styles.pStrLabel}>FRZ</Text></View>
                           </View>
-                          <Text style={[styles.tpRole, { color: ROLE_COLORS[p.role], fontSize: 10 }]}>{p.role}</Text>
-                        </TouchableOpacity>
-
-                        <View style={styles.tpRight}>
-                          {showIndividualStrength && !sharing && (
-                            <View style={[styles.pStrBadge, { backgroundColor: isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)', flexDirection: 'row', gap: 8, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 10 }]}>
-                              <View style={{alignItems: 'center'}}><Text style={[styles.tpAge, dynamicStyles.subText, {fontSize: 12, fontWeight: '700'}]}>{p.age}</Text><Text style={styles.pStrLabel}>ANNI</Text></View>
-                              <View style={[styles.pDivider, dynamicStyles.divider, { height: 16 }]} />
-                              <View style={{alignItems: 'center'}}><Text style={[styles.tpStrength, dynamicStyles.text, { fontSize: 16 }]}>{p.strength}</Text><Text style={styles.pStrLabel}>FRZ</Text></View>
+                        )}
+                        {!sharing && (
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                            <View style={{ gap: -8 }}>
+                              <TouchableOpacity onPress={() => movePlayer(p.id, t.key, 'up')}><Ionicons name="chevron-up" size={22} color="#007AFF" /></TouchableOpacity>
+                              <TouchableOpacity onPress={() => movePlayer(p.id, t.key, 'down')}><Ionicons name="chevron-down" size={22} color="#007AFF" /></TouchableOpacity>
                             </View>
-                          )}
-                          {!sharing && (
-                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                              <View>
-                                <TouchableOpacity onPress={() => movePlayer(p.id, t.key, 'up')} style={{ padding: 2 }}><Ionicons name="chevron-up" size={20} color="#007AFF" /></TouchableOpacity>
-                                <TouchableOpacity onPress={() => movePlayer(p.id, t.key, 'down')} style={{ padding: 2 }}><Ionicons name="chevron-down" size={20} color="#007AFF" /></TouchableOpacity>
-                              </View>
-                              <TouchableOpacity onPress={() => swapPlayer(p.id, t.key)} style={[styles.swapBtn, { padding: 6 }]}><Ionicons name="swap-horizontal" size={20} color="#007AFF" /></TouchableOpacity>
-                            </View>
-                          )}
-                          {sharing && (
-                            <View style={{ alignItems: 'flex-end' }}>
-                              <Text style={[dynamicStyles.text, { fontSize: 14, fontWeight: '800' }]}>{p.strength}</Text>
-                              <Text style={{ fontSize: 7, fontWeight: '800', color: '#8E8E93' }}>FORZA</Text>
-                            </View>
-                          )}
-                        </View>
-                      </View>
-                    ))}
-                  </View>
-                  {i === 0 && sharing && (
-                    <View style={{ alignItems: 'center', marginTop: -35, marginBottom: 5, zIndex: 10, elevation: 10 }}>
-                      <View style={{ backgroundColor: '#007AFF', width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', borderWidth: 3, borderColor: isDarkMode ? '#111111' : '#F8F9FF', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.3, shadowRadius: 3 }}>
-                        <Text style={{ color: '#FFF', fontWeight: '900', fontSize: 12 }}>VS</Text>
+                            <TouchableOpacity onPress={() => swapPlayer(p.id, t.key)} style={styles.swapBtn}><Ionicons name="swap-horizontal" size={20} color="#007AFF" /></TouchableOpacity>
+                          </View>
+                        )}
                       </View>
                     </View>
-                  )}
-                </React.Fragment>
-              ))}
-
-              {sharing && (
-                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 15, gap: 10 }}>
-                  <View style={{ height: 1, flex: 1, backgroundColor: isDarkMode ? '#333' : '#E5E5EA' }} />
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                    <Text style={[dynamicStyles.subText, { fontSize: 9, fontWeight: '800', letterSpacing: 1 }]}>GENERATO CON EASYLIGA</Text>
-                    <View style={{ width: 18, height: 18, borderRadius: 9, overflow: 'hidden', backgroundColor: '#FFF', borderWidth: 1, borderColor: '#E5E5EA' }}>
-                      <Image source={require('../../assets/images/icon.png')} style={{ width: 18, height: 18 }} resizeMode="contain" />
-                    </View>
-                  </View>
-                  <View style={{ height: 1, flex: 1, backgroundColor: isDarkMode ? '#333' : '#E5E5EA' }} />
+                  ))}
                 </View>
-              )}
+              ))}
             </View>
           </ViewShot>
           {isAdminOrOwner && (
@@ -1222,7 +1063,10 @@ export default function GroupDetailScreen() {
 
   const renderPlayerStatRow = (p: Player) => (
     <View key={p.id} style={styles.statRow}>
-      <Text style={[styles.statName, { marginLeft: 0 }, dynamicStyles.text]} numberOfLines={1}>{p.nickname}</Text>
+      <View style={[styles.tpAvatar, { backgroundColor: ROLE_COLORS[p.role] + '20', width: 28, height: 28, borderRadius: 14 }]}>
+        <Text style={[styles.tpAvatarText, { color: ROLE_COLORS[p.role], fontSize: 10 }]}>{getInitials(p.nickname)}</Text>
+      </View>
+      <Text style={[styles.statName, dynamicStyles.text]} numberOfLines={1}>{p.nickname}</Text>
       <View style={styles.statControls}>
         {group?.show_scorers && (
           <View style={styles.statGroup}>
@@ -1324,39 +1168,39 @@ export default function GroupDetailScreen() {
     return (
       <Modal visible={true} transparent={true} animationType="fade">
         <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.9)', justifyContent: 'center', alignItems: 'center' }}>
-          <ViewShot ref={matchViewShotRef} options={{ format: "png", quality: 1.0 }} style={{ width: '95%', backgroundColor: isDarkMode ? '#111111' : '#F8F9FF', padding: 20, borderRadius: 24 }}>
-             <View style={{ marginBottom: 25, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: isDarkMode ? '#1C1C1E' : '#FFFFFF', padding: 15, borderRadius: 20, borderWidth: 1, borderColor: isDarkMode ? '#333' : '#E5E5EA' }}>
-               <View style={{ flex: 1 }}>
-                  <Text style={{ color: '#FF3B30', fontSize: 10, fontWeight: '900', letterSpacing: 2, marginBottom: 4 }}>MATCH RESULT</Text>
-                  <Text style={[styles.teamsDescText, { color: isDarkMode ? '#FFFFFF' : '#1C1C1E', fontSize: 22, marginBottom: 4 }]}>{m.description || 'Risultato Partita'}</Text>
+          <ViewShot ref={matchViewShotRef} options={{ format: "png", quality: 0.9 }} style={{ width: '95%', backgroundColor: isDarkMode ? '#1C1C1E' : '#F2F2F7', padding: 25, borderRadius: 24 }}>
+             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+               <View style={[styles.teamsMetaInfo, { flex: 1, marginBottom: 0 }]}>
+                  {m.description ? <Text style={[styles.teamsDescText, { color: isDarkMode ? '#FFFFFF' : '#1C1C1E', fontSize: 18 }]}>{m.description}</Text> : <Text style={[styles.teamsDescText, { color: isDarkMode ? '#FFFFFF' : '#1C1C1E', fontSize: 18 }]}>Risultato Partita</Text>}
                   <View style={styles.teamsDateTimeLoc}>
-                    <Text style={[styles.teamsMetaText, { color: isDarkMode ? '#AEAEB2' : '#8E8E93', fontSize: 13, fontWeight: '600' }]}>
-                      📅 {new Date(m.date).toLocaleDateString('it-IT', { weekday: 'short', day: 'numeric', month: 'long' })}
+                    <Text style={[styles.teamsMetaText, { color: isDarkMode ? '#AEAEB2' : '#8E8E93', fontSize: 13 }]}>
+                      {new Date(m.date).toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long' })} ore {new Date(m.date).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}
                     </Text>
-                    <Text style={[styles.teamsMetaText, { color: isDarkMode ? '#AEAEB2' : '#8E8E93', fontSize: 13, fontWeight: '600' }]}>
-                      🕒 ore {new Date(m.date).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}
-                      {m.location ? ` • 📍 ${m.location}` : ''}
-                    </Text>
+                    {m.location && (
+                      <View style={{flexDirection: 'row', alignItems: 'center', marginTop: 2}}>
+                        <Ionicons name="location-outline" size={12} color={isDarkMode ? '#AEAEB2' : '#8E8E93'} />
+                        <Text style={[styles.teamsMetaText, { color: isDarkMode ? '#AEAEB2' : '#8E8E93', fontSize: 13, marginLeft: 4 }]}>{m.location}</Text>
+                      </View>
+                    )}
                   </View>
                 </View>
-                <View style={{ width: 70, height: 70, borderRadius: 35, overflow: 'hidden', backgroundColor: '#FFF', borderWidth: 2, borderColor: '#FF3B30', marginLeft: 10 }}>
-                  <Image source={require('../../assets/images/icon.png')} style={{ width: 70, height: 70 }} resizeMode="contain" />
+                <View style={{ width: 60, height: 60, borderRadius: 30, overflow: 'hidden', backgroundColor: '#FFF', borderWidth: 1, borderColor: '#E5E5EA' }}>
+                  <Image source={require('../../assets/images/icon.png')} style={{ width: 60, height: 60 }} resizeMode="contain" />
                 </View>
               </View>
 
-              <View style={[styles.teamCard, dynamicStyles.card, { borderLeftWidth: 0, borderWidth: 2, borderColor: teamAHex, marginBottom: 12, padding: 12, zIndex: 1 }]}>
+              <View style={[styles.teamCard, dynamicStyles.card, { borderLeftWidth: 0, borderWidth: 2, borderColor: teamAHex, marginBottom: 12, padding: 14 }]}>
                  <View style={[styles.teamHeader, { marginBottom: 12 }]}>
-                    <View style={[styles.jerseyBadge, { backgroundColor: teamAHex, borderWidth: teamAHex === '#FFFFFF' ? 1 : 0, borderColor: '#D1D1D6', width: 34, height: 34 }]}>
-                      <Ionicons name="shirt" size={18} color={getJerseyTextColor(m.team_a_color)} />
-                    </View>
+                    <View style={[styles.jerseyBadge, { backgroundColor: teamAHex, borderWidth: teamAHex === '#FFFFFF' ? 1 : 0, borderColor: '#D1D1D6' }]}><Ionicons name="shirt" size={18} color={getJerseyTextColor(m.team_a_color)} /></View>
                     <View style={{flex: 1}}>
-                      <Text style={[styles.teamName, dynamicStyles.text, { fontSize: 17 }]}>{m.team_a_name}</Text>
+                      <Text style={[styles.teamName, dynamicStyles.text, { fontSize: 16 }]}>{m.team_a_name}</Text>
                     </View>
                     <Text style={[dynamicStyles.text, { fontSize: 28, fontWeight: '900' }]}>{m.team_a_score}</Text>
                   </View>
                   {teamAPlayers.map(p => (
-                    <View key={p.id} style={[styles.teamPlayerRow, { paddingVertical: 3 }]}>
-                      <View style={[styles.tpInfo, { marginLeft: 0 }]}><Text style={[styles.tpName, dynamicStyles.text, { fontSize: 14 }]}>{p.nickname}</Text></View>
+                    <View key={p.id} style={[styles.teamPlayerRow, { paddingVertical: 4 }]}>
+                      <View style={[styles.tpAvatar, { backgroundColor: ROLE_COLORS[p.role] + '20', width: 28, height: 28 }]}><Text style={[styles.tpAvatarText, { color: ROLE_COLORS[p.role], fontSize: 10 }]}>{getInitials(p.nickname)}</Text></View>
+                      <View style={styles.tpInfo}><Text style={[styles.tpName, dynamicStyles.text, { fontSize: 14 }]}>{p.nickname}</Text></View>
                       <View style={{ flexDirection: 'row', gap: 10 }}>
                          {(m.goals?.[p.id] || 0) > 0 && (
                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
@@ -1374,32 +1218,25 @@ export default function GroupDetailScreen() {
                     </View>
                   ))}
                   {m.team_a_own_goals > 0 && (
-                    <View style={[styles.teamPlayerRow, { paddingVertical: 2, opacity: 0.7 }]}>
+                    <View style={[styles.teamPlayerRow, { paddingVertical: 4, opacity: 0.7 }]}>
                       <View style={{ flex: 1 }} />
-                      <Text style={[dynamicStyles.subText, { fontSize: 11, fontStyle: 'italic' }]}>{m.team_a_own_goals} Autorete/i</Text>
+                      <Text style={[dynamicStyles.subText, { fontSize: 12, fontStyle: 'italic' }]}>{m.team_a_own_goals} Autorete/i</Text>
                     </View>
                   )}
               </View>
 
-              <View style={{ alignItems: 'center', marginTop: -32, marginBottom: 8, zIndex: 10, elevation: 10 }}>
-                <View style={{ backgroundColor: '#FF3B30', width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', borderWidth: 3, borderColor: isDarkMode ? '#111111' : '#F8F9FF', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.3, shadowRadius: 3 }}>
-                  <Text style={{ color: '#FFF', fontWeight: '900', fontSize: 12 }}>VS</Text>
-                </View>
-              </View>
-
-              <View style={[styles.teamCard, dynamicStyles.card, { borderLeftWidth: 0, borderWidth: 2, borderColor: teamBHex, padding: 12 }]}>
+              <View style={[styles.teamCard, dynamicStyles.card, { borderLeftWidth: 0, borderWidth: 2, borderColor: teamBHex, padding: 14 }]}>
                  <View style={[styles.teamHeader, { marginBottom: 12 }]}>
-                    <View style={[styles.jerseyBadge, { backgroundColor: teamBHex, borderWidth: teamBHex === '#FFFFFF' ? 1 : 0, borderColor: '#D1D1D6', width: 34, height: 34 }]}>
-                      <Ionicons name="shirt" size={18} color={getJerseyTextColor(m.team_b_color)} />
-                    </View>
+                    <View style={[styles.jerseyBadge, { backgroundColor: teamBHex, borderWidth: teamBHex === '#FFFFFF' ? 1 : 0, borderColor: '#D1D1D6' }]}><Ionicons name="shirt" size={18} color={getJerseyTextColor(m.team_b_color)} /></View>
                     <View style={{flex: 1}}>
-                      <Text style={[styles.teamName, dynamicStyles.text, { fontSize: 17 }]}>{m.team_b_name}</Text>
+                      <Text style={[styles.teamName, dynamicStyles.text, { fontSize: 16 }]}>{m.team_b_name}</Text>
                     </View>
                     <Text style={[dynamicStyles.text, { fontSize: 28, fontWeight: '900' }]}>{m.team_b_score}</Text>
                   </View>
                   {teamBPlayers.map(p => (
-                    <View key={p.id} style={[styles.teamPlayerRow, { paddingVertical: 3 }]}>
-                      <View style={[styles.tpInfo, { marginLeft: 0 }]}><Text style={[styles.tpName, dynamicStyles.text, { fontSize: 14 }]}>{p.nickname}</Text></View>
+                    <View key={p.id} style={[styles.teamPlayerRow, { paddingVertical: 4 }]}>
+                      <View style={[styles.tpAvatar, { backgroundColor: ROLE_COLORS[p.role] + '20', width: 28, height: 28 }]}><Text style={[styles.tpAvatarText, { color: ROLE_COLORS[p.role], fontSize: 10 }]}>{getInitials(p.nickname)}</Text></View>
+                      <View style={styles.tpInfo}><Text style={[styles.tpName, dynamicStyles.text, { fontSize: 14 }]}>{p.nickname}</Text></View>
                       <View style={{ flexDirection: 'row', gap: 10 }}>
                          {(m.goals?.[p.id] || 0) > 0 && (
                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
@@ -1417,22 +1254,17 @@ export default function GroupDetailScreen() {
                     </View>
                   ))}
                   {m.team_b_own_goals > 0 && (
-                    <View style={[styles.teamPlayerRow, { paddingVertical: 2, opacity: 0.7 }]}>
+                    <View style={[styles.teamPlayerRow, { paddingVertical: 4, opacity: 0.7 }]}>
                       <View style={{ flex: 1 }} />
-                      <Text style={[dynamicStyles.subText, { fontSize: 11, fontStyle: 'italic' }]}>{m.team_b_own_goals} Autorete/i</Text>
+                      <Text style={[dynamicStyles.subText, { fontSize: 12, fontStyle: 'italic' }]}>{m.team_b_own_goals} Autorete/i</Text>
                     </View>
                   )}
               </View>
-
               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 15, gap: 10 }}>
-                <View style={{ height: 1, flex: 1, backgroundColor: isDarkMode ? '#333' : '#E5E5EA' }} />
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  <Text style={[dynamicStyles.subText, { fontSize: 9, fontWeight: '800', letterSpacing: 1 }]}>GENERATO CON EASYLIGA</Text>
-                  <View style={{ width: 18, height: 18, borderRadius: 9, overflow: 'hidden', backgroundColor: '#FFF', borderWidth: 1, borderColor: '#E5E5EA' }}>
-                    <Image source={require('../../assets/images/icon.png')} style={{ width: 18, height: 18 }} resizeMode="contain" />
-                  </View>
+                <Text style={[dynamicStyles.subText, { fontSize: 10, fontWeight: '700' }]}>GENERATO CON EASYLIGA</Text>
+                <View style={{ width: 24, height: 24, borderRadius: 12, overflow: 'hidden', backgroundColor: '#FFF', borderWidth: 1, borderColor: '#E5E5EA' }}>
+                  <Image source={require('../../assets/images/icon.png')} style={{ width: 24, height: 24 }} resizeMode="contain" />
                 </View>
-                <View style={{ height: 1, flex: 1, backgroundColor: isDarkMode ? '#333' : '#E5E5EA' }} />
               </View>
           </ViewShot>
         </View>
@@ -1679,37 +1511,35 @@ export default function GroupDetailScreen() {
               </View>
             )}
 
-            <View style={[styles.tabsWrapper, { paddingHorizontal: 16, marginBottom: 8 }]}>
-              <View style={{ flexDirection: 'row', borderRadius: 12, overflow: 'hidden', borderWidth: 1, borderColor: isDarkMode ? '#3A3A3C' : '#E5E5EA' }}>
+            <View style={styles.tabsWrapper}>
+              <View style={[styles.filterContainer, { flexDirection: 'row', gap: 6 }]}>
                 {[
                   { id: 'teams', icon: 'flash', label: 'Genera' },
                   { id: 'standings', icon: 'trophy', label: 'Classifica' },
                   { id: 'matches', icon: 'list', label: 'Risultati' }
-                ].map((t, i) => (
+                ].map((t) => (
                   <TouchableOpacity
                     key={t.id}
-                    style={{
-                      flex: 1,
-                      height: 46,
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      backgroundColor: activeTab === t.id ? '#007AFF' : (isDarkMode ? '#2C2C2E' : '#FFFFFF'),
-                      borderLeftWidth: i === 0 ? 0 : 1,
-                      borderLeftColor: isDarkMode ? '#3A3A3C' : '#E5E5EA',
-                    }}
+                    style={[
+                      styles.filterChip,
+                      dynamicStyles.card,
+                      {
+                        flex: 1,
+                        marginRight: 0,
+                        height: 48,
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                      },
+                      activeTab === t.id && { backgroundColor: '#007AFF', borderColor: '#007AFF' }
+                    ]}
                     onPress={() => setActiveTab(activeTab === t.id ? 'players' : t.id as any)}
                   >
                     <Ionicons name={t.icon as any} size={16} color={activeTab === t.id ? '#FFF' : '#8E8E93'} />
                     <Text
-                      style={{
-                        fontSize: 10.5,
-                        fontWeight: '900',
-                        color: activeTab === t.id ? '#FFFFFF' : (isDarkMode ? '#AEAEB2' : '#8E8E93'),
-                        marginLeft: 6,
-                        textTransform: 'uppercase'
-                      }}
+                      style={[styles.filterText, { marginLeft: 4 }, activeTab === t.id ? { color: '#FFFFFF', fontWeight: '900' } : dynamicStyles.text]}
                       numberOfLines={1}
+                      adjustsFontSizeToFit
                     >
                       {t.label}
                     </Text>
@@ -1726,7 +1556,7 @@ export default function GroupDetailScreen() {
                 </View>
                 {renderRoleFilter(selectedRole, setSelectedRole)}
                 <FlatList
-                  data={filteredPlayersList}
+                  data={players.filter(p => (selectedRole ? p.role === selectedRole : true) && (search ? p.nickname.toLowerCase().includes(search.toLowerCase()) : true))}
                   contentContainerStyle={styles.listContent}
                   renderItem={({ item }) => (
                     <TouchableOpacity style={[styles.pCard, dynamicStyles.card]} onPress={() => router.push(`/player/${item.id}?groupId=${groupId}`)}>
@@ -1815,53 +1645,68 @@ export default function GroupDetailScreen() {
 
                 <View style={[styles.detailDivider, dynamicStyles.divider, { marginHorizontal: 0, marginBottom: 20, opacity: 0.3 }]} />
 
-                {[
-                  { participants: teamAParticipants, name: editMatchNameA, color: editMatchColorA, score: scoreA, setScore: setScoreA, ownGoals: teamAOwnGoals, updateOwn: updateOwnGoals, key: 'a' as const },
-                  { participants: teamBParticipants, name: editMatchNameB, color: editMatchColorB, score: scoreB, setScore: setScoreB, ownGoals: teamBOwnGoals, updateOwn: updateOwnGoals, key: 'b' as const }
-                ].map((t, i) => (
-                  <View key={i} style={[styles.teamCard, dynamicStyles.card, { borderLeftWidth: 0, borderWidth: 2, borderColor: getJerseyHex(t.color), padding: 14, marginBottom: 20 }]}>
-                    <View style={[styles.teamHeader, { marginBottom: 15, gap: 10 }]}>
-                      <TouchableOpacity
-                        onPress={() => {
-                          setTempJerseyColor(t.color);
-                          setShowColorPicker(t.key);
-                        }}
-                        style={[styles.jerseyBadge, { backgroundColor: getJerseyHex(t.color), borderWidth: getJerseyHex(t.color) === '#FFFFFF' ? 1 : 0, borderColor: '#D1D1D6', width: 32, height: 32 }]}
-                      >
-                        <Ionicons name="shirt" size={16} color={getJerseyTextColor(t.color)} />
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={{ flex: 1 }}
-                        onPress={() => {
-                          setTempTeamName(t.name);
-                          setShowNameEditor(t.key);
-                        }}
-                      >
-                        <Text style={[styles.teamName, dynamicStyles.text, { fontSize: 16 }]} numberOfLines={1}>{t.name}</Text>
-                      </TouchableOpacity>
-                      <TextInput
-                        style={[styles.scoreInput, dynamicStyles.input, { width: 50, height: 40, fontSize: 20, borderRadius: 8, borderWidth: 1 }]}
-                        keyboardType="numeric"
-                        value={t.score}
-                        onChangeText={t.setScore}
-                      />
-                    </View>
-
-                    {t.participants.map(p => renderPlayerStatRow(p))}
-
-                    <View style={[styles.detailDivider, dynamicStyles.divider, { marginHorizontal: 0, marginVertical: 12, opacity: 0.2 }]} />
-
-                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
-                      <TouchableOpacity onPress={() => t.updateOwn(t.key, -1)}>
-                        <Ionicons name="remove-circle-outline" size={22} color="#8E8E93" />
-                      </TouchableOpacity>
-                      <Text style={[dynamicStyles.text, { fontSize: 13, fontWeight: '700' }]}>{t.ownGoals} Autoreti</Text>
-                      <TouchableOpacity onPress={() => t.updateOwn(t.key, 1)}>
-                        <Ionicons name="add-circle-outline" size={22} color="#FF9500" />
-                      </TouchableOpacity>
+                <View style={{ flexDirection: 'row', gap: 10, marginBottom: 20, paddingHorizontal: 10 }}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.configSectionTitle, dynamicStyles.text, { fontSize: 12, marginBottom: 4 }]}>Nome A</Text>
+                    <TextInput
+                      style={[styles.scoreInput, dynamicStyles.input, { height: 40, fontSize: 14, fontWeight: '700' }]}
+                      value={editMatchNameA}
+                      onChangeText={setEditMatchNameA}
+                    />
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 8 }}>
+                      {JERSEY_COLORS.map(c => (
+                        <TouchableOpacity key={c.value} onPress={() => setEditMatchColorA(c.value)} style={{ width: 20, height: 20, borderRadius: 10, backgroundColor: c.hex, borderWidth: editMatchColorA === c.value ? 2 : 1, borderColor: editMatchColorA === c.value ? '#007AFF' : '#D1D1D6' }} />
+                      ))}
                     </View>
                   </View>
-                ))}
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.configSectionTitle, dynamicStyles.text, { fontSize: 12, marginBottom: 4, textAlign: 'right' }]}>Nome B</Text>
+                    <TextInput
+                      style={[styles.scoreInput, dynamicStyles.input, { height: 40, fontSize: 14, fontWeight: '700', textAlign: 'right' }]}
+                      value={editMatchNameB}
+                      onChangeText={setEditMatchNameB}
+                    />
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 8, justifyContent: 'flex-end' }}>
+                      {JERSEY_COLORS.map(c => (
+                        <TouchableOpacity key={c.value} onPress={() => setEditMatchColorB(c.value)} style={{ width: 20, height: 20, borderRadius: 10, backgroundColor: c.hex, borderWidth: editMatchColorB === c.value ? 2 : 1, borderColor: editMatchColorB === c.value ? '#007AFF' : '#D1D1D6' }} />
+                      ))}
+                    </View>
+                  </View>
+                </View>
+
+                <View style={styles.scoreInputRow}>
+                  <View style={styles.scoreField}>
+                    <Text style={[styles.scoreLabel, dynamicStyles.text]} numberOfLines={1}>{editMatchNameA}</Text>
+                    <TextInput style={[styles.scoreInput, dynamicStyles.input]} keyboardType="numeric" value={scoreA} onChangeText={setScoreA} />
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 10 }}>
+                       <TouchableOpacity onPress={() => updateOwnGoals('a', -1)}><Ionicons name="remove-circle-outline" size={20} color="#8E8E93" /></TouchableOpacity>
+                       <Text style={[dynamicStyles.text, { fontSize: 12, fontWeight: '700' }]}>{teamAOwnGoals} Autoreti</Text>
+                       <TouchableOpacity onPress={() => updateOwnGoals('a', 1)}><Ionicons name="add-circle-outline" size={20} color="#FF9500" /></TouchableOpacity>
+                    </View>
+                  </View>
+                  <Text style={[styles.vsTextModal, dynamicStyles.text]}>-</Text>
+                  <View style={styles.scoreField}>
+                    <Text style={[styles.scoreLabel, dynamicStyles.text, { textAlign: 'right' }]} numberOfLines={1}>{editMatchNameB}</Text>
+                    <TextInput style={[styles.scoreInput, dynamicStyles.input]} keyboardType="numeric" value={scoreB} onChangeText={setScoreB} />
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 10 }}>
+                       <TouchableOpacity onPress={() => updateOwnGoals('b', -1)}><Ionicons name="remove-circle-outline" size={20} color="#8E8E93" /></TouchableOpacity>
+                       <Text style={[dynamicStyles.text, { fontSize: 12, fontWeight: '700' }]}>{teamBOwnGoals} Autoreti</Text>
+                       <TouchableOpacity onPress={() => updateOwnGoals('b', 1)}><Ionicons name="add-circle-outline" size={20} color="#FF9500" /></TouchableOpacity>
+                    </View>
+                  </View>
+                </View>
+
+                <Text style={[styles.configSectionTitle, dynamicStyles.text, { fontSize: 13, marginLeft: 10, marginBottom: 10 }]}>Statistiche Giocatori</Text>
+
+                <View style={{ backgroundColor: getJerseyHex(editMatchColorA) + '15', borderRadius: 16, padding: 10, marginBottom: 15, borderWidth: 1, borderColor: getJerseyHex(editMatchColorA) + '30' }}>
+                  <Text style={[dynamicStyles.text, { fontSize: 11, fontWeight: '900', marginBottom: 10, color: getJerseyTextColor(editMatchColorA) === '#FFFFFF' ? getJerseyHex(editMatchColorA) : '#8E8E93' }]}>{editMatchNameA.toUpperCase()}</Text>
+                  {teamAParticipants.map(p => renderPlayerStatRow(p))}
+                </View>
+
+                <View style={{ backgroundColor: getJerseyHex(editMatchColorB) + '15', borderRadius: 16, padding: 10, marginBottom: 15, borderWidth: 1, borderColor: getJerseyHex(editMatchColorB) + '30' }}>
+                  <Text style={[dynamicStyles.text, { fontSize: 11, fontWeight: '900', marginBottom: 10, color: getJerseyTextColor(editMatchColorB) === '#FFFFFF' ? getJerseyHex(editMatchColorB) : '#8E8E93' }]}>{editMatchNameB.toUpperCase()}</Text>
+                  {teamBParticipants.map(p => renderPlayerStatRow(p))}
+                </View>
               </ScrollView>
               <TouchableOpacity style={styles.saveBtn} onPress={handleSaveResult}><Text style={styles.saveBtnText}>Salva Risultato</Text></TouchableOpacity>
             </View>
@@ -1870,144 +1715,6 @@ export default function GroupDetailScreen() {
 
         {renderMatchSharePreview()}
         {renderStandingsSharePreview()}
-
-        {/* Modal Modifica Nome Squadra */}
-        <Modal visible={!!showNameEditor} transparent animationType="fade">
-          <View style={[styles.modalOverlay, { justifyContent: 'center' }]}>
-            <View style={[styles.modalContent, dynamicStyles.modalContent, { marginHorizontal: 30, borderRadius: 20, padding: 25 }]}>
-              <Text style={[styles.modalTitle, dynamicStyles.text, { marginBottom: 20 }]}>Rinomina Squadra</Text>
-              <TextInput
-                style={[styles.scoreInput, dynamicStyles.input, { height: 50, fontSize: 18, marginBottom: 25 }]}
-                value={tempTeamName}
-                onChangeText={setTempTeamName}
-                autoFocus
-              />
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                <TouchableOpacity style={{ padding: 8 }} onPress={() => setShowNameEditor(null)}>
-                  <Ionicons name="arrow-back" size={32} color="#8E8E93" />
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={{ padding: 8 }}
-                  onPress={() => {
-                    if (showNameEditor) updateTeamName(showNameEditor, tempTeamName);
-                    setShowNameEditor(null);
-                  }}
-                >
-                  <Ionicons name="checkmark-circle" size={48} color="#34C759" />
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-        </Modal>
-
-        {/* Modal Selettore Colore Divisa */}
-        <Modal visible={!!showColorPicker} transparent animationType="fade">
-          <View style={[styles.modalOverlay, { justifyContent: 'center' }]}>
-            <View style={[styles.modalContent, dynamicStyles.modalContent, { marginHorizontal: 30, borderRadius: 20, padding: 25 }]}>
-              <Text style={[styles.modalTitle, dynamicStyles.text, { marginBottom: 20 }]}>Scegli Colore Divisa</Text>
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 15, justifyContent: 'center', marginBottom: 30 }}>
-                {JERSEY_COLORS.map(c => (
-                  <TouchableOpacity
-                    key={c.value}
-                    onPress={() => setTempJerseyColor(c.value)}
-                    style={{
-                      width: 50,
-                      height: 50,
-                      borderRadius: 25,
-                      backgroundColor: c.hex,
-                      borderWidth: tempJerseyColor === c.value ? 4 : 2,
-                      borderColor: tempJerseyColor === c.value ? '#007AFF' : (isDarkMode ? '#3A3A3C' : '#D1D1D6'),
-                      justifyContent: 'center',
-                      alignItems: 'center'
-                    }}
-                  >
-                    <Ionicons name="shirt" size={24} color={getJerseyTextColor(c.value)} />
-                  </TouchableOpacity>
-                ))}
-              </View>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                <TouchableOpacity style={{ padding: 8 }} onPress={() => setShowColorPicker(null)}>
-                  <Ionicons name="arrow-back" size={32} color="#8E8E93" />
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={{ padding: 8 }}
-                  onPress={() => {
-                    if (showColorPicker) updateTeamColor(showColorPicker, tempJerseyColor);
-                    setShowColorPicker(null);
-                  }}
-                >
-                  <Ionicons name="checkmark-circle" size={48} color="#34C759" />
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-        </Modal>
-
-        {/* Modal Modifica Temporanea Giocatore */}
-        <Modal visible={!!showPlayerEditor} transparent animationType="fade">
-          <View style={[styles.modalOverlay, { justifyContent: 'center' }]}>
-            <View style={[styles.modalContent, dynamicStyles.modalContent, { marginHorizontal: 20, borderRadius: 20, padding: 20 }]}>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 }}>
-                <Text style={[styles.modalTitle, dynamicStyles.text, { marginBottom: 0 }]}>Modifica Temporanea</Text>
-                <TouchableOpacity onPress={handleResetPlayerTemp} style={{ padding: 8 }}>
-                  <Ionicons name="reload-circle-outline" size={26} color="#FF9500" />
-                </TouchableOpacity>
-              </View>
-
-              <Text style={[styles.configSectionTitle, dynamicStyles.text, { fontSize: 13, marginBottom: 8 }]}>Ruolo</Text>
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 20 }}>
-                {ROLES.map(r => (
-                  <TouchableOpacity
-                    key={r}
-                    onPress={() => setTempRole(r)}
-                    style={[
-                      styles.filterChip,
-                      { paddingHorizontal: 10, paddingVertical: 6, borderColor: tempRole === r ? ROLE_COLORS[r] : '#D1D1D6', backgroundColor: tempRole === r ? ROLE_COLORS[r] + '20' : 'transparent' }
-                    ]}
-                  >
-                    <Text style={{ fontSize: 12, fontWeight: '700', color: tempRole === r ? ROLE_COLORS[r] : '#8E8E93' }}>{r.toUpperCase()}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-
-              <Text style={[styles.configSectionTitle, dynamicStyles.text, { fontSize: 13, marginBottom: 8 }]}>Forza (FRZ)</Text>
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 25 }}>
-                {STRENGTH_VALUES.map(v => (
-                  <TouchableOpacity
-                    key={v}
-                    onPress={() => setTempStrength(v)}
-                    style={[
-                      styles.filterChip,
-                      {
-                        width: 42,
-                        height: 42,
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        borderColor: tempStrength === v ? '#007AFF' : '#D1D1D6',
-                        backgroundColor: tempStrength === v ? '#007AFF' : 'transparent'
-                      }
-                    ]}
-                  >
-                    <Text style={{ fontSize: 14, fontWeight: '800', color: tempStrength === v ? '#FFF' : dynamicStyles.text.color }}>{v}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                <TouchableOpacity onPress={() => setShowPlayerEditor(null)} style={{ padding: 8 }}>
-                  <Ionicons name="arrow-back" size={32} color="#8E8E93" />
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  onPress={handleUpdatePlayerTemp}
-                  style={{ padding: 8 }}
-                >
-                  <Ionicons name="checkmark-circle" size={48} color="#34C759" />
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-        </Modal>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -2076,12 +1783,12 @@ const styles = StyleSheet.create({
   teamsDescText: { fontSize: 18, fontWeight: '800', marginBottom: 4 },
   teamsDateTimeLoc: { gap: 2 },
   teamsMetaText: { fontSize: 12, fontWeight: '500' },
-  teamCard: { borderRadius: 16, padding: 12, marginBottom: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8, elevation: 2 },
-  teamHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 10, gap: 12 },
+  teamCard: { borderRadius: 16, padding: 16, marginBottom: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8, elevation: 2 },
+  teamHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 16, gap: 12 },
   jerseyBadge: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
   teamName: { fontSize: 18, fontWeight: '800' },
   teamStatsSub: { fontSize: 11, color: '#8E8E93', fontWeight: '600' },
-  teamPlayerRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 4 },
+  teamPlayerRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8 },
   tpAvatar: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
   tpAvatarText: { fontSize: 12, fontWeight: '800' },
   tpInfo: { flex: 1, marginLeft: 12 },
