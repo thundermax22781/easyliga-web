@@ -108,6 +108,7 @@ export interface PlayerStats {
   defense_bonus_count: number;
   tournament_count: number; // Numero di tornei disputati
   tournament_bonus_points: number; // Punti bonus da posizioni tornei
+  tournament_details?: { name: string, points: number, achievements: string[] }[]; // Dettagli per il palmarès
   career_divisor: number; // Partite Campionato + (Tornei * Peso)
   last_trend?: 'W' | 'L' | 'D';
 }
@@ -734,6 +735,7 @@ export const calculateStandings = async (groupId: string, playersData?: Player[]
       defense_bonus_count: 0,
       tournament_count: 0,
       tournament_bonus_points: 0,
+      tournament_details: [],
       career_divisor: 0
     };
     personalBonuses[safeId] = 0;
@@ -770,7 +772,7 @@ export const calculateStandings = async (groupId: string, playersData?: Player[]
         const finalMatch = linkedMatches.find(m => m.match_phase === 'final' && m.status === 'played');
         const thirdPlaceMatch = linkedMatches.find(m => m.match_phase === 'third_place' && m.status === 'played');
 
-        const assignBonus = (tids: string[], amount: number) => {
+        const assignBonus = (tids: string[], amount: number, label: string, tournamentName: string) => {
           if (!tids || amount <= 0) return;
           const nicks = tids.map(tid =>
             linkedPlayers.find(lp => String(lp.id).trim() === String(tid).trim())?.nickname.toLowerCase().trim()
@@ -779,18 +781,31 @@ export const calculateStandings = async (groupId: string, playersData?: Player[]
             if (nicks.includes(p.nickname.toLowerCase().trim())) {
               statsMap[p.id].points += amount;
               statsMap[p.id].bonus_points += amount;
-              (statsMap[p.id] as any).tournament_bonus_points += amount;
+              statsMap[p.id].tournament_bonus_points += amount;
+
+              // Aggiungiamo ai dettagli per il palmarès
+              if (!statsMap[p.id].tournament_details) statsMap[p.id].tournament_details = [];
+              let tDet = statsMap[p.id].tournament_details!.find(d => d.name === tournamentName);
+              if (!tDet) {
+                tDet = { name: tournamentName, points: 0, achievements: [] };
+                statsMap[p.id].tournament_details!.push(tDet);
+              }
+              tDet.points += amount;
+              tDet.achievements.push(label);
             }
           });
         };
+
+        const linkedGroupObj = groups.find(g => String(g.id).trim() === String(linkedId).trim());
+        const tName = linkedGroupObj?.name || `Torneo ${linkedId}`;
 
         if (finalMatch) {
           const sA = Number(finalMatch.team_a_score || 0), sB = Number(finalMatch.team_b_score || 0);
           const pA = Number(finalMatch.team_a_penalties || 0), pB = Number(finalMatch.team_b_penalties || 0);
           const aWins = sA > sB || (sA === sB && pA > pB);
 
-          assignBonus(aWins ? finalMatch.team_a_players : finalMatch.team_b_players, group?.tournament_win_bonus || 0);
-          assignBonus(aWins ? finalMatch.team_b_players : finalMatch.team_a_players, group?.tournament_2nd_bonus || 0);
+          assignBonus(aWins ? finalMatch.team_a_players : finalMatch.team_b_players, group?.tournament_win_bonus || 0, "1° Posto", tName);
+          assignBonus(aWins ? finalMatch.team_b_players : finalMatch.team_a_players, group?.tournament_2nd_bonus || 0, "2° Posto", tName);
         }
 
         if (thirdPlaceMatch) {
@@ -798,8 +813,8 @@ export const calculateStandings = async (groupId: string, playersData?: Player[]
           const pA = Number(thirdPlaceMatch.team_a_penalties || 0), pB = Number(thirdPlaceMatch.team_b_penalties || 0);
           const aWins = sA > sB || (sA === sB && pA > pB);
 
-          assignBonus(aWins ? thirdPlaceMatch.team_a_players : thirdPlaceMatch.team_b_players, group?.tournament_3rd_bonus || 0);
-          assignBonus(aWins ? thirdPlaceMatch.team_b_players : thirdPlaceMatch.team_a_players, group?.tournament_4th_bonus || 0);
+          assignBonus(aWins ? thirdPlaceMatch.team_a_players : thirdPlaceMatch.team_b_players, group?.tournament_3rd_bonus || 0, "3° Posto", tName);
+          assignBonus(aWins ? thirdPlaceMatch.team_b_players : thirdPlaceMatch.team_a_players, group?.tournament_4th_bonus || 0, "4° Posto", tName);
         }
 
         // Calcolo bonus vincitore girone
@@ -807,7 +822,6 @@ export const calculateStandings = async (groupId: string, playersData?: Player[]
         if (groupWinnerBonus > 0) {
           // Cerchiamo info sul numero di gironi. Se non lo abbiamo in cache,
           // fetchMatches ha già caricato i match, quindi possiamo dedurre i gironi dai match stessi
-          const linkedGroupObj = groups.find(g => String(g.id).trim() === String(linkedId).trim());
           let numGironi = linkedGroupObj?.num_groups;
 
           if (!numGironi) {
@@ -842,7 +856,7 @@ export const calculateStandings = async (groupId: string, playersData?: Player[]
               });
 
               if (sortedRank.length > 0) {
-                assignBonus(sortedRank[0].players, groupWinnerBonus);
+                assignBonus(sortedRank[0].players, groupWinnerBonus, `Vincitore Girone ${i}`, tName);
               }
             }
           }
@@ -869,14 +883,14 @@ export const calculateStandings = async (groupId: string, playersData?: Player[]
               const maxG = Math.max(...statsArray.map(([, s]) => s.g));
               if (maxG > 0) {
                 const topPids = statsArray.filter(([, s]) => s.g === maxG).map(([tid]) => tid);
-                assignBonus(topPids, topScorerBonus);
+                assignBonus(topPids, topScorerBonus, "Capocannoniere", tName);
               }
             }
             if (topAssistantBonus > 0) {
               const maxA = Math.max(...statsArray.map(([, s]) => s.a));
               if (maxA > 0) {
                 const topPids = statsArray.filter(([, s]) => s.a === maxA).map(([tid]) => tid);
-                assignBonus(topPids, topAssistantBonus);
+                assignBonus(topPids, topAssistantBonus, "Miglior Assistman", tName);
               }
             }
           }

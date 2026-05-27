@@ -55,6 +55,7 @@ export default function PlayerDetailScreen() {
   const [filteredMatchesInfo, setFilteredMatchesModal] = useState<{ title: string, matches: Match[] } | null>(null);
   const [visibleMatchesCount, setVisibleMatchesCount] = useState(5);
   const [showBonusBreakdown, setShowBonusBreakdown] = useState(false);
+  const [showTournamentBreakdown, setShowTournamentBreakdown] = useState(false);
 
   const championshipMatches = useMemo(() => {
     return playerMatches.filter(m => !(m as any)._isLinked);
@@ -618,7 +619,7 @@ export default function PlayerDetailScreen() {
       rows.push({ label: 'Clean Sheets', value: `${stats.clean_sheets} volte`, points: `+${csPoints}` });
     }
     if (tournamentPoints > 0) {
-      rows.push({ label: 'Posizioni Tornei', value: 'Podi/Gironi', points: `+${tournamentPoints}` });
+      rows.push({ label: 'Risultati Tornei', value: 'Podi e Premi individuali', points: `+${tournamentPoints}`, onPress: () => { setShowBonusBreakdown(false); setShowTournamentBreakdown(true); } });
     }
 
     return (
@@ -633,20 +634,76 @@ export default function PlayerDetailScreen() {
               <TouchableOpacity onPress={() => setShowBonusBreakdown(false)}><Ionicons name="close" size={28} color={dynamicStyles.text.color} /></TouchableOpacity>
             </View>
             <View style={{ padding: 20 }}>
-              {rows.map((r, i) => (
-                <View key={i} style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 12, borderBottomWidth: 0.5, borderBottomColor: 'rgba(0,0,0,0.1)' }}>
-                  <View>
-                    <Text style={[dynamicStyles.text, { fontSize: 15, fontWeight: '700' }]}>{r.label}</Text>
-                    <Text style={[dynamicStyles.subText, { fontSize: 12 }]}>{r.value}</Text>
+              {rows.map((r, i) => {
+                const Content = (
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 12, borderBottomWidth: 0.5, borderBottomColor: 'rgba(0,0,0,0.1)' }}>
+                    <View>
+                      <Text style={[dynamicStyles.text, { fontSize: 15, fontWeight: '700' }]}>{r.label}</Text>
+                      <Text style={[dynamicStyles.subText, { fontSize: 12 }]}>{r.value}</Text>
+                    </View>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                      <Text style={{ fontSize: 18, fontWeight: '900', color: '#5AC8FA' }}>{r.points}</Text>
+                      {r.onPress && <Ionicons name="chevron-forward" size={16} color="#8E8E93" />}
+                    </View>
                   </View>
-                  <Text style={{ fontSize: 18, fontWeight: '900', color: '#5AC8FA' }}>{r.points}</Text>
-                </View>
-              ))}
+                );
+
+                if (r.onPress) {
+                  return (
+                    <TouchableOpacity key={i} onPress={r.onPress} activeOpacity={0.7}>
+                      {Content}
+                    </TouchableOpacity>
+                  );
+                }
+
+                return <View key={i}>{Content}</View>;
+              })}
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 20, paddingTop: 15, borderTopWidth: 2, borderTopColor: '#5AC8FA' }}>
                 <Text style={[dynamicStyles.text, { fontSize: 18, fontWeight: '900' }]}>TOTALE BONUS</Text>
                 <Text style={{ fontSize: 22, fontWeight: '900', color: '#5AC8FA' }}>{stats.bonus_points} PT</Text>
               </View>
             </View>
+          </View>
+        </View>
+      </Modal>
+    );
+  };
+
+  const renderTournamentBreakdownModal = () => {
+    if (!stats || !stats.tournament_details) return null;
+
+    return (
+      <Modal visible={showTournamentBreakdown} animationType="fade" transparent={true} onRequestClose={() => setShowTournamentBreakdown(false)}>
+        <View style={styles.modalOverlay}>
+          <TouchableWithoutFeedback onPress={() => setShowTournamentBreakdown(false)}>
+            <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
+          </TouchableWithoutFeedback>
+          <View style={[styles.modalContent, dynamicStyles.modalContent, { height: 'auto', paddingBottom: 30 }]}>
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, dynamicStyles.text]}>Palmarès Tornei</Text>
+              <TouchableOpacity onPress={() => setShowTournamentBreakdown(false)}><Ionicons name="close" size={28} color={dynamicStyles.text.color} /></TouchableOpacity>
+            </View>
+            <ScrollView style={{ padding: 20, maxHeight: 400 }}>
+              {stats.tournament_details.length > 0 ? stats.tournament_details.map((t, i) => (
+                <View key={i} style={{ marginBottom: 20, padding: 15, backgroundColor: isDarkMode ? '#1C1C1E' : '#F2F2F7', borderRadius: 16 }}>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                    <Text style={[dynamicStyles.text, { fontSize: 16, fontWeight: '900' }]}>{t.name}</Text>
+                    <View style={{ backgroundColor: '#5856D6', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 }}>
+                      <Text style={{ color: '#FFF', fontSize: 12, fontWeight: '900' }}>+{t.points} PT</Text>
+                    </View>
+                  </View>
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+                    {t.achievements.map((ach, j) => (
+                      <View key={j} style={{ backgroundColor: '#5856D620', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, borderWidth: 1, borderColor: '#5856D640' }}>
+                        <Text style={{ color: '#5856D6', fontSize: 11, fontWeight: '800' }}>{ach.toUpperCase()}</Text>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              )) : (
+                <Text style={[dynamicStyles.subText, { textAlign: 'center', marginVertical: 20 }]}>Nessun podio o premio individuale registrato.</Text>
+              )}
+            </ScrollView>
           </View>
         </View>
       </Modal>
@@ -688,10 +745,10 @@ export default function PlayerDetailScreen() {
                 <ProfileStatRow label="Vinte" value={stats.won} color="#34C759" />
                 <ProfileStatRow label="Perse" value={stats.lost} color="#FF3B30" />
                 <ProfileStatRow label="Pareggiate" value={stats.drawn} color="#FF9500" />
+                {stats.tournament_count > 0 && <ProfileStatRow label="Tornei Disputati" value={stats.tournament_count} color="#5856D6" />}
                 <View style={[styles.detailDivider, dynamicStyles.divider, { marginVertical: 3, marginHorizontal: 0 }]} />
                 <ProfileStatRow label="Goal" value={stats.individual_goals} color="#FF3B30" />
                 <ProfileStatRow label="Assist" value={stats.individual_assists} color="#34C759" />
-                {stats.tournament_count > 0 && <ProfileStatRow label="Tornei Disputati" value={stats.tournament_count} color="#5856D6" />}
                 <ProfileStatRow label="Clean Sheets" value={stats.clean_sheets} color="#5AC8FA" />
                 <ProfileStatRow label="Bonus" value={stats.bonus_points} color="#5AC8FA" />
                 {(stats.personal_bonus_count > 0 || stats.defense_bonus_count > 0) && (
@@ -1020,10 +1077,10 @@ export default function PlayerDetailScreen() {
               <ProfileStatRow label="Vinte" value={stats.won} color="#34C759" onPress={() => showFilteredMatches('win')} />
               <ProfileStatRow label="Perse" value={stats.lost} color="#FF3B30" onPress={() => showFilteredMatches('loss')} />
               <ProfileStatRow label="Pareggiate" value={stats.drawn} color="#FF9500" onPress={() => showFilteredMatches('draw')} />
+              {stats.tournament_count > 0 && <ProfileStatRow label="Tornei Disputati" value={stats.tournament_count} color="#5856D6" onPress={() => setShowTournamentBreakdown(true)} />}
               <View style={[styles.detailDivider, dynamicStyles.divider, { marginVertical: 8, marginHorizontal: 0 }]} />
               <ProfileStatRow label="Goal" value={stats.individual_goals} color="#FF3B30" />
               <ProfileStatRow label="Assist" value={stats.individual_assists} color="#34C759" />
-              {stats.tournament_count > 0 && <ProfileStatRow label="Tornei Disputati" value={stats.tournament_count} color="#5856D6" />}
               <ProfileStatRow label="Clean Sheets" value={stats.clean_sheets} color="#5AC8FA" onPress={() => showFilteredMatches('cs')} />
               <ProfileStatRow label="Bonus" value={stats.bonus_points} color="#5AC8FA" onPress={() => setShowBonusBreakdown(true)} />
               {(stats.personal_bonus_count > 0 || stats.defense_bonus_count > 0) && (
@@ -1117,6 +1174,7 @@ export default function PlayerDetailScreen() {
         {renderMatchDetail()}
         {renderFilteredMatchesModal()}
         {renderBonusBreakdownModal()}
+        {renderTournamentBreakdownModal()}
         {renderProfileSharePreview()}
         {renderComparisonSharePreview()}
         <Modal visible={showComparisonSelector} animationType="slide" transparent={true} onRequestClose={() => setShowComparisonSelector(false)}>
