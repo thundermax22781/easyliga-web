@@ -1744,7 +1744,6 @@ export default function GroupDetailScreen() {
   };
 
   const handleShareMatchStats = async (m: Match) => {
-
     setSharingMatch(m);
     setTimeout(async () => {
       try {
@@ -1754,8 +1753,6 @@ export default function GroupDetailScreen() {
         }
       } catch (e) {
         Alert.alert('Errore', 'Impossibile condividere l\'immagine del risultato');
-      } finally {
-        setSharingMatch(null);
       }
     }, 500);
   };
@@ -4860,9 +4857,15 @@ export default function GroupDetailScreen() {
     const teamBPlayers = players.filter(p => m.team_b_players.map(x => String(x).trim()).includes(String(p.id).trim()));
 
     return (
-      <Modal visible={true} transparent={true} animationType="fade">
+      <Modal visible={true} transparent={true} animationType="fade" onRequestClose={() => setSharingMatch(null)}>
         <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.9)', justifyContent: 'center', alignItems: 'center' }}>
-          <ViewShot ref={matchViewShotRef} options={{ format: "png", quality: 1.0 }} style={{ width: '95%', backgroundColor: isDarkMode ? '#111111' : '#F8F9FF', padding: 20, borderRadius: 24 }}>
+          <TouchableOpacity
+            activeOpacity={1}
+            style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
+            onPress={() => setSharingMatch(null)}
+          />
+          <View style={{ width: '95%', maxWidth: 500 }}>
+            <ViewShot ref={matchViewShotRef} options={{ format: "png", quality: 1.0 }} style={{ backgroundColor: isDarkMode ? '#111111' : '#F8F9FF', padding: 20, borderRadius: 24 }}>
              <View style={{ marginBottom: 25, backgroundColor: isDarkMode ? '#1C1C1E' : '#FFFFFF', padding: 15, borderRadius: 20, borderWidth: 1, borderColor: isDarkMode ? '#333' : '#E5E5EA' }}>
                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
                  <View style={{ flex: 1 }}>
