@@ -28,7 +28,8 @@ import RadarChart from '../../src/components/RadarChart';
 export default function PlayerDetailScreen() {
   const router = useRouter();
   const { isDarkMode } = useTheme();
-  const { id, groupId } = useLocalSearchParams<{ id: string; groupId: string }>();
+  const { id, groupId: groupIdParam, groupid: groupidParam } = useLocalSearchParams<{ id: string; groupId: string; groupid: string }>();
+  const groupId = groupIdParam || groupidParam;
   const [player, setPlayer] = useState<Player | null>(null);
   const [stats, setStats] = useState<PlayerStats | null>(null);
   const [playerMatches, setPlayerMatches] = useState<Match[]>([]);
@@ -252,35 +253,39 @@ export default function PlayerDetailScreen() {
   const handleShareStats = async () => {
     if (!player || !stats) return;
     setIsSharingProfile(true);
-    setTimeout(async () => {
-      try {
-        if (profileViewShotRef.current) {
-          const uri = await profileViewShotRef.current.capture();
-          await Sharing.shareAsync(uri);
+    if (Platform.OS !== 'web') {
+      setTimeout(async () => {
+        try {
+          if (profileViewShotRef.current) {
+            const uri = await profileViewShotRef.current.capture();
+            await Sharing.shareAsync(uri);
+          }
+        } catch (e) {
+          Alert.alert('Errore', 'Impossibile condividere il profilo');
+        } finally {
+          setIsSharingProfile(false);
         }
-      } catch (e) {
-        Alert.alert('Errore', 'Impossibile condividere il profilo');
-      } finally {
-        setIsSharingProfile(false);
-      }
-    }, 500);
+      }, 500);
+    }
   };
 
   const handleShareComparison = async () => {
     if (!player || !comparisonPlayer || !stats || !comparisonStats) return;
     setIsSharingComparison(true);
-    setTimeout(async () => {
-      try {
-        if (comparisonViewShotRef.current) {
-          const uri = await comparisonViewShotRef.current.capture();
-          await Sharing.shareAsync(uri);
+    if (Platform.OS !== 'web') {
+      setTimeout(async () => {
+        try {
+          if (comparisonViewShotRef.current) {
+            const uri = await comparisonViewShotRef.current.capture();
+            await Sharing.shareAsync(uri);
+          }
+        } catch (e) {
+          Alert.alert('Errore', 'Impossibile condividere il confronto');
+        } finally {
+          setIsSharingComparison(false);
         }
-      } catch (e) {
-        Alert.alert('Errore', 'Impossibile condividere il confronto');
-      } finally {
-        setIsSharingComparison(false);
-      }
-    }, 500);
+      }, 500);
+    }
   };
 
   const dynamicStyles = useMemo(() => ({
@@ -714,76 +719,104 @@ export default function PlayerDetailScreen() {
   const renderProfileSharePreview = () => {
     if (!isSharingProfile || !player || !stats) return null;
     return (
-      <Modal visible={true} transparent={true} animationType="fade">
+      <Modal visible={true} transparent={true} animationType="fade" onRequestClose={() => setIsSharingProfile(false)}>
         <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.9)', justifyContent: 'center', alignItems: 'center' }}>
-          <ViewShot ref={profileViewShotRef} options={{ format: "png", quality: 0.9 }} style={{ width: '95%', backgroundColor: isDarkMode ? '#1C1C1E' : '#F2F2F7', padding: 12, borderRadius: 24 }}>
-             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                <View style={{ flex: 1 }}>
-                  <Text style={[dynamicStyles.text, { fontSize: 24, fontWeight: '900' }]}>{player.nickname.toUpperCase()}</Text>
-                  <View style={[styles.rolePill, { backgroundColor: getRoleColor(player.role), marginTop: 4, alignSelf: 'flex-start' }]}>
-                    <Text style={styles.rolePillText}>{player.role}</Text>
+          <TouchableWithoutFeedback onPress={() => setIsSharingProfile(false)}>
+            <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
+          </TouchableWithoutFeedback>
+          <View style={{ width: '95%', maxWidth: 400 }}>
+            <ViewShot ref={profileViewShotRef} options={{ format: "png", quality: 0.9 }} style={{ width: 400, backgroundColor: isDarkMode ? '#1C1C1E' : '#F2F2F7', padding: 12, borderRadius: 24 }}>
+               <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[dynamicStyles.text, { fontSize: 24, fontWeight: '900' }]}>{player.nickname.toUpperCase()}</Text>
+                    <View style={[styles.rolePill, { backgroundColor: getRoleColor(player.role), marginTop: 4, alignSelf: 'flex-start' }]}>
+                      <Text style={styles.rolePillText}>{player.role}</Text>
+                    </View>
+                    <View style={[styles.trendRowCompact, { marginTop: 6, gap: 4 }]}>
+                      {championshipMatches.slice(0, 5).reverse().map((m) => {
+                        const isTeamA = m.team_a_players.map(pid => String(pid).trim()).includes(String(id).trim());
+                        const result = m.team_a_score === m.team_b_score ? 'D' : ((isTeamA && m.team_a_score > m.team_b_score) || (!isTeamA && m.team_b_score > m.team_a_score)) ? 'W' : 'L';
+                        return (
+                          <View key={m.id} style={[styles.trendCircleMini, { backgroundColor: result === 'W' ? '#34C759' : result === 'D' ? '#FF9500' : '#FF3B30', width: 18, height: 18, borderRadius: 9 }]}>
+                            <Ionicons name={result === 'W' ? "arrow-up" : result === 'L' ? "arrow-down" : "remove"} size={10} color="#FFF" />
+                          </View>
+                        );
+                      })}
+                    </View>
                   </View>
-                  <View style={[styles.trendRowCompact, { marginTop: 6, gap: 4 }]}>
-                    {championshipMatches.slice(0, 5).reverse().map((m) => {
-                      const isTeamA = m.team_a_players.map(pid => String(pid).trim()).includes(String(id).trim());
-                      const result = m.team_a_score === m.team_b_score ? 'D' : ((isTeamA && m.team_a_score > m.team_b_score) || (!isTeamA && m.team_b_score > m.team_a_score)) ? 'W' : 'L';
-                      return (
-                        <View key={m.id} style={[styles.trendCircleMini, { backgroundColor: result === 'W' ? '#34C759' : result === 'D' ? '#FF9500' : '#FF3B30', width: 18, height: 18, borderRadius: 9 }]}>
-                          <Ionicons name={result === 'W' ? "arrow-up" : result === 'L' ? "arrow-down" : "remove"} size={10} color="#FFF" />
-                        </View>
-                      );
-                    })}
+                  <View style={{ width: 50, height: 50, borderRadius: 25, overflow: 'hidden', backgroundColor: '#FFF', borderWidth: 1, borderColor: '#E5E5EA' }}>
+                    <Image source={require('../../assets/images/icon.png')} style={{ width: 50, height: 50 }} resizeMode="contain" />
                   </View>
-                </View>
-                <View style={{ width: 50, height: 50, borderRadius: 25, overflow: 'hidden', backgroundColor: '#FFF', borderWidth: 1, borderColor: '#E5E5EA' }}>
-                  <Image source={require('../../assets/images/icon.png')} style={{ width: 50, height: 50 }} resizeMode="contain" />
-                </View>
-             </View>
+               </View>
 
-             <View style={[styles.bibbiaCard, dynamicStyles.card, { marginHorizontal: 0, paddingVertical: 4, paddingHorizontal: 12, borderWidth: 2, borderColor: getRoleColor(player.role), marginBottom: 5 }]}>
-                <ProfileStatRow label="Punti" value={stats.points} />
-                <ProfileStatRow label="Partite" value={stats.played} color="#A2845E" />
-                <ProfileStatRow label="Vinte" value={stats.won} color="#34C759" />
-                <ProfileStatRow label="Perse" value={stats.lost} color="#FF3B30" />
-                <ProfileStatRow label="Pareggiate" value={stats.drawn} color="#FF9500" />
-                {stats.tournament_count > 0 && <ProfileStatRow label="Tornei Disputati" value={stats.tournament_count} color="#5856D6" />}
-                <View style={[styles.detailDivider, dynamicStyles.divider, { marginVertical: 3, marginHorizontal: 0 }]} />
-                <ProfileStatRow label="Goal" value={stats.individual_goals} color="#FF3B30" />
-                <ProfileStatRow label="Assist" value={stats.individual_assists} color="#34C759" />
-                <ProfileStatRow label="Clean Sheets" value={stats.clean_sheets} color="#5AC8FA" />
-                <ProfileStatRow label="Bonus" value={stats.bonus_points} color="#5AC8FA" />
-                {(stats.personal_bonus_count > 0 || stats.defense_bonus_count > 0) && (
-                   <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingLeft: 10, marginTop: -2, marginBottom: 4 }}>
-                      <Text style={{ fontSize: 9, color: '#8E8E93', fontWeight: '700' }}>
-                         {stats.personal_bonus_count > 0 ? `PERS: ${stats.personal_bonus_count}` : ''}
-                         {stats.personal_bonus_count > 0 && stats.defense_bonus_count > 0 ? '  |  ' : ''}
-                         {stats.defense_bonus_count > 0 ? `DIF: ${stats.defense_bonus_count}` : ''}
-                      </Text>
-                   </View>
-                )}
-                <ProfileStatRow label="Incisività" value={stats.incisivity} color="#FF9500" />
-                <View style={[styles.detailDivider, dynamicStyles.divider, { marginVertical: 3, marginHorizontal: 0 }]} />
-                <ProfileStatRow label="Media Goal Fatti" value={stats.individual_goals / (stats.career_divisor || 1)} color="#FF3B30" />
-                <ProfileStatRow label="Media Assist Fatti" value={stats.individual_assists / (stats.career_divisor || 1)} color="#34C759" />
-                <ProfileStatRow label="Media Subiti" value={stats.goals_suffered / (stats.career_divisor || 1)} />
-             </View>
+               <View style={[styles.bibbiaCard, dynamicStyles.card, { marginHorizontal: 0, paddingVertical: 4, paddingHorizontal: 12, borderWidth: 2, borderColor: getRoleColor(player.role), marginBottom: 5 }]}>
+                  <ProfileStatRow label="Punti" value={stats.points} />
+                  <ProfileStatRow label="Partite" value={stats.played} color="#A2845E" />
+                  <ProfileStatRow label="Vinte" value={stats.won} color="#34C759" />
+                  <ProfileStatRow label="Perse" value={stats.lost} color="#FF3B30" />
+                  <ProfileStatRow label="Pareggiate" value={stats.drawn} color="#FF9500" />
+                  {stats.tournament_count > 0 && <ProfileStatRow label="Tornei Disputati" value={stats.tournament_count} color="#5856D6" />}
+                  <View style={[styles.detailDivider, dynamicStyles.divider, { marginVertical: 3, marginHorizontal: 0 }]} />
+                  <ProfileStatRow label="Goal" value={stats.individual_goals} color="#FF3B30" />
+                  <ProfileStatRow label="Assist" value={stats.individual_assists} color="#34C759" />
+                  <ProfileStatRow label="Clean Sheets" value={stats.clean_sheets} color="#5AC8FA" />
+                  <ProfileStatRow label="Bonus" value={stats.bonus_points} color="#5AC8FA" />
+                  {(stats.personal_bonus_count > 0 || stats.defense_bonus_count > 0) && (
+                     <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingLeft: 10, marginTop: -2, marginBottom: 4 }}>
+                        <Text style={{ fontSize: 9, color: '#8E8E93', fontWeight: '700' }}>
+                           {stats.personal_bonus_count > 0 ? `PERS: ${stats.personal_bonus_count}` : ''}
+                           {stats.personal_bonus_count > 0 && stats.defense_bonus_count > 0 ? '  |  ' : ''}
+                           {stats.defense_bonus_count > 0 ? `DIF: ${stats.defense_bonus_count}` : ''}
+                        </Text>
+                     </View>
+                  )}
+                  <ProfileStatRow label="Incisività" value={stats.incisivity} color="#FF9500" />
+                  <View style={[styles.detailDivider, dynamicStyles.divider, { marginVertical: 3, marginHorizontal: 0 }]} />
+                  <ProfileStatRow label="Media Goal Fatti" value={stats.individual_goals / (stats.career_divisor || 1)} color="#FF3B30" />
+                  <ProfileStatRow label="Media Assist Fatti" value={stats.individual_assists / (stats.career_divisor || 1)} color="#34C759" />
+                  <ProfileStatRow label="Media Subiti" value={stats.goals_suffered / (stats.career_divisor || 1)} />
+               </View>
 
-             <View style={[styles.chartCard, dynamicStyles.card, { marginHorizontal: 0, padding: 0, marginTop: 0, alignItems: 'center', justifyContent: 'center' }]}>
-                <RadarChart
-                  isDarkMode={isDarkMode}
-                  matchType={group?.match_type || 5}
-                  stats={formatStatsForChart(stats)}
-                  maxStats={maxStats}
-                />
-             </View>
+               <View style={[styles.chartCard, dynamicStyles.card, { marginHorizontal: 0, padding: 0, marginTop: 0, alignItems: 'center', justifyContent: 'center' }]}>
+                  <RadarChart
+                    isDarkMode={isDarkMode}
+                    matchType={group?.match_type || 5}
+                    stats={formatStatsForChart(stats)}
+                    maxStats={maxStats}
+                  />
+               </View>
 
-             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 10, gap: 10 }}>
-                <Text style={[dynamicStyles.subText, { fontSize: 9, fontWeight: '700' }]}>GENERATO CON EASYLIGA</Text>
-                <View style={{ width: 20, height: 20, borderRadius: 10, overflow: 'hidden', backgroundColor: '#FFF', borderWidth: 1, borderColor: '#E5E5EA' }}>
-                  <Image source={require('../../assets/images/icon.png')} style={{ width: 20, height: 20 }} resizeMode="contain" />
-                </View>
-             </View>
-          </ViewShot>
+               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 10, gap: 10 }}>
+                  <Text style={[dynamicStyles.subText, { fontSize: 9, fontWeight: '700' }]}>GENERATO CON EASYLIGA</Text>
+                  <View style={{ width: 20, height: 20, borderRadius: 10, overflow: 'hidden', backgroundColor: '#FFF', borderWidth: 1, borderColor: '#E5E5EA' }}>
+                    <Image source={require('../../assets/images/icon.png')} style={{ width: 20, height: 20 }} resizeMode="contain" />
+                  </View>
+               </View>
+            </ViewShot>
+            <View style={{ flexDirection: 'row', gap: 10, marginTop: 15, alignSelf: 'center' }}>
+              {Platform.OS === 'web' && (
+                <TouchableOpacity
+                  onPress={async () => {
+                    try {
+                      const uri = await (profileViewShotRef.current as any).capture();
+                      await Sharing.shareAsync(uri);
+                    } catch (e) { Alert.alert('Errore', 'Impossibile condividere'); }
+                  }}
+                  style={{ backgroundColor: '#34C759', paddingVertical: 10, paddingHorizontal: 25, borderRadius: 12, flexDirection: 'row', alignItems: 'center', gap: 8 }}
+                >
+                  <Ionicons name="share-social" size={18} color="#FFF" />
+                  <Text style={{ color: '#FFF', fontWeight: '900', fontSize: 14 }}>CONDIVIDI</Text>
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity
+                onPress={() => setIsSharingProfile(false)}
+                style={{ backgroundColor: '#FF3B30', paddingVertical: 10, paddingHorizontal: 25, borderRadius: 12, flexDirection: 'row', alignItems: 'center', gap: 8 }}
+              >
+                <Ionicons name="close-circle" size={18} color="#FFF" />
+                <Text style={{ color: '#FFF', fontWeight: '900', fontSize: 14 }}>{Platform.OS === 'web' ? 'CHIUDI' : 'CHIUDI ANTEPRIMA'}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
         </View>
       </Modal>
     );
@@ -792,86 +825,114 @@ export default function PlayerDetailScreen() {
   const renderComparisonSharePreview = () => {
     if (!isSharingComparison || !player || !comparisonPlayer || !stats || !comparisonStats) return null;
     return (
-      <Modal visible={true} transparent={true} animationType="fade">
+      <Modal visible={true} transparent={true} animationType="fade" onRequestClose={() => setIsSharingComparison(false)}>
         <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.9)', justifyContent: 'center', alignItems: 'center' }}>
-          <ViewShot ref={comparisonViewShotRef} options={{ format: "png", quality: 0.9 }} style={{ width: '95%', backgroundColor: isDarkMode ? '#1C1C1E' : '#F2F2F7', padding: 12, borderRadius: 24 }}>
-             <View style={[styles.compHeader, { paddingVertical: 10 }]}>
-                <View style={styles.compPlayerBox}>
-                  <View style={[styles.miniAvatar, { backgroundColor: getRoleColor(player.role), width: 44, height: 44, borderRadius: 22 }]}>
-                    <Text style={[styles.miniAvatarText, { fontSize: 18 }]}>{getInitials(player.nickname)}</Text>
+          <TouchableWithoutFeedback onPress={() => setIsSharingComparison(false)}>
+            <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
+          </TouchableWithoutFeedback>
+          <View style={{ width: '95%', maxWidth: 400 }}>
+            <ViewShot ref={comparisonViewShotRef} options={{ format: "png", quality: 0.9 }} style={{ width: 400, backgroundColor: isDarkMode ? '#1C1C1E' : '#F2F2F7', padding: 12, borderRadius: 24 }}>
+               <View style={[styles.compHeader, { paddingVertical: 10 }]}>
+                  <View style={styles.compPlayerBox}>
+                    <View style={[styles.miniAvatar, { backgroundColor: getRoleColor(player.role), width: 44, height: 44, borderRadius: 22 }]}>
+                      <Text style={[styles.miniAvatarText, { fontSize: 18 }]}>{getInitials(player.nickname)}</Text>
+                    </View>
+                    <Text style={[styles.compPlayerName, dynamicStyles.text, {fontSize: 14}]}>{player.nickname}</Text>
+                    <View style={{ flexDirection: 'row', gap: 2, marginTop: 2 }}>
+                      {playerMatches.slice(0, 5).reverse().map((m) => {
+                        const isA = m.team_a_players.map(pid => String(pid).trim()).includes(String(id).trim());
+                        const res = m.team_a_score === m.team_b_score ? 'D' : ((isA && m.team_a_score > m.team_b_score) || (!isA && m.team_b_score > m.team_a_score)) ? 'W' : 'L';
+                        return (
+                          <View key={m.id} style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: res === 'W' ? '#34C759' : res === 'D' ? '#FF9500' : '#FF3B30', alignItems: 'center', justifyContent: 'center' }}>
+                            <Ionicons name={res === 'W' ? "arrow-up" : res === 'L' ? "arrow-down" : "remove"} size={6} color="#FFF" />
+                          </View>
+                        );
+                      })}
+                    </View>
                   </View>
-                  <Text style={[styles.compPlayerName, dynamicStyles.text, {fontSize: 14}]}>{player.nickname}</Text>
-                  <View style={{ flexDirection: 'row', gap: 2, marginTop: 2 }}>
-                    {playerMatches.slice(0, 5).reverse().map((m) => {
-                      const isA = m.team_a_players.map(pid => String(pid).trim()).includes(String(id).trim());
-                      const res = m.team_a_score === m.team_b_score ? 'D' : ((isA && m.team_a_score > m.team_b_score) || (!isA && m.team_b_score > m.team_a_score)) ? 'W' : 'L';
-                      return (
-                        <View key={m.id} style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: res === 'W' ? '#34C759' : res === 'D' ? '#FF9500' : '#FF3B30', alignItems: 'center', justifyContent: 'center' }}>
-                          <Ionicons name={res === 'W' ? "arrow-up" : res === 'L' ? "arrow-down" : "remove"} size={6} color="#FFF" />
-                        </View>
-                      );
-                    })}
+                  <Text style={[styles.vsText, { fontSize: 20, marginTop: -15 }]}>VS</Text>
+                  <View style={styles.compPlayerBox}>
+                    <View style={[styles.miniAvatar, { backgroundColor: getRoleColor(comparisonPlayer.role), width: 44, height: 44, borderRadius: 22 }]}>
+                      <Text style={[styles.miniAvatarText, { fontSize: 18 }]}>{getInitials(comparisonPlayer.nickname)}</Text>
+                    </View>
+                    <Text style={[styles.compPlayerName, dynamicStyles.text, {fontSize: 14}]}>{comparisonPlayer.nickname}</Text>
+                    <View style={{ flexDirection: 'row', gap: 2, marginTop: 2 }}>
+                      {comparisonMatches.slice(0, 5).reverse().map((m) => {
+                        const isA = m.team_a_players.map(pid => String(pid).trim()).includes(String(comparisonPlayer.id).trim());
+                        const res = m.team_a_score === m.team_b_score ? 'D' : ((isA && m.team_a_score > m.team_b_score) || (!isA && m.team_b_score > m.team_a_score)) ? 'W' : 'L';
+                        return (
+                          <View key={m.id} style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: res === 'W' ? '#34C759' : res === 'D' ? '#FF9500' : '#FF3B30', alignItems: 'center', justifyContent: 'center' }}>
+                            <Ionicons name={res === 'W' ? "arrow-up" : res === 'L' ? "arrow-down" : "remove"} size={6} color="#FFF" />
+                          </View>
+                        );
+                      })}
+                    </View>
                   </View>
-                </View>
-                <Text style={[styles.vsText, { fontSize: 20, marginTop: -15 }]}>VS</Text>
-                <View style={styles.compPlayerBox}>
-                  <View style={[styles.miniAvatar, { backgroundColor: getRoleColor(comparisonPlayer.role), width: 44, height: 44, borderRadius: 22 }]}>
-                    <Text style={[styles.miniAvatarText, { fontSize: 18 }]}>{getInitials(comparisonPlayer.nickname)}</Text>
-                  </View>
-                  <Text style={[styles.compPlayerName, dynamicStyles.text, {fontSize: 14}]}>{comparisonPlayer.nickname}</Text>
-                  <View style={{ flexDirection: 'row', gap: 2, marginTop: 2 }}>
-                    {comparisonMatches.slice(0, 5).reverse().map((m) => {
-                      const isA = m.team_a_players.map(pid => String(pid).trim()).includes(String(comparisonPlayer.id).trim());
-                      const res = m.team_a_score === m.team_b_score ? 'D' : ((isA && m.team_a_score > m.team_b_score) || (!isA && m.team_b_score > m.team_a_score)) ? 'W' : 'L';
-                      return (
-                        <View key={m.id} style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: res === 'W' ? '#34C759' : res === 'D' ? '#FF9500' : '#FF3B30', alignItems: 'center', justifyContent: 'center' }}>
-                          <Ionicons name={res === 'W' ? "arrow-up" : res === 'L' ? "arrow-down" : "remove"} size={6} color="#FFF" />
-                        </View>
-                      );
-                    })}
-                  </View>
-                </View>
-             </View>
+               </View>
 
-             <View style={[styles.bibbiaCard, dynamicStyles.card, { marginHorizontal: 0, paddingVertical: 4, marginTop: 4, marginBottom: 4 }]}>
-                <ComparisonRow label="Punti" val1={stats.points} val2={comparisonStats.points} />
-                <ComparisonRow label="Partite" val1={stats.played} val2={comparisonStats.played} />
-                <ComparisonRow label="Vinte" val1={stats.won} val2={comparisonStats.won} />
-                <ComparisonRow label="Perse" val1={stats.lost} val2={comparisonStats.lost} betterIsHigher={false} />
-                <ComparisonRow label="Pareggiate" val1={stats.drawn} val2={comparisonStats.drawn} />
-                <View style={[styles.detailDivider, dynamicStyles.divider, { marginVertical: 3 }]} />
-                <ComparisonRow label="Goal" val1={stats.individual_goals} val2={comparisonStats.individual_goals} />
-                <ComparisonRow label="Assist" val1={stats.individual_assists} val2={comparisonStats.individual_assists} />
-                <ComparisonRow label="Clean Sheets" val1={stats.clean_sheets} val2={comparisonStats.clean_sheets} />
-                <ComparisonRow label="Bonus" val1={stats.bonus_points} val2={comparisonStats.bonus_points} />
-                <ComparisonRow label="Incisività" val1={stats.incisivity} val2={comparisonStats.incisivity} />
-                <View style={[styles.detailDivider, dynamicStyles.divider, { marginVertical: 3 }]} />
-                <ComparisonRow label="Media Goal Fatti" val1={stats.individual_goals / (stats.career_divisor || 1)} val2={comparisonStats.individual_goals / (comparisonStats.career_divisor || 1)} />
-                <ComparisonRow label="Media Assist Fatti" val1={stats.individual_assists / (stats.career_divisor || 1)} val2={comparisonStats.individual_assists / (comparisonStats.career_divisor || 1)} />
-                <ComparisonRow label="Media Subiti" val1={stats.goals_suffered / (stats.career_divisor || 1)} val2={comparisonStats.goals_suffered / (comparisonStats.career_divisor || 1)} betterIsHigher={false} />
-             </View>
+               <View style={[styles.bibbiaCard, dynamicStyles.card, { marginHorizontal: 0, paddingVertical: 4, marginTop: 4, marginBottom: 4 }]}>
+                  <ComparisonRow label="Punti" val1={stats.points} val2={comparisonStats.points} />
+                  <ComparisonRow label="Partite" val1={stats.played} val2={comparisonStats.played} />
+                  <ComparisonRow label="Vinte" val1={stats.won} val2={comparisonStats.won} />
+                  <ComparisonRow label="Perse" val1={stats.lost} val2={comparisonStats.lost} betterIsHigher={false} />
+                  <ComparisonRow label="Pareggiate" val1={stats.drawn} val2={comparisonStats.drawn} />
+                  <View style={[styles.detailDivider, dynamicStyles.divider, { marginVertical: 3 }]} />
+                  <ComparisonRow label="Goal" val1={stats.individual_goals} val2={comparisonStats.individual_goals} />
+                  <ComparisonRow label="Assist" val1={stats.individual_assists} val2={comparisonStats.individual_assists} />
+                  <ComparisonRow label="Clean Sheets" val1={stats.clean_sheets} val2={comparisonStats.clean_sheets} />
+                  <ComparisonRow label="Bonus" val1={stats.bonus_points} val2={comparisonStats.bonus_points} />
+                  <ComparisonRow label="Incisività" val1={stats.incisivity} val2={comparisonStats.incisivity} />
+                  <View style={[styles.detailDivider, dynamicStyles.divider, { marginVertical: 3 }]} />
+                  <ComparisonRow label="Media Goal Fatti" val1={stats.individual_goals / (stats.career_divisor || 1)} val2={comparisonStats.individual_goals / (comparisonStats.career_divisor || 1)} />
+                  <ComparisonRow label="Media Assist Fatti" val1={stats.individual_assists / (stats.career_divisor || 1)} val2={comparisonStats.individual_assists / (comparisonStats.career_divisor || 1)} />
+                  <ComparisonRow label="Media Subiti" val1={stats.goals_suffered / (stats.career_divisor || 1)} val2={comparisonStats.goals_suffered / (comparisonStats.career_divisor || 1)} betterIsHigher={false} />
+               </View>
 
-             <View style={[styles.chartCard, dynamicStyles.card, { marginHorizontal: 0, padding: 0, marginTop: 0, marginBottom: 0 }]}>
-                <RadarChart
-                  isDarkMode={isDarkMode}
-                  matchType={group?.match_type || 5}
-                  stats={formatStatsForChart(stats)}
-                  comparisonStats={formatStatsForChart(comparisonStats)}
-                  maxStats={maxStats}
-                />
-                <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 15, marginTop: -10, paddingBottom: 10 }}>
-                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}><View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#007AFF' }} /><Text style={[dynamicStyles.subText, { fontSize: 9, fontWeight: '800' }]}>{player.nickname.toUpperCase()}</Text></View>
-                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}><View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#34C759' }} /><Text style={[dynamicStyles.subText, { fontSize: 9, fontWeight: '800' }]}>{comparisonPlayer.nickname.toUpperCase()}</Text></View>
-                </View>
-             </View>
+               <View style={[styles.chartCard, dynamicStyles.card, { marginHorizontal: 0, padding: 0, marginTop: 0, marginBottom: 0 }]}>
+                  <RadarChart
+                    isDarkMode={isDarkMode}
+                    matchType={group?.match_type || 5}
+                    stats={formatStatsForChart(stats)}
+                    comparisonStats={formatStatsForChart(comparisonStats)}
+                    maxStats={maxStats}
+                  />
+                  <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 15, marginTop: -10, paddingBottom: 10 }}>
+                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}><View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#007AFF' }} /><Text style={[dynamicStyles.subText, { fontSize: 9, fontWeight: '800' }]}>{player.nickname.toUpperCase()}</Text></View>
+                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}><View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#34C759' }} /><Text style={[dynamicStyles.subText, { fontSize: 9, fontWeight: '800' }]}>{comparisonPlayer.nickname.toUpperCase()}</Text></View>
+                  </View>
+               </View>
 
-             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 15, gap: 10 }}>
-                <Text style={[dynamicStyles.subText, { fontSize: 10, fontWeight: '700' }]}>GENERATO CON EASYLIGA</Text>
-                <View style={{ width: 24, height: 24, borderRadius: 12, overflow: 'hidden', backgroundColor: '#FFF', borderWidth: 1, borderColor: '#E5E5EA' }}>
-                  <Image source={require('../../assets/images/icon.png')} style={{ width: 24, height: 24 }} resizeMode="contain" />
-                </View>
-             </View>
-          </ViewShot>
+               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 15, gap: 10 }}>
+                  <Text style={[dynamicStyles.subText, { fontSize: 10, fontWeight: '700' }]}>GENERATO CON EASYLIGA</Text>
+                  <View style={{ width: 24, height: 24, borderRadius: 12, overflow: 'hidden', backgroundColor: '#FFF', borderWidth: 1, borderColor: '#E5E5EA' }}>
+                    <Image source={require('../../assets/images/icon.png')} style={{ width: 24, height: 24 }} resizeMode="contain" />
+                  </View>
+               </View>
+            </ViewShot>
+            <View style={{ flexDirection: 'row', gap: 10, marginTop: 15, alignSelf: 'center' }}>
+              {Platform.OS === 'web' && (
+                <TouchableOpacity
+                  onPress={async () => {
+                    try {
+                      const uri = await (comparisonViewShotRef.current as any).capture();
+                      await Sharing.shareAsync(uri);
+                    } catch (e) { Alert.alert('Errore', 'Impossibile condividere'); }
+                  }}
+                  style={{ backgroundColor: '#34C759', paddingVertical: 10, paddingHorizontal: 25, borderRadius: 12, flexDirection: 'row', alignItems: 'center', gap: 8 }}
+                >
+                  <Ionicons name="share-social" size={18} color="#FFF" />
+                  <Text style={{ color: '#FFF', fontWeight: '900', fontSize: 14 }}>CONDIVIDI</Text>
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity
+                onPress={() => setIsSharingComparison(false)}
+                style={{ backgroundColor: '#FF3B30', paddingVertical: 10, paddingHorizontal: 25, borderRadius: 12, flexDirection: 'row', alignItems: 'center', gap: 8 }}
+              >
+                <Ionicons name="close-circle" size={18} color="#FFF" />
+                <Text style={{ color: '#FFF', fontWeight: '900', fontSize: 14 }}>{Platform.OS === 'web' ? 'CHIUDI' : 'CHIUDI ANTEPRIMA'}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
         </View>
       </Modal>
     );

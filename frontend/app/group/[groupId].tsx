@@ -1633,128 +1633,132 @@ export default function GroupDetailScreen() {
   const handleShareImage = async () => {
     if (!viewShotRef.current) return;
     setSharing(true);
-    setTimeout(async () => {
-      try {
-        const uri = await (viewShotRef.current as any).capture();
-        await Sharing.shareAsync(uri);
-      } catch (e) {
-        Alert.alert('Errore', 'Impossibile condividere l\'immagine');
-      } finally {
-        setSharing(false);
-      }
-    }, 100);
+    if (Platform.OS !== 'web') {
+      setTimeout(async () => {
+        try {
+          const uri = await (viewShotRef.current as any).capture();
+          await Sharing.shareAsync(uri);
+        } catch (e) {
+          Alert.alert('Errore', 'Impossibile condividere l\'immagine');
+        } finally {
+          setSharing(false);
+        }
+      }, 100);
+    }
   };
 
   const handleShareStandings = async () => {
     setSharingStandings(true);
-    setTimeout(async () => {
-      try {
-        if (standingsViewShotRef.current) {
-          const uri = await (standingsViewShotRef.current as any).capture();
-          await Sharing.shareAsync(uri);
+    if (Platform.OS !== 'web') {
+      setTimeout(async () => {
+        try {
+          if (standingsViewShotRef.current) {
+            const uri = await (standingsViewShotRef.current as any).capture();
+            await Sharing.shareAsync(uri);
+          }
+        } catch (e) {
+          Alert.alert('Errore', 'Impossibile condividere l\'immagine della classifica');
         }
-      } catch (e) {
-        Alert.alert('Errore', 'Impossibile condividere l\'immagine della classifica');
-      } finally {
-        setSharingStandings(false);
-      }
-    }, 500);
+      }, 500);
+    }
   };
 
   const handleShareTournamentStandings = async () => {
     setSharingTournamentStandings(true);
-    setTimeout(async () => {
-      try {
-        if (standingsViewShotRef.current) {
-          const uri = await (standingsViewShotRef.current as any).capture();
-          await Sharing.shareAsync(uri);
+    if (Platform.OS !== 'web') {
+      setTimeout(async () => {
+        try {
+          if (standingsViewShotRef.current) {
+            const uri = await (standingsViewShotRef.current as any).capture();
+            await Sharing.shareAsync(uri);
+          }
+        } catch (e) {
+          Alert.alert('Errore', 'Impossibile condividere l\'immagine della classifica');
         }
-      } catch (e) {
-        Alert.alert('Errore', 'Impossibile condividere l\'immagine della classifica');
-      } finally {
-        setSharingTournamentStandings(false);
-      }
-    }, 500);
+      }, 500);
+    }
   };
 
   const handleShareBracket = async () => {
     setSharingBracket(true);
-    setTimeout(async () => {
-      try {
-        if (bracketViewShotRef.current) {
-          const uri = await (bracketViewShotRef.current as any).capture();
-          await Sharing.shareAsync(uri);
+    if (Platform.OS !== 'web') {
+      setTimeout(async () => {
+        try {
+          if (bracketViewShotRef.current) {
+            const uri = await (bracketViewShotRef.current as any).capture();
+            await Sharing.shareAsync(uri);
+          }
+        } catch (e) {
+          Alert.alert('Errore', 'Impossibile condividere l\'immagine del tabellone');
         }
-      } catch (e) {
-        Alert.alert('Errore', 'Impossibile condividere l\'immagine del tabellone');
-      } finally {
-        setSharingBracket(false);
-      }
-    }, 500);
+      }, 500);
+    }
   };
 
   const handleShareMatchesList = async () => {
     setSharingMatchesList(true);
-    setTimeout(async () => {
-      try {
-        if (matchesListViewShotRef.current) {
-          const uri = await (matchesListViewShotRef.current as any).capture();
-          await Sharing.shareAsync(uri);
+    if (Platform.OS !== 'web') {
+      setTimeout(async () => {
+        try {
+          if (matchesListViewShotRef.current) {
+            const uri = await (matchesListViewShotRef.current as any).capture();
+            await Sharing.shareAsync(uri);
+          }
+        } catch (e) {
+          Alert.alert('Errore', 'Impossibile condividere l\'immagine del calendario');
         }
-      } catch (e) {
-        Alert.alert('Errore', 'Impossibile condividere l\'immagine del calendario');
-      } finally {
-        setSharingMatchesList(false);
-      }
-    }, 500);
+      }, 500);
+    }
   };
 
   const handleSharePlayersList = async () => {
     setSharingPlayersList(true);
-    setTimeout(async () => {
-      try {
-        if (playersListViewShotRef.current) {
-          const uri = await (playersListViewShotRef.current as any).capture();
-          await Sharing.shareAsync(uri);
+    if (Platform.OS !== 'web') {
+      setTimeout(async () => {
+        try {
+          if (playersListViewShotRef.current) {
+            const uri = await (playersListViewShotRef.current as any).capture();
+            await Sharing.shareAsync(uri);
+          }
+        } catch (e) {
+          Alert.alert('Errore', 'Impossibile condividere l\'immagine della lista giocatori');
         }
-      } catch (e) {
-        Alert.alert('Errore', 'Impossibile condividere l\'immagine della lista giocatori');
-      } finally {
-        setSharingPlayersList(false);
-      }
-    }, 500);
+      }, 500);
+    }
   };
 
 
 
   const handleShareTeamDetails = async (team: any) => {
     setSharingTeamDetails(team);
-    setTimeout(async () => {
-      try {
-        if (teamDetailsViewShotRef.current) {
-          const uri = await (teamDetailsViewShotRef.current as any).capture();
-          await Sharing.shareAsync(uri);
+    if (Platform.OS !== 'web') {
+      setTimeout(async () => {
+        try {
+          if (teamDetailsViewShotRef.current) {
+            const uri = await (teamDetailsViewShotRef.current as any).capture();
+            await Sharing.shareAsync(uri);
+          }
+        } catch (e) {
+          Alert.alert('Errore', 'Impossibile condividere l\'immagine della squadra');
         }
-      } catch (e) {
-        Alert.alert('Errore', 'Impossibile condividere l\'immagine della squadra');
-      } finally {
-        setSharingTeamDetails(null);
-      }
-    }, 500);
+      }, 500);
+    }
   };
 
   const handleShareMatchStats = async (m: Match) => {
     setSharingMatch(m);
-    setTimeout(async () => {
-      try {
-        if (matchViewShotRef.current) {
-          const uri = await (matchViewShotRef.current as any).capture();
-          await Sharing.shareAsync(uri);
+    if (Platform.OS !== 'web') {
+      setTimeout(async () => {
+        try {
+          if (matchViewShotRef.current) {
+            const uri = await (matchViewShotRef.current as any).capture();
+            await Sharing.shareAsync(uri);
+          }
+        } catch (e) {
+          Alert.alert('Errore', 'Impossibile condividere l\'immagine del risultato');
         }
-      } catch (e) {
-        Alert.alert('Errore', 'Impossibile condividere l\'immagine del risultato');
-      }
-    }, 500);
+      }, 500);
+    }
   };
 
   const renderRoleFilter = (current: string | null, setter: (r: string | null) => void) => (
@@ -2989,6 +2993,29 @@ export default function GroupDetailScreen() {
 
     return (
       <View style={{ flex: 1 }}>
+        {sharing && Platform.OS === 'web' && (
+           <View style={{ flexDirection: 'row', gap: 10, padding: 10, justifyContent: 'center', backgroundColor: isDarkMode ? '#1C1C1E' : '#F2F2F7' }}>
+              <TouchableOpacity
+                onPress={async () => {
+                  try {
+                    const uri = await (viewShotRef.current as any).capture();
+                    await Sharing.shareAsync(uri);
+                  } catch (e) { Alert.alert('Errore', 'Impossibile condividere'); }
+                }}
+                style={{ backgroundColor: '#34C759', paddingVertical: 8, paddingHorizontal: 20, borderRadius: 10, flexDirection: 'row', alignItems: 'center', gap: 8 }}
+              >
+                <Ionicons name="share-social" size={18} color="#FFF" />
+                <Text style={{ color: '#FFF', fontWeight: '800', fontSize: 13 }}>CONDIVIDI</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => setSharing(false)}
+                style={{ backgroundColor: '#FF3B30', paddingVertical: 8, paddingHorizontal: 20, borderRadius: 10, flexDirection: 'row', alignItems: 'center', gap: 8 }}
+              >
+                <Ionicons name="close-circle" size={18} color="#FFF" />
+                <Text style={{ color: '#FFF', fontWeight: '800', fontSize: 13 }}>CHIUDI</Text>
+              </TouchableOpacity>
+           </View>
+        )}
         <ScrollView contentContainerStyle={{ paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
           {!sharing && (
             <View style={[styles.configContainer, dynamicStyles.card, { marginHorizontal: 20, marginBottom: 12, padding: 12, marginTop: 10 }]}>
@@ -3332,10 +3359,13 @@ export default function GroupDetailScreen() {
     const otherCols = statsCols.filter(c => c.id !== selectedCol.id);
 
     return (
-      <Modal visible={true} transparent={true} animationType="fade">
+      <Modal visible={true} transparent={true} animationType="fade" onRequestClose={() => setSharingStandings(false)}>
         <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.9)', justifyContent: 'center', alignItems: 'center' }}>
-          {/* Ridotta la larghezza totale da 720 a 480 per compattare l'immagine */}
-          <ViewShot ref={standingsViewShotRef} options={{ format: "png", quality: 1.0 }} style={{ width: 480, backgroundColor: isDarkMode ? '#1C1C1E' : '#F2F2F7', padding: 10, borderRadius: 20 }}>
+          <TouchableWithoutFeedback onPress={() => setSharingStandings(false)}>
+            <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
+          </TouchableWithoutFeedback>
+          <View style={{ width: '98%', maxWidth: 500 }}>
+            <ViewShot ref={standingsViewShotRef} options={{ format: "png", quality: 1.0 }} style={{ width: 480, backgroundColor: isDarkMode ? '#1C1C1E' : '#F2F2F7', padding: 10, borderRadius: 20 }}>
              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, paddingHorizontal: 5 }}>
                 <View>
                   <Text style={[dynamicStyles.text, { fontSize: 20, fontWeight: '900' }]}>{isTournament ? 'MARCATORI' : 'CLASSIFICA'}</Text>
@@ -3402,7 +3432,31 @@ export default function GroupDetailScreen() {
                 </View>
              </View>
           </ViewShot>
+          <View style={{ flexDirection: 'row', gap: 10, marginTop: 15, alignSelf: 'center' }}>
+            {Platform.OS === 'web' && (
+              <TouchableOpacity
+                onPress={async () => {
+                  try {
+                    const uri = await (standingsViewShotRef.current as any).capture();
+                    await Sharing.shareAsync(uri);
+                  } catch (e) { Alert.alert('Errore', 'Impossibile condividere'); }
+                }}
+                style={{ backgroundColor: '#34C759', paddingVertical: 10, paddingHorizontal: 25, borderRadius: 12, flexDirection: 'row', alignItems: 'center', gap: 8 }}
+              >
+                <Ionicons name="share-social" size={18} color="#FFF" />
+                <Text style={{ color: '#FFF', fontWeight: '900', fontSize: 14 }}>CONDIVIDI</Text>
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity
+              onPress={() => setSharingStandings(false)}
+              style={{ backgroundColor: '#FF3B30', paddingVertical: 10, paddingHorizontal: 25, borderRadius: 12, flexDirection: 'row', alignItems: 'center', gap: 8 }}
+            >
+              <Ionicons name="close-circle" size={18} color="#FFF" />
+              <Text style={{ color: '#FFF', fontWeight: '900', fontSize: 14 }}>{Platform.OS === 'web' ? 'CHIUDI' : 'CHIUDI ANTEPRIMA'}</Text>
+            </TouchableOpacity>
+          </View>
         </View>
+      </View>
       </Modal>
     );
   };
@@ -3444,9 +3498,13 @@ export default function GroupDetailScreen() {
     const title = selectedGirone === 0 ? 'FASE ELIMINATORIA' : (group?.num_groups === 1 ? 'GIRONE UNICO' : `GIRONE ${selectedGirone}`);
 
     return (
-      <Modal visible={true} transparent={true} animationType="fade">
+      <Modal visible={true} transparent={true} animationType="fade" onRequestClose={() => setSharingTournamentStandings(false)}>
         <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.9)', justifyContent: 'center', alignItems: 'center' }}>
-          <ViewShot ref={standingsViewShotRef} options={{ format: "png", quality: 0.9 }} style={{ width: '98%', backgroundColor: isDarkMode ? '#1C1C1E' : '#F2F2F7', padding: 15, borderRadius: 20 }}>
+          <TouchableWithoutFeedback onPress={() => setSharingTournamentStandings(false)}>
+            <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
+          </TouchableWithoutFeedback>
+          <View style={{ width: '98%', maxWidth: 600 }}>
+            <ViewShot ref={standingsViewShotRef} options={{ format: "png", quality: 0.9 }} style={{ width: '98%', backgroundColor: isDarkMode ? '#1C1C1E' : '#F2F2F7', padding: 15, borderRadius: 20 }}>
              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 }}>
                 <View>
                   <Text style={[dynamicStyles.text, { fontSize: 24, fontWeight: '900' }]}>CLASSIFICA</Text>
@@ -3517,7 +3575,31 @@ export default function GroupDetailScreen() {
                 </View>
              </View>
           </ViewShot>
+          <View style={{ flexDirection: 'row', gap: 10, marginTop: 15, alignSelf: 'center' }}>
+            {Platform.OS === 'web' && (
+              <TouchableOpacity
+                onPress={async () => {
+                  try {
+                    const uri = await (standingsViewShotRef.current as any).capture();
+                    await Sharing.shareAsync(uri);
+                  } catch (e) { Alert.alert('Errore', 'Impossibile condividere'); }
+                }}
+                style={{ backgroundColor: '#34C759', paddingVertical: 10, paddingHorizontal: 25, borderRadius: 12, flexDirection: 'row', alignItems: 'center', gap: 8 }}
+              >
+                <Ionicons name="share-social" size={18} color="#FFF" />
+                <Text style={{ color: '#FFF', fontWeight: '900', fontSize: 14 }}>CONDIVIDI</Text>
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity
+              onPress={() => setSharingTournamentStandings(false)}
+              style={{ backgroundColor: '#FF3B30', paddingVertical: 10, paddingHorizontal: 25, borderRadius: 12, flexDirection: 'row', alignItems: 'center', gap: 8 }}
+            >
+              <Ionicons name="close-circle" size={18} color="#FFF" />
+              <Text style={{ color: '#FFF', fontWeight: '900', fontSize: 14 }}>{Platform.OS === 'web' ? 'CHIUDI' : 'CHIUDI ANTEPRIMA'}</Text>
+            </TouchableOpacity>
+          </View>
         </View>
+      </View>
       </Modal>
     );
   };
@@ -3534,9 +3616,13 @@ export default function GroupDetailScreen() {
     ].filter(p => p.matches.length > 0);
 
     return (
-      <Modal visible={true} transparent={true} animationType="fade">
+      <Modal visible={true} transparent={true} animationType="fade" onRequestClose={() => setSharingBracket(false)}>
         <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.9)', justifyContent: 'center', alignItems: 'center' }}>
-          <ViewShot ref={bracketViewShotRef} options={{ format: "png", quality: 0.9 }} style={{ backgroundColor: isDarkMode ? '#1C1C1E' : '#F2F2F7', padding: 15, borderRadius: 20 }}>
+          <TouchableWithoutFeedback onPress={() => setSharingBracket(false)}>
+            <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
+          </TouchableWithoutFeedback>
+          <View style={{ width: '98%', maxWidth: 800 }}>
+            <ViewShot ref={bracketViewShotRef} options={{ format: "png", quality: 0.9 }} style={{ backgroundColor: isDarkMode ? '#1C1C1E' : '#F2F2F7', padding: 15, borderRadius: 20 }}>
              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
                 <View>
                   <Text style={[dynamicStyles.text, { fontSize: 22, fontWeight: '900' }]}>FASE FINALE</Text>
@@ -3612,7 +3698,31 @@ export default function GroupDetailScreen() {
                 </View>
              </View>
           </ViewShot>
+          <View style={{ flexDirection: 'row', gap: 10, marginTop: 15, alignSelf: 'center' }}>
+            {Platform.OS === 'web' && (
+              <TouchableOpacity
+                onPress={async () => {
+                  try {
+                    const uri = await (bracketViewShotRef.current as any).capture();
+                    await Sharing.shareAsync(uri);
+                  } catch (e) { Alert.alert('Errore', 'Impossibile condividere'); }
+                }}
+                style={{ backgroundColor: '#34C759', paddingVertical: 10, paddingHorizontal: 25, borderRadius: 12, flexDirection: 'row', alignItems: 'center', gap: 8 }}
+              >
+                <Ionicons name="share-social" size={18} color="#FFF" />
+                <Text style={{ color: '#FFF', fontWeight: '900', fontSize: 14 }}>CONDIVIDI</Text>
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity
+              onPress={() => setSharingBracket(false)}
+              style={{ backgroundColor: '#FF3B30', paddingVertical: 10, paddingHorizontal: 25, borderRadius: 12, flexDirection: 'row', alignItems: 'center', gap: 8 }}
+            >
+              <Ionicons name="close-circle" size={18} color="#FFF" />
+              <Text style={{ color: '#FFF', fontWeight: '900', fontSize: 14 }}>{Platform.OS === 'web' ? 'CHIUDI' : 'CHIUDI ANTEPRIMA'}</Text>
+            </TouchableOpacity>
+          </View>
         </View>
+      </View>
       </Modal>
     );
   };
@@ -3660,9 +3770,13 @@ export default function GroupDetailScreen() {
     );
 
     return (
-      <Modal visible={true} transparent={true} animationType="fade">
+      <Modal visible={true} transparent={true} animationType="fade" onRequestClose={() => setSharingPlayersList(false)}>
         <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.9)', justifyContent: 'center', alignItems: 'center' }}>
-          <ViewShot ref={playersListViewShotRef} options={{ format: "png", quality: 1.0 }} style={{ width: 480, backgroundColor: isDarkMode ? '#1C1C1E' : '#F2F2F7', padding: 25, borderRadius: 30 }}>
+          <TouchableWithoutFeedback onPress={() => setSharingPlayersList(false)}>
+            <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
+          </TouchableWithoutFeedback>
+          <View style={{ width: '98%', maxWidth: 600 }}>
+            <ViewShot ref={playersListViewShotRef} options={{ format: "png", quality: 1.0 }} style={{ width: 480, backgroundColor: isDarkMode ? '#1C1C1E' : '#F2F2F7', padding: 25, borderRadius: 30 }}>
              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 25 }}>
                 <View>
                   <Text style={[dynamicStyles.text, { fontSize: 28, fontWeight: '900', letterSpacing: 1 }]}>LISTA GIOCATORI</Text>
@@ -3689,7 +3803,31 @@ export default function GroupDetailScreen() {
                 </View>
              </View>
           </ViewShot>
+          <View style={{ flexDirection: 'row', gap: 10, marginTop: 15, alignSelf: 'center' }}>
+            {Platform.OS === 'web' && (
+              <TouchableOpacity
+                onPress={async () => {
+                  try {
+                    const uri = await (playersListViewShotRef.current as any).capture();
+                    await Sharing.shareAsync(uri);
+                  } catch (e) { Alert.alert('Errore', 'Impossibile condividere'); }
+                }}
+                style={{ backgroundColor: '#34C759', paddingVertical: 10, paddingHorizontal: 25, borderRadius: 12, flexDirection: 'row', alignItems: 'center', gap: 8 }}
+              >
+                <Ionicons name="share-social" size={18} color="#FFF" />
+                <Text style={{ color: '#FFF', fontWeight: '900', fontSize: 14 }}>CONDIVIDI</Text>
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity
+              onPress={() => setSharingPlayersList(false)}
+              style={{ backgroundColor: '#FF3B30', paddingVertical: 10, paddingHorizontal: 25, borderRadius: 12, flexDirection: 'row', alignItems: 'center', gap: 8 }}
+            >
+              <Ionicons name="close-circle" size={18} color="#FFF" />
+              <Text style={{ color: '#FFF', fontWeight: '900', fontSize: 14 }}>{Platform.OS === 'web' ? 'CHIUDI' : 'CHIUDI ANTEPRIMA'}</Text>
+            </TouchableOpacity>
+          </View>
         </View>
+      </View>
       </Modal>
     );
   };
@@ -3716,9 +3854,13 @@ export default function GroupDetailScreen() {
     const sortedMatches = filteredMatches.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
     return (
-      <Modal visible={true} transparent={true} animationType="fade">
+      <Modal visible={true} transparent={true} animationType="fade" onRequestClose={() => setSharingMatchesList(false)}>
         <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.9)', justifyContent: 'center', alignItems: 'center' }}>
-          <ViewShot ref={matchesListViewShotRef} options={{ format: "png", quality: 1.0 }} style={{ width: 380, backgroundColor: isDarkMode ? '#1C1C1E' : '#F2F2F7', padding: 20, borderRadius: 30 }}>
+          <TouchableWithoutFeedback onPress={() => setSharingMatchesList(false)}>
+            <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
+          </TouchableWithoutFeedback>
+          <View style={{ width: '95%', maxWidth: 450 }}>
+            <ViewShot ref={matchesListViewShotRef} options={{ format: "png", quality: 1.0 }} style={{ width: 380, backgroundColor: isDarkMode ? '#1C1C1E' : '#F2F2F7', padding: 20, borderRadius: 30 }}>
              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
                 <View>
                   <Text style={[dynamicStyles.text, { fontSize: 22, fontWeight: '900', letterSpacing: 1 }]}>CALENDARIO MATCH</Text>
@@ -3805,7 +3947,31 @@ export default function GroupDetailScreen() {
                 </View>
              </View>
           </ViewShot>
+          <View style={{ flexDirection: 'row', gap: 10, marginTop: 15, alignSelf: 'center' }}>
+            {Platform.OS === 'web' && (
+              <TouchableOpacity
+                onPress={async () => {
+                  try {
+                    const uri = await (matchesListViewShotRef.current as any).capture();
+                    await Sharing.shareAsync(uri);
+                  } catch (e) { Alert.alert('Errore', 'Impossibile condividere'); }
+                }}
+                style={{ backgroundColor: '#34C759', paddingVertical: 10, paddingHorizontal: 25, borderRadius: 12, flexDirection: 'row', alignItems: 'center', gap: 8 }}
+              >
+                <Ionicons name="share-social" size={18} color="#FFF" />
+                <Text style={{ color: '#FFF', fontWeight: '900', fontSize: 14 }}>CONDIVIDI</Text>
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity
+              onPress={() => setSharingMatchesList(false)}
+              style={{ backgroundColor: '#FF3B30', paddingVertical: 10, paddingHorizontal: 25, borderRadius: 12, flexDirection: 'row', alignItems: 'center', gap: 8 }}
+            >
+              <Ionicons name="close-circle" size={18} color="#FFF" />
+              <Text style={{ color: '#FFF', fontWeight: '900', fontSize: 14 }}>{Platform.OS === 'web' ? 'CHIUDI' : 'CHIUDI ANTEPRIMA'}</Text>
+            </TouchableOpacity>
+          </View>
         </View>
+      </View>
       </Modal>
     );
   };
@@ -3832,55 +3998,83 @@ export default function GroupDetailScreen() {
       });
 
     return (
-      <Modal visible={true} transparent={true} animationType="fade">
+      <Modal visible={true} transparent={true} animationType="fade" onRequestClose={() => setSharingTeamDetails(null)}>
         <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.9)', justifyContent: 'center', alignItems: 'center' }}>
-          <ViewShot ref={teamDetailsViewShotRef} options={{ format: "png", quality: 1.0 }} style={{ width: 400, backgroundColor: isDarkMode ? '#1C1C1E' : '#F2F2F7', padding: 20, borderRadius: 25 }}>
-             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 15, marginBottom: 20 }}>
-                <View style={{
-                  width: 60, height: 60, borderRadius: 30, overflow: 'hidden',
-                  backgroundColor: teamHex.toUpperCase() === '#FFFFFF' ? '#F2F2F7' : '#FFF',
-                  borderWidth: 2, borderColor: teamHex.toUpperCase() === '#FFFFFF' ? '#E5E5EA' : teamHex,
-                  justifyContent: 'center', alignItems: 'center'
-                }}>
-                   {team.logo ? <Image source={{ uri: team.logo }} style={{ width: '100%', height: '100%' }} /> : <Ionicons name="shirt" size={32} color={teamHex.toUpperCase() === '#FFFFFF' ? '#8E8E93' : teamHex} />}
-                </View>
-                <View style={{ flex: 1 }}>
-                   <Text style={[dynamicStyles.text, { fontSize: 24, fontWeight: '900' }]}>{team.name.toUpperCase()}</Text>
-                   <Text style={[dynamicStyles.subText, { fontSize: 13, fontWeight: '700' }]}>{group?.name || 'Easyliga'}</Text>
-                </View>
-             </View>
-
-             <View style={{ backgroundColor: teamHex + '15', padding: 12, borderRadius: 15, flexDirection: 'row', justifyContent: 'space-around', marginBottom: 20, borderWidth: 1, borderColor: teamHex + '30' }}>
-                <View style={{ alignItems: 'center' }}><Text style={[dynamicStyles.text, { fontSize: 18, fontWeight: '900' }]}>{team.points}</Text><Text style={[dynamicStyles.subText, { fontSize: 9, fontWeight: '700' }]}>PUNTI</Text></View>
-                <View style={{ alignItems: 'center' }}><Text style={[dynamicStyles.text, { fontSize: 18, fontWeight: '900' }]}>{team.played}</Text><Text style={[dynamicStyles.subText, { fontSize: 9, fontWeight: '700' }]}>GIOCATE</Text></View>
-                <View style={{ alignItems: 'center' }}><Text style={[dynamicStyles.text, { fontSize: 18, fontWeight: '900', color: '#34C759' }]}>{team.won}</Text><Text style={[dynamicStyles.subText, { fontSize: 9, fontWeight: '700' }]}>VINTE</Text></View>
-                <View style={{ alignItems: 'center' }}><Text style={[dynamicStyles.text, { fontSize: 18, fontWeight: '900', color: '#FF3B30' }]}>{team.lost}</Text><Text style={[dynamicStyles.subText, { fontSize: 9, fontWeight: '700' }]}>PERSE</Text></View>
-             </View>
-
-             <View style={{ marginBottom: 10 }}><Text style={[dynamicStyles.text, { fontSize: 14, fontWeight: '800' }]}>ROSA SQUADRA</Text></View>
-             <View>
-                {teamPlayers.map((item: any) => (
-                  <View key={item.id} style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 6, borderBottomWidth: 0.5, borderBottomColor: isDarkMode ? '#333' : '#EEE' }}>
-                    <View style={{ flex: 1 }}>
-                      <Text style={[dynamicStyles.text, { fontSize: 14, fontWeight: '700' }]}>{item.nickname}</Text>
-                      <Text style={{ fontSize: 9, color: ROLE_COLORS[item.role] || '#8E8E93', fontWeight: '800' }}>{item.role?.toUpperCase()}</Text>
-                    </View>
-                    <View style={{ flexDirection: 'row', gap: 15 }}>
-                       <View style={{ width: 25, alignItems: 'center' }}><Text style={[dynamicStyles.text, { fontSize: 14, fontWeight: '900', color: '#FF3B30' }]}>{item.goals || 0}</Text></View>
-                       <View style={{ width: 25, alignItems: 'center' }}><Text style={[dynamicStyles.text, { fontSize: 14, fontWeight: '900', color: '#34C759' }]}>{item.assists || 0}</Text></View>
-                    </View>
+          <TouchableWithoutFeedback onPress={() => setSharingTeamDetails(null)}>
+            <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
+          </TouchableWithoutFeedback>
+          <View style={{ width: '95%', maxWidth: 400 }}>
+            <ViewShot ref={teamDetailsViewShotRef} options={{ format: "png", quality: 1.0 }} style={{ width: 400, backgroundColor: isDarkMode ? '#1C1C1E' : '#F2F2F7', padding: 20, borderRadius: 25 }}>
+               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 15, marginBottom: 20 }}>
+                  <View style={{
+                    width: 60, height: 60, borderRadius: 30, overflow: 'hidden',
+                    backgroundColor: teamHex.toUpperCase() === '#FFFFFF' ? '#F2F2F7' : '#FFF',
+                    borderWidth: 2, borderColor: teamHex.toUpperCase() === '#FFFFFF' ? '#E5E5EA' : teamHex,
+                    justifyContent: 'center', alignItems: 'center'
+                  }}>
+                     {team.logo ? <Image source={{ uri: team.logo }} style={{ width: '100%', height: '100%' }} /> : <Ionicons name="shirt" size={32} color={teamHex.toUpperCase() === '#FFFFFF' ? '#8E8E93' : teamHex} />}
                   </View>
-                ))}
-             </View>
+                  <View style={{ flex: 1 }}>
+                     <Text style={[dynamicStyles.text, { fontSize: 24, fontWeight: '900' }]}>{team.name.toUpperCase()}</Text>
+                     <Text style={[dynamicStyles.subText, { fontSize: 13, fontWeight: '700' }]}>{group?.name || 'Easyliga'}</Text>
+                  </View>
+               </View>
 
-             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 25, gap: 10 }}>
-                <Text style={[dynamicStyles.subText, { fontSize: 10, fontWeight: '800', letterSpacing: 1 }]}>GENERATO CON EASYLIGA</Text>
-                <View style={{ width: 24, height: 24, borderRadius: 12, overflow: 'hidden', backgroundColor: '#FFF', borderWidth: 1, borderColor: '#007AFF' }}>
-                  <Image source={require('../../assets/images/icon.png')} style={{ width: 24, height: 24 }} resizeMode="contain" />
-                </View>
-             </View>
-          </ViewShot>
+               <View style={{ backgroundColor: teamHex + '15', padding: 12, borderRadius: 15, flexDirection: 'row', justifyContent: 'space-around', marginBottom: 20, borderWidth: 1, borderColor: teamHex + '30' }}>
+                  <View style={{ alignItems: 'center' }}><Text style={[dynamicStyles.text, { fontSize: 18, fontWeight: '900' }]}>{team.points}</Text><Text style={[dynamicStyles.subText, { fontSize: 9, fontWeight: '700' }]}>PUNTI</Text></View>
+                  <View style={{ alignItems: 'center' }}><Text style={[dynamicStyles.text, { fontSize: 18, fontWeight: '900' }]}>{team.played}</Text><Text style={[dynamicStyles.subText, { fontSize: 9, fontWeight: '700' }]}>GIOCATE</Text></View>
+                  <View style={{ alignItems: 'center' }}><Text style={[dynamicStyles.text, { fontSize: 18, fontWeight: '900', color: '#34C759' }]}>{team.won}</Text><Text style={[dynamicStyles.subText, { fontSize: 9, fontWeight: '700' }]}>VINTE</Text></View>
+                  <View style={{ alignItems: 'center' }}><Text style={[dynamicStyles.text, { fontSize: 18, fontWeight: '900', color: '#FF3B30' }]}>{team.lost}</Text><Text style={[dynamicStyles.subText, { fontSize: 9, fontWeight: '700' }]}>PERSE</Text></View>
+               </View>
+
+               <View style={{ marginBottom: 10 }}><Text style={[dynamicStyles.text, { fontSize: 14, fontWeight: '800' }]}>ROSA SQUADRA</Text></View>
+               <View>
+                  {teamPlayers.map((item: any) => (
+                    <View key={item.id} style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 6, borderBottomWidth: 0.5, borderBottomColor: isDarkMode ? '#333' : '#EEE' }}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={[dynamicStyles.text, { fontSize: 14, fontWeight: '700' }]}>{item.nickname}</Text>
+                        <Text style={{ fontSize: 9, color: ROLE_COLORS[item.role] || '#8E8E93', fontWeight: '800' }}>{item.role?.toUpperCase()}</Text>
+                      </View>
+                      <View style={{ flexDirection: 'row', gap: 15 }}>
+                         <View style={{ width: 25, alignItems: 'center' }}><Text style={[dynamicStyles.text, { fontSize: 14, fontWeight: '900', color: '#FF3B30' }]}>{item.goals || 0}</Text></View>
+                         <View style={{ width: 25, alignItems: 'center' }}><Text style={[dynamicStyles.text, { fontSize: 14, fontWeight: '900', color: '#34C759' }]}>{item.assists || 0}</Text></View>
+                      </View>
+                    </View>
+                  ))}
+               </View>
+
+               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 25, gap: 10 }}>
+                  <Text style={[dynamicStyles.subText, { fontSize: 10, fontWeight: '800', letterSpacing: 1 }]}>GENERATO CON EASYLIGA</Text>
+                  <View style={{ width: 24, height: 24, borderRadius: 12, overflow: 'hidden', backgroundColor: '#FFF', borderWidth: 1, borderColor: '#007AFF' }}>
+                    <Image source={require('../../assets/images/icon.png')} style={{ width: 24, height: 24 }} resizeMode="contain" />
+                  </View>
+               </View>
+            </ViewShot>
+            <View style={{ flexDirection: 'row', gap: 10, marginTop: 15, alignSelf: 'center' }}>
+              {Platform.OS === 'web' && (
+                <TouchableOpacity
+                  onPress={async () => {
+                    try {
+                      const uri = await (teamDetailsViewShotRef.current as any).capture();
+                      await Sharing.shareAsync(uri);
+                    } catch (e) { Alert.alert('Errore', 'Impossibile condividere'); }
+                  }}
+                  style={{ backgroundColor: '#34C759', paddingVertical: 10, paddingHorizontal: 25, borderRadius: 12, flexDirection: 'row', alignItems: 'center', gap: 8 }}
+                >
+                  <Ionicons name="share-social" size={18} color="#FFF" />
+                  <Text style={{ color: '#FFF', fontWeight: '900', fontSize: 14 }}>CONDIVIDI</Text>
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity
+                onPress={() => setSharingTeamDetails(null)}
+                style={{ backgroundColor: '#FF3B30', paddingVertical: 10, paddingHorizontal: 25, borderRadius: 12, flexDirection: 'row', alignItems: 'center', gap: 8 }}
+              >
+                <Ionicons name="close-circle" size={18} color="#FFF" />
+                <Text style={{ color: '#FFF', fontWeight: '900', fontSize: 14 }}>{Platform.OS === 'web' ? 'CHIUDI' : 'CHIUDI ANTEPRIMA'}</Text>
+              </TouchableOpacity>
+          </View>
         </View>
+      </View>
       </Modal>
     );
   };
@@ -4859,11 +5053,9 @@ export default function GroupDetailScreen() {
     return (
       <Modal visible={true} transparent={true} animationType="fade" onRequestClose={() => setSharingMatch(null)}>
         <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.9)', justifyContent: 'center', alignItems: 'center' }}>
-          <TouchableOpacity
-            activeOpacity={1}
-            style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
-            onPress={() => setSharingMatch(null)}
-          />
+          <TouchableWithoutFeedback onPress={() => setSharingMatch(null)}>
+            <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
+          </TouchableWithoutFeedback>
           <View style={{ width: '95%', maxWidth: 500 }}>
             <ViewShot ref={matchViewShotRef} options={{ format: "png", quality: 1.0 }} style={{ backgroundColor: isDarkMode ? '#111111' : '#F8F9FF', padding: 20, borderRadius: 24 }}>
              <View style={{ marginBottom: 25, backgroundColor: isDarkMode ? '#1C1C1E' : '#FFFFFF', padding: 15, borderRadius: 20, borderWidth: 1, borderColor: isDarkMode ? '#333' : '#E5E5EA' }}>
@@ -5076,7 +5268,31 @@ export default function GroupDetailScreen() {
                 <View style={{ height: 1, flex: 1, backgroundColor: isDarkMode ? '#333' : '#E5E5EA' }} />
               </View>
           </ViewShot>
+          <View style={{ flexDirection: 'row', gap: 10, marginTop: 15, alignSelf: 'center' }}>
+            {Platform.OS === 'web' && (
+              <TouchableOpacity
+                onPress={async () => {
+                  try {
+                    const uri = await (matchViewShotRef.current as any).capture();
+                    await Sharing.shareAsync(uri);
+                  } catch (e) { Alert.alert('Errore', 'Impossibile condividere'); }
+                }}
+                style={{ backgroundColor: '#34C759', paddingVertical: 10, paddingHorizontal: 25, borderRadius: 12, flexDirection: 'row', alignItems: 'center', gap: 8 }}
+              >
+                <Ionicons name="share-social" size={18} color="#FFF" />
+                <Text style={{ color: '#FFF', fontWeight: '900', fontSize: 14 }}>CONDIVIDI</Text>
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity
+              onPress={() => setSharingMatch(null)}
+              style={{ backgroundColor: '#FF3B30', paddingVertical: 10, paddingHorizontal: 25, borderRadius: 12, flexDirection: 'row', alignItems: 'center', gap: 8 }}
+            >
+              <Ionicons name="close-circle" size={18} color="#FFF" />
+              <Text style={{ color: '#FFF', fontWeight: '900', fontSize: 14 }}>{Platform.OS === 'web' ? 'CHIUDI' : 'CHIUDI ANTEPRIMA'}</Text>
+            </TouchableOpacity>
+          </View>
         </View>
+      </View>
       </Modal>
     );
   };
