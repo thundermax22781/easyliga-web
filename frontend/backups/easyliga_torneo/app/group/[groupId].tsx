@@ -2398,7 +2398,7 @@ export default function GroupDetailScreen() {
     const activeSortId = group?.group_type === 'tournament' && sortBy === 'points' ? 'goals' : sortBy;
     const finalSort = sortOptions.find(o => o.id === activeSortId) || sortOptions[0];
 
-    return [...standings].sort((a, b) => {
+    const sorted = [...standings].sort((a, b) => {
       const key = finalSort.key as keyof PlayerStats;
       let valA = a[key] as number;
       let valB = b[key] as number;
@@ -2455,6 +2455,9 @@ export default function GroupDetailScreen() {
 
       return 0;
     });
+
+    // Filtriamo i giocatori che non hanno mai giocato nel campionato principale
+    return sorted.filter(p => p.played > 0);
   };
 
   const handleResetTournament = async () => {
@@ -2575,8 +2578,8 @@ export default function GroupDetailScreen() {
 
     const renderHeaderFixedPart = () => (
       <View style={[styles.pCard, dynamicStyles.card, { height: 32, borderBottomWidth: 2, paddingVertical: 0, borderRightWidth: 1, borderRightColor: isDarkMode ? '#3A3A3C' : '#E5E5EA', justifyContent: 'center' }]}>
-         <View style={{ width: 140, flexDirection: 'row', alignItems: 'center' }}>
-           <Text style={{ fontSize: 9, fontWeight: '900', color: '#8E8E93', marginLeft: 5 }}>POS. GIOCATORE</Text>
+         <View style={{ width: 135, flexDirection: 'row', alignItems: 'center' }}>
+           <Text style={{ fontSize: 9, fontWeight: '900', color: '#8E8E93', marginLeft: 5 }}>POS. NOME</Text>
          </View>
       </View>
     );
@@ -2592,7 +2595,7 @@ export default function GroupDetailScreen() {
 
     const renderRowFixedPart = (item: any, index: number) => (
       <TouchableOpacity key={item.player_id} style={[styles.pCard, dynamicStyles.card, { height: 38, paddingVertical: 0, borderRightWidth: 1, borderRightColor: isDarkMode ? '#3A3A3C' : '#E5E5EA', justifyContent: 'center' }]} onPress={() => router.push(`/player/${item.player_id}?groupId=${groupId}`)}>
-        <View style={{ width: 140, flexDirection: 'row', alignItems: 'center' }}>
+        <View style={{ width: 135, flexDirection: 'row', alignItems: 'center' }}>
           <View style={[styles.standingRank, { width: 25 }]}>
             {index < 3 && sortBy === 'points' ? (
               <View style={{ alignItems: 'center', justifyContent: 'center' }}>
@@ -3302,7 +3305,7 @@ export default function GroupDetailScreen() {
              <View style={[dynamicStyles.card, { borderRadius: 12, overflow: 'hidden' }]}>
                 {/* Header - Spazi ridotti al minimo */}
                 <View style={{ flexDirection: 'row', backgroundColor: 'rgba(0,0,0,0.05)', paddingVertical: 6, paddingHorizontal: 8 }}>
-                   <View style={{ width: 120 }}><Text style={{ fontSize: 8, fontWeight: '900', color: '#8E8E93' }}>POS. GIOCATORE</Text></View>
+                   <View style={{ width: 115 }}><Text style={{ fontSize: 8, fontWeight: '900', color: '#8E8E93' }}>POS. NOME</Text></View>
                    <View style={{ flex: 1, flexDirection: 'row', justifyContent: 'space-around' }}>
                      <StatHeader label={selectedCol.short} width={28} color={selectedCol.color} fontSize={8} />
                      {otherCols.map(c => <StatHeader key={c.id} label={c.short} width={28} fontSize={8} />)}
@@ -3311,7 +3314,7 @@ export default function GroupDetailScreen() {
                 {/* Visualizzazione fino a 30 giocatori */}
                 {sortedData.slice(0, 30).map((item, index) => (
                   <View key={item.player_id} style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 3, paddingHorizontal: 8, borderBottomWidth: 1, borderBottomColor: 'rgba(0,0,0,0.05)' }}>
-                    <View style={{ width: 120, flexDirection: 'row', alignItems: 'center' }}>
+                    <View style={{ width: 115, flexDirection: 'row', alignItems: 'center' }}>
                       <View style={{ width: 22, alignItems: 'center' }}>
                         {index < 3 && activeSortId === 'points' && !isTournament ? (
                           <View style={{ alignItems: 'center', justifyContent: 'center' }}>
