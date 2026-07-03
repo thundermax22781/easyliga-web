@@ -8,6 +8,7 @@
     "android": "expo run:android",
     "ios": "expo run:ios",
     "web": "expo start --web",
+    "build": "expo export --platform web",
     "lint": "expo lint",
     "build:bundle": "if not exist \"android\\app\\src\\main\\assets\" mkdir \"android\\app\\src\\main\\assets\" && npx react-native bundle --platform android --dev false --entry-file index.js --bundle-output android/app/src/main/assets/index.android.bundle --assets-dest android/app/src/main/res",
     "build:apk": "npm run build:bundle && cd android && .\\gradlew assembleRelease",
