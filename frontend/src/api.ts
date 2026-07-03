@@ -124,6 +124,62 @@ const calculateAge = (dob: string) => {
   return age;
 };
 
+// --- LICENZE E PREMIUM ---
+
+export const checkPremiumStatus = async (): Promise<boolean> => {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return false;
+
+    const { data, error } = await supabase
+      .from('premium_users')
+      .select('user_id')
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    if (error) return false;
+    return !!data;
+  } catch (e) {
+    return false;
+  }
+};
+
+export const redeemCode = async (code: string): Promise<void> => {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Devi essere connesso per attivare un codice.");
+
+  // 1. Verifica se il codice esiste ed è valido
+  const { data: codeData, error: codeError } = await supabase
+    .from('activation_codes')
+    .select('*')
+    .eq('code', code.trim())
+    .eq('is_used', false)
+    .maybeSingle();
+
+  if (codeError || !codeData) {
+    throw new Error("Codice non valido o già utilizzato.");
+  }
+
+  // 2. Segna il codice come usato
+  const { error: updateError } = await supabase
+    .from('activation_codes')
+    .update({
+      is_used: true,
+      used_by: user.id,
+      used_at: new Date().toISOString()
+    })
+    .eq('code', code.trim());
+
+  if (updateError) throw updateError;
+
+  // 3. Aggiungi l'utente ai premium
+  const { error: premiumError } = await supabase
+    .from('premium_users')
+    .insert([{ user_id: user.id }]);
+
+  if (premiumError) throw premiumError;
+};
+
 // --- GRUPPI ---
 
 export const fetchGroups = async (): Promise<Group[]> => {

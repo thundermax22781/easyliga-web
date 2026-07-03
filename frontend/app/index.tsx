@@ -25,6 +25,8 @@ import {
   updateGroup,
   joinGroup,
   syncCloudData,
+  checkPremiumStatus,
+  redeemCode,
   Group
 } from '../src/api';
 import { useTheme } from '../src/ThemeContext';
@@ -37,8 +39,12 @@ export default function GroupsScreen() {
   const [groups, setGroups] = useState<Group[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [isPremium, setIsPremium] = useState(false);
 
   const [modalVisible, setModalVisible] = useState(false);
+  const [unlockModalVisible, setUnlockModalVisible] = useState(false);
+  const [activationCode, setActivationCode] = useState('');
+  const [activating, setActivating] = useState(false);
   const [groupName, setGroupName] = useState('');
   const [storageType, setStorageType] = useState<'local' | 'cloud'>('local');
   const [groupType, setGroupType] = useState<'championship' | 'tournament'>('championship');
@@ -79,6 +85,9 @@ export default function GroupsScreen() {
       }
       const data = await fetchGroups();
       setGroups(data);
+
+      const premium = await checkPremiumStatus();
+      setIsPremium(premium);
     } catch (e) {
       console.error(e);
     } finally {
@@ -123,6 +132,22 @@ export default function GroupsScreen() {
       loadGroups();
     } catch (e: any) {
       Alert.alert('Errore', e.message);
+    }
+  };
+
+  const handleRedeemCode = async () => {
+    if (!activationCode.trim()) return;
+    setActivating(true);
+    try {
+      await redeemCode(activationCode.trim());
+      setIsPremium(true);
+      setUnlockModalVisible(false);
+      setActivationCode('');
+      Alert.alert('Successo!', 'Hai sbloccato le funzionalità Cloud. Ora puoi creare gruppi online!');
+    } catch (e: any) {
+      Alert.alert('Errore', e.message);
+    } finally {
+      setActivating(false);
     }
   };
 
@@ -364,13 +389,39 @@ export default function GroupsScreen() {
                       <Text style={[styles.storageOptionText, storageType === 'local' && styles.storageOptionTextActive]}>Locale</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
-                      style={[styles.storageOption, storageType === 'cloud' && styles.storageOptionActive]}
-                      onPress={() => setStorageType('cloud')}
+                      style={[
+                        styles.storageOption,
+                        storageType === 'cloud' && styles.storageOptionActive,
+                        !isPremium && storageType === 'cloud' && { borderColor: '#8E8E93' }
+                      ]}
+                      onPress={() => {
+                        if (!isPremium) {
+                          setUnlockModalVisible(true);
+                        } else {
+                          setStorageType('cloud');
+                        }
+                      }}
                     >
-                      <Ionicons name="cloud-outline" size={20} color={storageType === 'cloud' ? '#FFF' : '#007AFF'} />
-                      <Text style={[styles.storageOptionText, storageType === 'cloud' && styles.storageOptionTextActive]}>Cloud</Text>
+                      <Ionicons
+                        name={isPremium ? "cloud-outline" : "lock-closed-outline"}
+                        size={20}
+                        color={storageType === 'cloud' ? '#FFF' : (isPremium ? '#007AFF' : '#8E8E93')}
+                      />
+                      <Text style={[
+                        styles.storageOptionText,
+                        storageType === 'cloud' && styles.storageOptionTextActive,
+                        !isPremium && { color: '#8E8E93' }
+                      ]}>Cloud</Text>
                     </TouchableOpacity>
                   </View>
+                  {!isPremium && (
+                    <TouchableOpacity
+                      onPress={() => setUnlockModalVisible(true)}
+                      style={{ marginTop: 10, alignItems: 'center' }}
+                    >
+                      <Text style={{ color: '#007AFF', fontSize: 12, fontWeight: '700' }}>Sblocca creazione gruppi online</Text>
+                    </TouchableOpacity>
+                  )}
                   <Text style={[styles.storageHint, dynamicStyles.subText]}>
                     {storageType === 'local'
                       ? 'I dati resteranno solo su questo telefono.'
@@ -388,6 +439,50 @@ export default function GroupsScreen() {
                 <Text style={styles.modalSubmitText}>{editGroup ? 'Salva' : 'Crea'}</Text>
               </TouchableOpacity>
             </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Modal Sblocca Cloud */}
+      <Modal visible={unlockModalVisible} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, dynamicStyles.modalContent]}>
+            <View style={{ alignItems: 'center', marginBottom: 20 }}>
+              <View style={{ backgroundColor: '#007AFF15', width: 60, height: 60, borderRadius: 30, alignItems: 'center', justifyContent: 'center', marginBottom: 15 }}>
+                <Ionicons name="cloud-upload-outline" size={32} color="#007AFF" />
+              </View>
+              <Text style={[styles.modalTitle, dynamicStyles.text, { textAlign: 'center', marginBottom: 5 }]}>Versione PRO</Text>
+              <Text style={[dynamicStyles.subText, { textAlign: 'center', fontSize: 14 }]}>L'opzione Cloud ti permette di condividere il gruppo con gli amici e sincronizzare i dati su tutti i dispositivi.</Text>
+            </View>
+
+            <TextInput
+              style={[styles.modalInput, dynamicStyles.input]}
+              placeholder="Inserisci codice di attivazione"
+              placeholderTextColor={isDarkMode ? "#8E8E93" : "#AEAEB2"}
+              value={activationCode}
+              onChangeText={setActivationCode}
+              autoCapitalize="characters"
+            />
+
+            <View style={styles.modalButtons}>
+              <TouchableOpacity onPress={() => setUnlockModalVisible(false)} style={styles.modalCancel}>
+                <Text style={styles.modalCancelText}>Annulla</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={handleRedeemCode}
+                style={[styles.modalSubmit, { backgroundColor: '#34C759' }]}
+                disabled={activating}
+              >
+                {activating ? (
+                  <ActivityIndicator color="#FFF" size="small" />
+                ) : (
+                  <Text style={styles.modalSubmitText}>Attiva Ora</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+            <TouchableOpacity style={{ marginTop: 20, alignItems: 'center' }} onPress={() => Alert.alert("Come ottenere il codice", "Contatta l'amministratore per acquistare una licenza Pro.")}>
+               <Text style={{ color: '#8E8E93', fontSize: 11, textDecorationLine: 'underline' }}>Non hai un codice?</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>
