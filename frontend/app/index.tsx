@@ -15,7 +15,8 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
+import * as Clipboard from 'expo-clipboard';
 import {
   fetchGroups,
   createGroup,
@@ -30,6 +31,7 @@ import { useTheme } from '../src/ThemeContext';
 
 export default function GroupsScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ join?: string }>();
   const { isDarkMode, toggleTheme } = useTheme();
 
   const [groups, setGroups] = useState<Group[]>([]);
@@ -47,8 +49,25 @@ export default function GroupsScreen() {
   const [joinToken, setJoinToken] = useState('');
 
   useEffect(() => {
-    loadGroups();
-  }, []);
+    const checkJoinToken = async () => {
+      if (params.join) {
+        setLoading(true);
+        try {
+          await joinGroup(params.join);
+          // Pulisce l'URL dopo l'ingresso
+          router.replace('/');
+          loadGroups();
+        } catch (e: any) {
+          Alert.alert('Errore di Accesso', 'Il link di invito non è valido o è scaduto.');
+          setLoading(false);
+        }
+      } else {
+        loadGroups();
+      }
+    };
+
+    checkJoinToken();
+  }, [params.join]);
 
   const loadGroups = async () => {
     try {

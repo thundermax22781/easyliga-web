@@ -23,6 +23,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
+import * as Clipboard from 'expo-clipboard';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 import ViewShot from 'react-native-view-shot';
@@ -1615,6 +1616,18 @@ export default function GroupDetailScreen() {
     Share.share({
       message: `Unisciti al mio gruppo "${group?.name}" su Easyliga!\nCodice ${type}: ${token}`,
     });
+  };
+
+  const handleShareWebLink = async (type: 'viewer' | 'admin') => {
+    const token = type === 'admin' ? group?.admin_token : group?.viewer_token;
+    const baseUrl = Platform.OS === 'web'
+      ? window.location.origin
+      : 'https://easyliga-web.vercel.app';
+
+    const link = `${baseUrl}/?join=${token}`;
+
+    await Clipboard.setStringAsync(link);
+    Alert.alert('Link Copiato', `Il link di invito come ${type === 'admin' ? 'Amministratore' : 'Visualizzatore'} è stato copiato negli appunti.`);
   };
 
   const handleShareImage = async () => {
@@ -5569,7 +5582,27 @@ export default function GroupDetailScreen() {
                       </View>
                     )}
 
-                    <Text style={[styles.configSectionTitle, dynamicStyles.text, { fontSize: 14, fontWeight: '700', marginBottom: 10 }]}>Token Accesso</Text>
+                    <Text style={[styles.configSectionTitle, dynamicStyles.text, { fontSize: 14, fontWeight: '700', marginBottom: 10 }]}>Link Web (Accesso Diretto)</Text>
+                    <View style={{ flexDirection: 'row', gap: 8, marginBottom: 20 }}>
+                      <TouchableOpacity
+                        style={[styles.saveBtn, { flex: 1, backgroundColor: '#34C759', height: 40, borderRadius: 8, flexDirection: 'row' }]}
+                        onPress={() => handleShareWebLink('viewer')}
+                      >
+                        <Ionicons name="copy-outline" size={16} color="#FFF" style={{marginRight: 6}}/>
+                        <Text style={[styles.saveBtnText, {fontSize: 13, fontWeight: '700'}]}>Link Viewer</Text>
+                      </TouchableOpacity>
+                      {(group?.role === 'owner' || group?.role === 'admin') && (
+                        <TouchableOpacity
+                          style={[styles.saveBtn, { flex: 1, backgroundColor: '#007AFF', height: 40, borderRadius: 8, flexDirection: 'row' }]}
+                          onPress={() => handleShareWebLink('admin')}
+                        >
+                          <Ionicons name="copy-outline" size={16} color="#FFF" style={{marginRight: 6}}/>
+                          <Text style={[styles.saveBtnText, {fontSize: 13, fontWeight: '700'}]}>Link Admin</Text>
+                        </TouchableOpacity>
+                      )}
+                    </View>
+
+                    <Text style={[styles.configSectionTitle, dynamicStyles.text, { fontSize: 14, fontWeight: '700', marginBottom: 10 }]}>Token Accesso (Codice Manuale)</Text>
                     <View style={{ flexDirection: 'row', gap: 6 }}>
                       {group?.role === 'owner' && <TouchableOpacity style={[styles.tokenBtn, { flex: 1, backgroundColor: '#5856D6', height: 35, borderRadius: 6 }]} onPress={() => handleShareToken('owner')}><Text style={[styles.tokenBtnText, {fontSize: 12}]}>Owner</Text></TouchableOpacity>}
                       {(group?.role === 'owner' || group?.role === 'admin') && <TouchableOpacity style={[styles.tokenBtn, { flex: 1, backgroundColor: '#007AFF', height: 35, borderRadius: 6 }]} onPress={() => handleShareToken('admin')}><Text style={[styles.tokenBtnText, {fontSize: 12}]}>Admin</Text></TouchableOpacity>}
