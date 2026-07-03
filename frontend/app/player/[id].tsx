@@ -42,6 +42,7 @@ export default function PlayerDetailScreen() {
   const [groupPlayers, setGroupPlayers] = useState<Player[]>([]);
   const [groupStats, setGroupStats] = useState<PlayerStats[]>([]);
   const [group, setGroup] = useState<any>(null);
+  const isAdminOrOwner = group?.role === 'owner' || group?.role === 'admin';
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -1079,7 +1080,9 @@ export default function PlayerDetailScreen() {
                 )}
                 <View style={[styles.headerStatBox, dynamicStyles.card]}><Text style={[styles.headerStatValue, dynamicStyles.text]}>{player.age}</Text><Text style={styles.headerStatLabel}>ANNI</Text></View>
               </View>
-              <View style={[styles.headerStatBox, dynamicStyles.card, { alignSelf: 'flex-end' }]}><Text style={[styles.headerStatValue, dynamicStyles.text]}>{player.strength}</Text><Text style={styles.headerStatLabel}>FORZA</Text></View>
+              {isAdminOrOwner && (
+                <View style={[styles.headerStatBox, dynamicStyles.card, { alignSelf: 'flex-end' }]}><Text style={[styles.headerStatValue, dynamicStyles.text]}>{player.strength}</Text><Text style={styles.headerStatLabel}>FORZA</Text></View>
+              )}
             </View>
           </View>
 

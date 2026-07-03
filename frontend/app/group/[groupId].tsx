@@ -3188,11 +3188,16 @@ export default function GroupDetailScreen() {
                           </TouchableOpacity>
 
                           <View style={styles.tpRight}>
-                            {showIndividualStrength && (
+                            {showIndividualStrength && isAdminOrOwner && (
                               <View style={[styles.pStrBadge, { backgroundColor: isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)', flexDirection: 'row', gap: sharing ? 6 : 8, paddingHorizontal: sharing ? 6 : 8, paddingVertical: sharing ? 2 : 4, borderRadius: 10 }]}>
                                 <View style={{alignItems: 'center'}}><Text style={[styles.tpAge, dynamicStyles.subText, {fontSize: sharing ? 11 : 12, fontWeight: '700'}]}>{p.age}</Text><Text style={[styles.pStrLabel, {fontSize: 6}]}>ANNI</Text></View>
                                 <View style={[styles.pDivider, dynamicStyles.divider, { height: 12 }]} />
                                 <View style={{alignItems: 'center'}}><Text style={[styles.tpStrength, dynamicStyles.text, { fontSize: sharing ? 14 : 16 }]}>{p.strength}</Text><Text style={[styles.pStrLabel, {fontSize: 6}]}>FRZ</Text></View>
+                              </View>
+                            )}
+                            {showIndividualStrength && !isAdminOrOwner && (
+                              <View style={[styles.pStrBadge, { backgroundColor: isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)', paddingHorizontal: sharing ? 6 : 8, paddingVertical: sharing ? 2 : 4, borderRadius: 10 }]}>
+                                <View style={{alignItems: 'center'}}><Text style={[styles.tpAge, dynamicStyles.subText, {fontSize: sharing ? 11 : 12, fontWeight: '700'}]}>{p.age}</Text><Text style={[styles.pStrLabel, {fontSize: 6}]}>ANNI</Text></View>
                               </View>
                             )}
                             {!sharing && (
@@ -5716,10 +5721,14 @@ export default function GroupDetailScreen() {
                         <Text style={[styles.pNickname, dynamicStyles.text, { fontSize: 15 }]}>{item.nickname}</Text>
                         <Text style={[styles.pRoleText, { color: ROLE_COLORS[item.role], fontSize: 10 }]}>{item.role}</Text>
                       </View>
-                      <View style={[styles.pStrBadge, { backgroundColor: isDarkMode ? '#3A3A3C' : '#F2F2F7', flexDirection: 'row', width: 75, gap: 6, paddingVertical: 3, borderRadius: 8, justifyContent: 'center' }]}>
+                      <View style={[styles.pStrBadge, { backgroundColor: isDarkMode ? '#3A3A3C' : '#F2F2F7', flexDirection: 'row', width: isAdminOrOwner ? 75 : 45, gap: 6, paddingVertical: 3, borderRadius: 8, justifyContent: 'center' }]}>
                         <View style={{alignItems: 'center'}}><Text style={[styles.pAge, dynamicStyles.subText, {fontSize: 11, fontWeight: '700'}]}>{item.age}</Text><Text style={styles.pStrLabel}>ANNI</Text></View>
-                        <View style={[styles.pDivider, dynamicStyles.divider, { height: 12 }]} />
-                        <View style={{alignItems: 'center'}}><Text style={[styles.pStrNum, dynamicStyles.text, { fontSize: 13 }]}>{item.strength}</Text><Text style={styles.pStrLabel}>FRZ</Text></View>
+                        {isAdminOrOwner && (
+                          <>
+                            <View style={[styles.pDivider, dynamicStyles.divider, { height: 12 }]} />
+                            <View style={{alignItems: 'center'}}><Text style={[styles.pStrNum, dynamicStyles.text, { fontSize: 13 }]}>{item.strength}</Text><Text style={styles.pStrLabel}>FRZ</Text></View>
+                          </>
+                        )}
                       </View>
                     </TouchableOpacity>
                   )}
@@ -5767,10 +5776,14 @@ export default function GroupDetailScreen() {
                      <TouchableOpacity style={[styles.selCard, dynamicStyles.card, isSel && styles.selCardActive]} onPress={() => togglePlayer(item.id)}>
                        <View style={[styles.chk, isSel && styles.chkActive]}>{isSel && <Ionicons name="checkmark" size={14} color="#FFF" />}</View>
                        <View style={styles.selPlayerInfo}><Text style={[styles.selNick, dynamicStyles.text, { fontSize: 15 }]}>{item.nickname}</Text><Text style={[styles.selRole, { color: ROLE_COLORS[item.role], fontSize: 10 }]}>{item.role}</Text></View>
-                       <View style={[styles.pStrBadge, { backgroundColor: isDarkMode ? '#3A3A3C' : '#F2F2F7', flexDirection: 'row', width: 75, gap: 6, paddingVertical: 3, borderRadius: 8, justifyContent: 'center', marginLeft: 10 }]}>
+                       <View style={[styles.pStrBadge, { backgroundColor: isDarkMode ? '#3A3A3C' : '#F2F2F7', flexDirection: 'row', width: isAdminOrOwner ? 75 : 45, gap: 6, paddingVertical: 3, borderRadius: 8, justifyContent: 'center', marginLeft: 10 }]}>
                          <View style={{alignItems: 'center'}}><Text style={[styles.pAge, dynamicStyles.subText, {fontSize: 11, fontWeight: '700'}]}>{item.age}</Text><Text style={styles.pStrLabel}>ANNI</Text></View>
-                         <View style={[styles.pDivider, dynamicStyles.divider, { height: 12 }]} />
-                         <View style={{alignItems: 'center'}}><Text style={[styles.pStrNum, dynamicStyles.text, { fontSize: 13 }]}>{item.strength}</Text><Text style={styles.pStrLabel}>FRZ</Text></View>
+                         {isAdminOrOwner && (
+                           <>
+                             <View style={[styles.pDivider, dynamicStyles.divider, { height: 12 }]} />
+                             <View style={{alignItems: 'center'}}><Text style={[styles.pStrNum, dynamicStyles.text, { fontSize: 13 }]}>{item.strength}</Text><Text style={styles.pStrLabel}>FRZ</Text></View>
+                           </>
+                         )}
                        </View>
                      </TouchableOpacity>
                    );
