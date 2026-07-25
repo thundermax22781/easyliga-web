@@ -90,14 +90,61 @@ export interface Match {
 }
 
 
-export interface PlayerStats {
-  player_id: string;
-  nickname: string;
-  role: string;
-  played: number;
-  won: number;
-  drawn: number;
-  lost: number;
+export const CAREER_FIELDS = [
+  'linked_group_ids', 'import_linked_data', 'tournament_match_weight',
+  'tournament_win_bonus', 'tournament_2nd_bonus', 'tournament_3rd_bonus',
+  'tournament_4th_bonus', 'tournament_group_winner_bonus',
+  'tournament_top_scorer_bonus', 'tournament_top_assistant_bonus',
+  'tournament_3rd_team_name', 'tournament_4th_team_name'
+];
+
+export const syncGroupMetadata = async (groupId: string, payload: Partial<Group>): Promise<void> => {
+  const metadata: any = {};
+  let hasMetadata = false;
+  CAREER_FIELDS.forEach(field => {
+    if ((payload as any)[field] !== undefined) {
+      metadata[field] = (payload as any)[field];
+      hasMetadata = true;
+    }
+  });
+
+  if (!hasMetadata) return;
+
+  try {
+    const { data: existing } = await supabase
+      .from('matches')
+      .select('id, description')
+      .eq('group_id', groupId)
+      .eq('team_a_name', 'METADATA')
+      .eq('team_b_name', 'SYSTEM')
+      .maybeSingle();
+
+    const metadataString = `JSON_METADATA:${JSON.stringify(metadata)}`;
+
+    if (existing) {
+      await supabase.from('matches').update({ description: metadataString }).eq('id', existing.id);
+    } else {
+      await supabase.from('matches').insert([{
+        group_id: groupId,
+        description: metadataString,
+        status: 'scheduled',
+        date: new Date(0).toISOString(),
+        team_a_name: 'METADATA',
+        team_b_name: 'SYSTEM',
+        team_a_players: [],
+        team_b_players: [],
+        team_a_score: 0,
+        team_b_score: 0,
+        team_a_color: '',
+        team_b_color: '',
+        match_phase: 'group'
+      }]);
+    }
+  } catch (e) {
+    console.error("Errore sincronizzazione metadati:", e);
+  }
+};
+
   points: number;
   goals_done: number;
   goals_suffered: number;
@@ -264,13 +311,7 @@ export const syncCloudData = async (groupId?: string): Promise<void> => {
 
         // Applichiamo i dati salvati localmente SOLO come fallback se il cloud è vuoto
         // (utile per migrazione o se le colonne sono state appena create)
-        const careerFields = [
-          'linked_group_ids', 'import_linked_data', 'tournament_match_weight',
-          'tournament_win_bonus', 'tournament_2nd_bonus', 'tournament_3rd_bonus',
-          'tournament_4th_bonus', 'tournament_group_winner_bonus',
-          'tournament_top_scorer_bonus', 'tournament_top_assistant_bonus',
-          'tournament_3rd_team_name', 'tournament_4th_team_name'
-        ];
+        const careerFields = CAREER_FIELDS;
 
         for (const g of allCloud) {
           for (const field of careerFields) {
@@ -296,7 +337,32 @@ export const syncCloudData = async (groupId?: string): Promise<void> => {
       if (pData) await AsyncStorage.setItem(`players_${groupId}`, JSON.stringify(pData));
 
       const { data: mData } = await supabase.from('matches').select('*').eq('group_id', groupId).order('date', { ascending: false });
-      if (mData) await AsyncStorage.setItem(`matches_${groupId}`, JSON.stringify(mData));
+      if (mData) {
+        await AsyncStorage.setItem(`matches_${groupId}`, JSON.stringify(mData));
+
+        // ESTRAZIONE METADATI SISTEMA
+        const metaMatch = mData.find(m => m.team_a_name === 'METADATA' && m.description?.startsWith('JSON_METADATA:'));
+        if (metaMatch) {
+          try {
+            const jsonStr = metaMatch.description!.replace('JSON_METADATA:', '');
+            const metadata = JSON.parse(jsonStr);
+            for (const field of CAREER_FIELDS) {
+              if (metadata[field] !== undefined) {
+                await AsyncStorage.setItem(`override_${field}_${groupId}`, JSON.stringify(metadata[field]));
+              }
+            }
+            // Aggiorniamo anche la cache dei gruppi immediatamente se presente
+            const cloudCacheSaved = await AsyncStorage.getItem('cloud_groups_cache');
+            if (cloudCacheSaved) {
+              const cloudCache = JSON.parse(cloudCacheSaved);
+              const updatedCache = cloudCache.map((gc: any) => gc.id === groupId ? { ...gc, ...metadata } : gc);
+              await AsyncStorage.setItem('cloud_groups_cache', JSON.stringify(updatedCache));
+            }
+          } catch (e) {
+            console.warn("Errore parsing metadati cloud:", e);
+          }
+        }
+      }
 
       await AsyncStorage.removeItem(`needs_sync_${groupId}`);
       await AsyncStorage.setItem(`last_sync_timestamp_${groupId}`, new Date().toISOString());
@@ -391,34 +457,15 @@ export const updateGroup = async (groupId: string, updates: Partial<Group> | str
 
         // Gestione fallback per colonne mancanti nel DB (Career Mode / Tornei collegati)
         // Se il DB restituisce errore (es. colonna non esiste), salviamo i dati localmente come override
-        const careerFields = [
-          'linked_group_ids', 'import_linked_data', 'tournament_match_weight',
-          'tournament_win_bonus', 'tournament_2nd_bonus', 'tournament_3rd_bonus',
-          'tournament_4th_bonus', 'tournament_group_winner_bonus',
-          'tournament_top_scorer_bonus', 'tournament_top_assistant_bonus',
-          'tournament_3rd_team_name', 'tournament_4th_team_name'
-        ];
-
-        for (const field of careerFields) {
-          if ((payload as any)[field] !== undefined) {
-            await AsyncStorage.setItem(`override_${field}_${groupId}`, JSON.stringify((payload as any)[field]));
-          }
-        }
+        await syncGroupMetadata(groupId, payload);
         return { ...group, ...payload, storage_type: 'cloud' } as Group;
       }
 
-      // Se il salvataggio su cloud ha avuto successo, possiamo pulire gli override locali per questo gruppo
-      // per evitare conflitti di sincronizzazione in futuro
-      const careerFields = [
-        'linked_group_ids', 'import_linked_data', 'tournament_match_weight',
-        'tournament_win_bonus', 'tournament_2nd_bonus', 'tournament_3rd_bonus',
-        'tournament_4th_bonus', 'tournament_group_winner_bonus',
-        'tournament_top_scorer_bonus', 'tournament_top_assistant_bonus',
-        'tournament_3rd_team_name', 'tournament_4th_team_name'
-      ];
-      for (const field of careerFields) {
-        await AsyncStorage.removeItem(`override_${field}_${groupId}`);
-      }
+      // Se il salvataggio su cloud ha avuto successo, sincronizziamo comunque i metadati
+      // per gli utenti che non hanno le colonne aggiornate o per i campi "difficili"
+      await syncGroupMetadata(groupId, payload);
+
+      // Pulizia override locali se il cloud ha funzionato (opzionale, ma lasciamo che syncGroupMetadata faccia il suo lavoro)
 
       return { ...group, ...data, storage_type: 'cloud' } as Group;
 
@@ -497,21 +544,43 @@ export const deleteGroup = async (groupId: string): Promise<void> => {
   }
 };
 
+const registerGroupJoin = async (groupId: string, role: 'owner' | 'admin' | 'viewer') => {
+  const joinedSaved = await AsyncStorage.getItem('joined_cloud_groups');
+  const joined: string[] = joinedSaved ? JSON.parse(joinedSaved) : [];
+  if (!joined.includes(groupId)) {
+    await AsyncStorage.setItem('joined_cloud_groups', JSON.stringify([...joined, groupId]));
+  }
+  const rolesSaved = await AsyncStorage.getItem('cloud_group_roles');
+  const roles = rolesSaved ? JSON.parse(rolesSaved) : {};
+  roles[groupId] = role;
+  await AsyncStorage.setItem('cloud_group_roles', JSON.stringify(roles));
+  await syncCloudData(groupId);
+};
+
 export const joinGroup = async (token: string): Promise<void> => {
   const { data, error } = await supabase.from('groups').select('*').or(`id.eq.${token},admin_token.eq.${token},viewer_token.eq.${token}`).maybeSingle();
   if (error || !data) throw new Error('Token non valido');
+
   let role: 'owner' | 'admin' | 'viewer' = 'viewer';
   if (token === data.id) role = 'owner';
   else if (token === data.admin_token) role = 'admin';
-  const joinedSaved = await AsyncStorage.getItem('joined_cloud_groups');
-  const joined: string[] = joinedSaved ? JSON.parse(joinedSaved) : [];
-  if (!joined.includes(data.id)) await AsyncStorage.setItem('joined_cloud_groups', JSON.stringify([...joined, data.id]));
-  const rolesSaved = await AsyncStorage.getItem('cloud_group_roles');
-  const roles = rolesSaved ? JSON.parse(rolesSaved) : {};
-  roles[data.id] = role;
-  await AsyncStorage.setItem('cloud_group_roles', JSON.stringify(roles));
-  await syncCloudData(data.id);
+
+  // 1. Join al gruppo principale
+  await registerGroupJoin(data.id, role);
+
+  // 2. Se è un campionato con tornei collegati, effettuiamo il join automatico dei tornei come visualizzatori
+  if (data.group_type === 'championship' && data.linked_group_ids && data.linked_group_ids.length > 0) {
+    for (const linkedId of data.linked_group_ids) {
+      try {
+        // Uniamo l'utente al torneo collegato come visualizzatore
+        await registerGroupJoin(linkedId, 'viewer');
+      } catch (e) {
+        console.warn(`Impossibile unirsi automaticamente al torneo collegato ${linkedId}:`, e);
+      }
+    }
+  }
 };
+
 
 // --- GIOCATORI ---
 
@@ -1161,30 +1230,52 @@ export const createFullBackup = async (groupId: string): Promise<string> => {
   const groups = await fetchGroups();
   const group = groups.find(g => g.id === groupId);
   if (!group) throw new Error('Gruppo non trovato');
+
   const players = await fetchPlayers({ group_id: groupId });
   const matches = await fetchMatches(groupId);
-  return JSON.stringify({ group, players, matches, version: '1.0', timestamp: new Date().toISOString() }, null, 2);
+
+  const backup: any = {
+    group,
+    players,
+    matches,
+    version: '1.1',
+    timestamp: new Date().toISOString(),
+    linked_groups: []
+  };
+
+  // Se è un campionato con tornei collegati, includiamo anche quelli
+  if (group.group_type === 'championship' && group.linked_group_ids && group.linked_group_ids.length > 0) {
+    for (const linkedId of group.linked_group_ids) {
+      try {
+        const lg = groups.find(g => g.id === linkedId);
+        if (lg) {
+          const lp = await fetchPlayers({ group_id: linkedId });
+          const lm = await fetchMatches(linkedId);
+          backup.linked_groups.push({ group: lg, players: lp, matches: lm });
+        }
+      } catch (e) {
+        console.warn(`Errore durante il backup del torneo collegato ${linkedId}:`, e);
+      }
+    }
+  }
+
+  return JSON.stringify(backup, null, 2);
 };
 
-export const restoreFullBackup = async (groupId: string, jsonString: string): Promise<void> => {
-  const backup = JSON.parse(jsonString);
-  if (!backup.group || !backup.players || !backup.matches) throw new Error('Backup non valido');
-  const groups = await fetchGroups();
-  const group = groups.find(g => g.id === groupId);
-  if (!group) throw new Error('Gruppo non trovato');
+const restoreGroupData = async (groupId: string, data: { players: Player[], matches: Match[] }, storageType: 'local' | 'cloud'): Promise<Record<string, string>> => {
+  const idMap: Record<string, string> = {};
 
-  if (group.storage_type === 'local') {
-    await AsyncStorage.setItem(`players_${groupId}`, JSON.stringify(backup.players));
-    await AsyncStorage.setItem(`matches_${groupId}`, JSON.stringify(backup.matches));
+  if (storageType === 'local') {
+    await AsyncStorage.setItem(`players_${groupId}`, JSON.stringify(data.players));
+    await AsyncStorage.setItem(`matches_${groupId}`, JSON.stringify(data.matches));
   } else {
     // 1. Pulizia Cloud
     await supabase.from('players').delete().eq('group_id', groupId);
     await supabase.from('matches').delete().eq('group_id', groupId);
 
     // 2. Ripristino Giocatori con mappatura ID
-    const idMap: Record<string, string> = {};
-    if (backup.players.length > 0) {
-      const playersToInsert = backup.players.map((p: any) => ({
+    if (data.players.length > 0) {
+      const playersToInsert = data.players.map((p: any) => ({
         nickname: p.nickname,
         name: p.name,
         surname: p.surname,
@@ -1197,29 +1288,22 @@ export const restoreFullBackup = async (groupId: string, jsonString: string): Pr
       const { data: newPlayers, error: pError } = await supabase.from('players').insert(playersToInsert).select();
       if (pError) throw pError;
 
-      // Crea mappa: vecchio_nickname -> nuovo_id (usiamo nickname come ancora di salvezza se l'id cambia)
-      // O meglio: se il backup ha gli ID, mappiamo quelli
       if (newPlayers) {
         newPlayers.forEach((np: any) => {
-          const oldP = backup.players.find((op: any) => op.nickname === np.nickname);
+          const oldP = data.players.find((op: any) => op.nickname === np.nickname);
           if (oldP) idMap[oldP.id] = np.id;
         });
       }
     }
 
     // 3. Ripristino Partite con ID aggiornati
-    if (backup.matches.length > 0) {
-      const matchesToInsert = backup.matches.map((m: any) => {
+    if (data.matches.length > 0) {
+      const matchesToInsert = data.matches.map((m: any) => {
         const mapPlayerId = (oldId: string) => idMap[oldId] || oldId;
-
-        // Mappa i giocatori nelle squadre
         const team_a = (m.team_a_players || []).map(mapPlayerId);
         const team_b = (m.team_b_players || []).map(mapPlayerId);
-
-        // Mappa i marcatori e assist
         const goals: Record<string, number> = {};
         if (m.goals) Object.entries(m.goals).forEach(([oid, val]) => { goals[mapPlayerId(oid)] = val as number; });
-
         const assists: Record<string, number> = {};
         if (m.assists) Object.entries(m.assists).forEach(([oid, val]) => { assists[mapPlayerId(oid)] = val as number; });
 
@@ -1246,16 +1330,100 @@ export const restoreFullBackup = async (groupId: string, jsonString: string): Pr
           team_a_penalties: m.team_a_penalties || 0,
           team_b_penalties: m.team_b_penalties || 0,
           team_a_placeholder: m.team_a_placeholder || '',
-          team_b_placeholder: m.team_b_placeholder || ''
+          team_b_placeholder: m.team_b_placeholder || '',
+          knockout_index: m.knockout_index,
+          exclude_def_bonus: m.exclude_def_bonus
         };
       });
 
       const { error: mError } = await supabase.from('matches').insert(matchesToInsert);
       if (mError) throw mError;
     }
-    await syncCloudData(groupId);
   }
+  return idMap;
 };
+
+export const restoreFullBackup = async (groupId: string, jsonString: string): Promise<void> => {
+  const backup = JSON.parse(jsonString);
+  if (!backup.group || !backup.players || !backup.matches) throw new Error('Backup non valido');
+
+  const groups = await fetchGroups();
+  const targetGroup = groups.find(g => g.id === groupId);
+  if (!targetGroup) throw new Error('Gruppo non trovato');
+
+  // Ripristiniamo le impostazioni del gruppo principale (chirurgico)
+  const groupPayload: Partial<Group> = {
+    ...backup.group,
+    id: groupId, // Manteniamo l'ID del gruppo attuale
+    storage_type: targetGroup.storage_type // Manteniamo il tipo di storage attuale
+  };
+  delete (groupPayload as any).admin_id; // Non sovrascriviamo l'owner
+
+  await updateGroup(groupId, groupPayload);
+
+  // Ripristino dati principali
+  await restoreGroupData(groupId, { players: backup.players, matches: backup.matches }, targetGroup.storage_type);
+
+  // Ripristino tornei collegati (se presenti nel backup)
+  if (backup.linked_groups && backup.linked_groups.length > 0) {
+    const newLinkedIds: string[] = [];
+
+    for (const linkedData of backup.linked_groups) {
+      try {
+        const newTournamentName = `${linkedData.group.name} (Ripristinato)`;
+        const newTId = Math.random().toString(36).substring(7);
+
+        if (targetGroup.storage_type === 'local') {
+          const newTGroup: Group = {
+            ...linkedData.group,
+            id: newTId,
+            name: newTournamentName,
+            storage_type: 'local'
+          };
+          const currentGroups = await fetchGroups();
+          const localOnly = currentGroups.filter(g => g.storage_type === 'local');
+          await AsyncStorage.setItem('local_groups', JSON.stringify([...localOnly, newTGroup]));
+          await restoreGroupData(newTId, { players: linkedData.players, matches: linkedData.matches }, 'local');
+          newLinkedIds.push(newTId);
+        } else {
+          // Ripristino Cloud: creiamo un nuovo gruppo torneo
+          const { data: { user } } = await supabase.auth.getUser();
+          const { data: newTCloud, error: createError } = await supabase.from('groups').insert([{
+            ...linkedData.group,
+            name: newTournamentName,
+            storage_type: 'cloud',
+            admin_id: user?.id
+          }]).select().single();
+
+          if (!createError && newTCloud) {
+            // Aggiungiamo ai joined e ruoli
+            const joinedSaved = await AsyncStorage.getItem('joined_cloud_groups');
+            const joined = joinedSaved ? JSON.parse(joinedSaved) : [];
+            await AsyncStorage.setItem('joined_cloud_groups', JSON.stringify([...joined, newTCloud.id]));
+
+            const rolesSaved = await AsyncStorage.getItem('cloud_group_roles');
+            const roles = rolesSaved ? JSON.parse(rolesSaved) : {};
+            roles[newTCloud.id] = 'owner';
+            await AsyncStorage.setItem('cloud_group_roles', JSON.stringify(roles));
+
+            await restoreGroupData(newTCloud.id, { players: linkedData.players, matches: linkedData.matches }, 'cloud');
+            newLinkedIds.push(newTCloud.id);
+          }
+        }
+      } catch (e) {
+        console.warn("Ripristino torneo collegato fallito:", e);
+      }
+    }
+
+    // Aggiorniamo il collegamento nel campionato principale
+    if (newLinkedIds.length > 0) {
+      await updateGroup(groupId, { linked_group_ids: newLinkedIds });
+    }
+  }
+
+  await syncCloudData(groupId);
+};
+
 
 export const JERSEY_COLORS = [
   { value: 'Bianca', hex: '#FFFFFF' },

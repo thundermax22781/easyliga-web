@@ -45,4 +45,8 @@ yarn-error.*
 # typescript
 *.tsbuildinfo
 
+# IDE Artifacts
+.artifacts/
+android/.artifacts/
+
 app-example
