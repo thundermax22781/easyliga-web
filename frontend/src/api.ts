@@ -119,7 +119,15 @@ export const syncGroupMetadata = async (groupId: string, payload: Partial<Group>
       .eq('team_b_name', 'SYSTEM')
       .maybeSingle();
 
-    const metadataString = `JSON_METADATA:${JSON.stringify(metadata)}`;
+    let finalMetadata = { ...metadata };
+    if (existing && existing.description?.startsWith('JSON_METADATA:')) {
+      try {
+        const oldMetadata = JSON.parse(existing.description.replace('JSON_METADATA:', ''));
+        finalMetadata = { ...oldMetadata, ...metadata };
+      } catch (e) {}
+    }
+
+    const metadataString = `JSON_METADATA:${JSON.stringify(finalMetadata)}`;
 
     if (existing) {
       await supabase.from('matches').update({ description: metadataString }).eq('id', existing.id);
@@ -145,6 +153,14 @@ export const syncGroupMetadata = async (groupId: string, payload: Partial<Group>
   }
 };
 
+export interface PlayerStats {
+  player_id: string;
+  nickname: string;
+  role: string;
+  played: number;
+  won: number;
+  drawn: number;
+  lost: number;
   points: number;
   goals_done: number;
   goals_suffered: number;
@@ -252,6 +268,14 @@ export const fetchGroups = async (): Promise<Group[]> => {
     try {
       const pSaved = await AsyncStorage.getItem(`players_${g.id}`);
       g.player_count = pSaved ? JSON.parse(pSaved).length : 0;
+
+      // APPLICHIAMO OVERRIDES DA METADATI (Chirurgico per allineamento web/cloud)
+      for (const field of CAREER_FIELDS) {
+        const override = await AsyncStorage.getItem(`override_${field}_${g.id}`);
+        if (override !== null) {
+          (g as any)[field] = JSON.parse(override);
+        }
+      }
     } catch (e) {
       g.player_count = 0;
     }
@@ -339,27 +363,21 @@ export const syncCloudData = async (groupId?: string): Promise<void> => {
       const { data: mData } = await supabase.from('matches').select('*').eq('group_id', groupId).order('date', { ascending: false });
       if (mData) {
         await AsyncStorage.setItem(`matches_${groupId}`, JSON.stringify(mData));
+        // ESTRAZIONE METADATI SISTEMA tramite helper
+        await applyMetadata(groupId, mData);
+      }
 
-        // ESTRAZIONE METADATI SISTEMA
-        const metaMatch = mData.find(m => m.team_a_name === 'METADATA' && m.description?.startsWith('JSON_METADATA:'));
-        if (metaMatch) {
-          try {
-            const jsonStr = metaMatch.description!.replace('JSON_METADATA:', '');
-            const metadata = JSON.parse(jsonStr);
-            for (const field of CAREER_FIELDS) {
-              if (metadata[field] !== undefined) {
-                await AsyncStorage.setItem(`override_${field}_${groupId}`, JSON.stringify(metadata[field]));
-              }
-            }
-            // Aggiorniamo anche la cache dei gruppi immediatamente se presente
-            const cloudCacheSaved = await AsyncStorage.getItem('cloud_groups_cache');
-            if (cloudCacheSaved) {
-              const cloudCache = JSON.parse(cloudCacheSaved);
-              const updatedCache = cloudCache.map((gc: any) => gc.id === groupId ? { ...gc, ...metadata } : gc);
-              await AsyncStorage.setItem('cloud_groups_cache', JSON.stringify(updatedCache));
-            }
-          } catch (e) {
-            console.warn("Errore parsing metadati cloud:", e);
+      // AUTO-JOIN DINAMICO TORNEI COLLEGATI (Per allineamento Web)
+      const currentGroups = await fetchGroups();
+      const g = currentGroups.find(x => x.id === groupId);
+      if (g?.group_type === 'championship' && g.linked_group_ids && g.linked_group_ids.length > 0) {
+        const joinedCloudIdsSaved = await AsyncStorage.getItem('joined_cloud_groups');
+        const joinedCloudIds: string[] = joinedCloudIdsSaved ? JSON.parse(joinedCloudIdsSaved) : [];
+
+        for (const lid of g.linked_group_ids) {
+          if (!joinedCloudIds.includes(lid)) {
+             console.log(`Auto-joining linked tournament: ${lid}`);
+             await registerGroupJoin(lid, 'viewer');
           }
         }
       }
@@ -544,7 +562,7 @@ export const deleteGroup = async (groupId: string): Promise<void> => {
   }
 };
 
-const registerGroupJoin = async (groupId: string, role: 'owner' | 'admin' | 'viewer') => {
+export const registerGroupJoin = async (groupId: string, role: 'owner' | 'admin' | 'viewer') => {
   const joinedSaved = await AsyncStorage.getItem('joined_cloud_groups');
   const joined: string[] = joinedSaved ? JSON.parse(joinedSaved) : [];
   if (!joined.includes(groupId)) {
@@ -662,6 +680,30 @@ export const deletePlayer = async (playerId: string): Promise<void> => {
 
 // --- PARTITE ---
 
+export const applyMetadata = async (groupId: string, matches: Match[]) => {
+  const metaMatch = matches.find(m => m.team_a_name === 'METADATA' && m.description?.startsWith('JSON_METADATA:'));
+  if (metaMatch) {
+    try {
+      const jsonStr = metaMatch.description!.replace('JSON_METADATA:', '');
+      const metadata = JSON.parse(jsonStr);
+      for (const field of CAREER_FIELDS) {
+        if (metadata[field] !== undefined) {
+          await AsyncStorage.setItem(`override_${field}_${groupId}`, JSON.stringify(metadata[field]));
+        }
+      }
+      // Aggiorniamo anche la cache dei gruppi immediatamente se presente
+      const cloudCacheSaved = await AsyncStorage.getItem('cloud_groups_cache');
+      if (cloudCacheSaved) {
+        const cloudCache = JSON.parse(cloudCacheSaved);
+        const updatedCache = cloudCache.map((gc: any) => gc.id === groupId ? { ...gc, ...metadata } : gc);
+        await AsyncStorage.setItem('cloud_groups_cache', JSON.stringify(updatedCache));
+      }
+    } catch (e) {
+      console.warn("Errore parsing metadati cloud:", e);
+    }
+  }
+};
+
 export const fetchMatches = async (groupId: string): Promise<Match[]> => {
   // 1. Prova a caricare dal Cloud per avere dati freschi
   try {
@@ -673,6 +715,8 @@ export const fetchMatches = async (groupId: string): Promise<Match[]> => {
 
     if (!error && data && data.length > 0) {
       await AsyncStorage.setItem(`matches_${groupId}`, JSON.stringify(data));
+      // APPLICHIAMO METADATI SISTEMA (Chirurgico per garantire allineamento web)
+      await applyMetadata(groupId, data);
       return data;
     }
   } catch (e) {
@@ -898,9 +942,9 @@ export const calculateStandings = async (groupId: string, playersData?: Player[]
         }));
         allMatches.push(...weightedMatches);
 
-        // Calcolo bonus posizioni torneo (1°, 2°, 3° e 4°)
-        const finalMatch = linkedMatches.find(m => m.match_phase === 'final' && m.status === 'played');
-        const thirdPlaceMatch = linkedMatches.find(m => m.match_phase === 'third_place' && m.status === 'played');
+        const updatedGroups = await fetchGroups();
+        const linkedGroupObj = updatedGroups.find(g => String(g.id).trim() === String(linkedId).trim());
+        const tName = linkedGroupObj?.name || `Torneo ${linkedId}`;
 
         const assignBonus = (tids: string[], amount: number, label: string, tournamentName: string) => {
           if (!tids) return;
@@ -927,9 +971,6 @@ export const calculateStandings = async (groupId: string, playersData?: Player[]
             }
           });
         };
-
-        const linkedGroupObj = groups.find(g => String(g.id).trim() === String(linkedId).trim());
-        const tName = linkedGroupObj?.name || `Torneo ${linkedId}`;
 
         if (finalMatch) {
           const sA = Number(finalMatch.team_a_score || 0), sB = Number(finalMatch.team_b_score || 0);

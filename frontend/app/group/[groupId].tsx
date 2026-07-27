@@ -48,6 +48,7 @@ import {
   syncCloudData,
   createFullBackup,
   restoreFullBackup,
+  registerGroupJoin,
   ROLE_COLORS,
   JERSEY_COLORS,
   ROLES,
@@ -335,6 +336,24 @@ export default function GroupDetailScreen() {
         setMatchType(currentGroup.match_type || 5);
         setNumTeams(currentGroup.group_type === 'tournament' ? (currentGroup.num_teams || 4) : 2);
         setNumGroups(currentGroup.num_groups || 1);
+
+        // AUTO-JOIN DINAMICO TORNEI (Per allineamento Web)
+        // Se è un campionato cloud e ha tornei collegati non ancora in locale, forziamo il join e sync
+        if (currentGroup.storage_type === 'cloud' && currentGroup.group_type === 'championship' && currentGroup.linked_group_ids && currentGroup.linked_group_ids.length > 0) {
+           const joinedCloudIdsSaved = await AsyncStorage.getItem('joined_cloud_groups');
+           const joinedCloudIds: string[] = joinedCloudIdsSaved ? JSON.parse(joinedCloudIdsSaved) : [];
+           const missingIds = currentGroup.linked_group_ids.filter(id => !joinedCloudIds.includes(id));
+
+           if (missingIds.length > 0) {
+              console.log("Detecting missing linked tournaments, joining...");
+              for (const mid of missingIds) {
+                 await registerGroupJoin(mid, 'viewer');
+              }
+              // Dopo il join, ricarichiamo tutto per avere i dati dei tornei pronti per la classifica
+              loadData(false);
+              return;
+           }
+        }
       }
 
       setLoading(false);
