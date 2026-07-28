@@ -384,65 +384,82 @@ export const syncCloudData = async (groupId?: string): Promise<void> => {
     const joinedCloudIdsSaved = await AsyncStorage.getItem('joined_cloud_groups');
     const joinedCloudIds: string[] = joinedCloudIdsSaved ? JSON.parse(joinedCloudIdsSaved) : [];
 
-    // 2. AUTO-DISCOVERY: Cerchiamo sia gli ID seguiti che i gruppi di proprietà dell'utente
-    let query = supabase.from('groups').select('*');
+    // LOGICA INFALLIBILE: Due query separate invece di una OR complessa (che causava crash UUID)
+    let allCloudGroups: any[] = [];
 
+    // 1. Recuperiamo i gruppi di cui siamo proprietari (tramite admin_id)
     if (user) {
-      // Se loggato, cerchiamo i miei gruppi OPPURE quelli in lista locale
-      if (joinedCloudIds.length > 0) {
-        query = query.or(`admin_id.eq.${user.id},id.in.(${joinedCloudIds.join(',')})`);
-      } else {
-        query = query.eq('admin_id', user.id);
+      const { data: ownedGroups, error: ownedError } = await supabase
+        .from('groups')
+        .select('*')
+        .eq('admin_id', user.id);
+
+      if (!ownedError && ownedGroups) {
+        allCloudGroups = [...ownedGroups];
       }
-    } else if (joinedCloudIds.length > 0) {
-      // Se non loggato (difficile), solo quelli in lista
-      query = query.in('id', joinedCloudIds);
-    } else {
-      // Nulla da cercare
-      await AsyncStorage.setItem('cloud_groups_cache', JSON.stringify([]));
-      return;
     }
 
-    const { data: groupsData } = await query;
+    // 2. Recuperiamo i gruppi a cui siamo stati invitati (tramite ID in lista)
+    // Filtriamo solo gli ID che sembrano UUID per evitare errori SQL di cast
+    const validUuids = joinedCloudIds.filter(id =>
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)
+    );
 
-    if (groupsData) {
+    if (validUuids.length > 0) {
+      const { data: joinedGroups, error: joinedError } = await supabase
+        .from('groups')
+        .select('*')
+        .in('id', validUuids);
+
+      if (!joinedError && joinedGroups) {
+        // Uniamo evitando duplicati
+        joinedGroups.forEach(jg => {
+          if (!allCloudGroups.find(ag => ag.id === jg.id)) {
+            allCloudGroups.push(jg);
+          }
+        });
+      }
+    }
+
+    if (allCloudGroups.length > 0 || (user || joinedCloudIds.length > 0)) {
       const rolesSaved = await AsyncStorage.getItem('cloud_group_roles');
       const roles = rolesSaved ? JSON.parse(rolesSaved) : {};
 
-      const allCloud = groupsData.map((g) => {
+      const mappedGroups = allCloudGroups.map((g) => {
         let role: 'owner' | 'admin' | 'viewer' | 'member' = 'viewer';
         if (user && g.admin_id === user.id) role = 'owner';
         else if (roles[g.id]) role = roles[g.id];
-
         return { ...g, storage_type: 'cloud', role };
       });
 
-      // AGGIORNAMENTO LISTA LOCALE: Salviamo gli ID trovati per non perderli più
-      const newJoinedIds = Array.from(new Set([...joinedCloudIds, ...groupsData.map(g => g.id)]));
-      await AsyncStorage.setItem('joined_cloud_groups', JSON.stringify(newJoinedIds));
+      // Aggiorniamo joined_cloud_groups con TUTTI gli ID validi trovati per non perderli più
+      const finalJoinedIds = Array.from(new Set([...joinedCloudIds, ...allCloudGroups.map(g => g.id)]));
+      await AsyncStorage.setItem('joined_cloud_groups', JSON.stringify(finalJoinedIds));
 
       // Salvataggio cache per caricamento istantaneo
-      await AsyncStorage.setItem('cloud_groups_cache', JSON.stringify(allCloud));
+      await AsyncStorage.setItem('cloud_groups_cache', JSON.stringify(mappedGroups));
     }
 
     // 3. Sincronizzazione dati specifici del gruppo (se richiesto)
     if (groupId) {
       const safeGid = String(groupId).trim();
-      const { data: pData } = await supabase.from('players').select('*').eq('group_id', safeGid);
-      if (pData) await AsyncStorage.setItem(`players_${safeGid}`, JSON.stringify(pData));
+      // Solo se è un UUID valido procediamo con la fetch di players/matches
+      if (/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(safeGid)) {
+        const { data: pData } = await supabase.from('players').select('*').eq('group_id', safeGid);
+        if (pData) await AsyncStorage.setItem(`players_${safeGid}`, JSON.stringify(pData));
 
-      const { data: mData } = await supabase.from('matches').select('*').eq('group_id', safeGid).order('date', { ascending: false });
-      if (mData) {
-        await AsyncStorage.setItem(`matches_${safeGid}`, JSON.stringify(mData));
-        await applyMetadata(safeGid, mData);
+        const { data: mData } = await supabase.from('matches').select('*').eq('group_id', safeGid).order('date', { ascending: false });
+        if (mData) {
+          await AsyncStorage.setItem(`matches_${safeGid}`, JSON.stringify(mData));
+          await applyMetadata(safeGid, mData);
+        }
+
+        await AsyncStorage.removeItem(`needs_sync_${safeGid}`);
+        await AsyncStorage.setItem(`last_sync_timestamp_${safeGid}`, new Date().toISOString());
       }
-
-      await AsyncStorage.removeItem(`needs_sync_${safeGid}`);
-      await AsyncStorage.setItem(`last_sync_timestamp_${safeGid}`, new Date().toISOString());
     }
   } catch (e) {
     console.error("Sync error:", e);
-    throw e;
   }
 };
 
