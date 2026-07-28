@@ -244,20 +244,21 @@ export const redeemCode = async (code: string): Promise<void> => {
 
   if (!user) throw new Error("Connessione al server in corso... Riprova tra pochi istanti.");
 
-  const cleanCode = code.trim().toUpperCase();
+  const cleanCode = code.trim();
 
-  // 1. Verifica se il codice esiste ed è valido (Rimosso check is_used per permettere multi-dispositivo)
+  // 1. Verifica se il codice esiste ed è valido (Ricerca CASE-INSENSITIVE)
+  // Usiamo il filtro 'ilike' per ignorare maiuscole/minuscole
   const { data: codeData, error: codeError } = await supabase
     .from('activation_codes')
     .select('*')
-    .eq('code', cleanCode)
+    .ilike('code', cleanCode)
     .maybeSingle();
 
   if (codeError || !codeData) {
     throw new Error("Codice non valido.");
   }
 
-  // 2. Segna il codice come usato (Aggiorniamo l'ultimo utilizzatore, ma non blocchiamo)
+  // 2. Segna il codice come usato (Aggiorniamo l'ultimo utilizzatore, ma non blocchiamo futuri usi)
   await supabase
     .from('activation_codes')
     .update({
@@ -265,7 +266,7 @@ export const redeemCode = async (code: string): Promise<void> => {
       used_by: user.id,
       used_at: new Date().toISOString()
     })
-    .eq('code', cleanCode);
+    .ilike('code', cleanCode);
 
   // 3. Aggiungi l'utente ai premium (usiamo upsert per evitare errori se già presente)
   const { error: premiumError } = await supabase
