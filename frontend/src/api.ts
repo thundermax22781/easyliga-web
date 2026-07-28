@@ -1011,6 +1011,65 @@ export const calculateStandings = async (groupId: string, playersData?: Player[]
             if (hasPlayed) statsMap[String(p.id).trim()].tournament_count++;
           });
 
+          // Bonus Vincitore Girone (Career Mode)
+          const groupWinnerBonus = group.tournament_group_winner_bonus || 0;
+          if (groupWinnerBonus > 0) {
+            const maxG = Math.max(0, ...linkedMatches.map(m => m.tournament_group || 1), linkedGroupObj?.num_groups || 1);
+            for (let i = 1; i <= maxG; i++) {
+              const teamStatsMap: Record<string, any> = {};
+              const gironeMatches = linkedMatches.filter(m => (m.match_phase === 'group' || !m.match_phase) && Number(m.tournament_group || 1) === i && m.status === 'played');
+              if (gironeMatches.length > 0) {
+                gironeMatches.forEach(m => {
+                  if (!teamStatsMap[m.team_a_name]) teamStatsMap[m.team_a_name] = { name: m.team_a_name, pts: 0, players: m.team_a_players };
+                  if (!teamStatsMap[m.team_b_name]) teamStatsMap[m.team_b_name] = { name: m.team_b_name, pts: 0, players: m.team_b_players };
+                  const sA = Number(m.team_a_score || 0), sB = Number(m.team_b_score || 0);
+                  if (sA > sB) teamStatsMap[m.team_a_name].pts += 3;
+                  else if (sB > sA) teamStatsMap[m.team_b_name].pts += 3;
+                  else { teamStatsMap[m.team_a_name].pts += 1; teamStatsMap[m.team_b_name].pts += 1; }
+                });
+                const sorted = Object.values(teamStatsMap).sort((a: any, b: any) => b.pts - a.pts);
+                if (sorted.length > 0) assignPositionalBonus(sorted[0].players, groupWinnerBonus, `Vincitore Girone ${i}`);
+              }
+            }
+          }
+
+          // Bonus Individuali (Marcatori e Assistman del torneo)
+          const topG = group.tournament_top_scorer_bonus || 0;
+          const topA = group.tournament_top_assistant_bonus || 0;
+          if (topG > 0 || topA > 0) {
+            const tournamentStats: Record<string, { g: number, a: number }> = {};
+            linkedMatches.filter(m => m.status === 'played').forEach(m => {
+              const allPids = [...(m.team_a_players || []), ...(m.team_b_players || [])];
+              allPids.forEach(id => {
+                const safeId = String(id).trim();
+                if (!tournamentStats[safeId]) tournamentStats[safeId] = { g: 0, a: 0 };
+                // Cerchiamo i goal/assist con trim della chiave per resilienza cloud
+                const pG = Number(m.goals?.[safeId] || Object.entries(m.goals || {}).find(([k]) => k.trim() === safeId)?.[1] || 0);
+                const pA = Number(m.assists?.[safeId] || Object.entries(m.assists || {}).find(([k]) => k.trim() === safeId)?.[1] || 0);
+                tournamentStats[safeId].g += pG;
+                tournamentStats[safeId].a += pA;
+              });
+            });
+
+            const statsArray = Object.entries(tournamentStats);
+            if (statsArray.length > 0) {
+              if (topG > 0) {
+                const maxG = Math.max(...statsArray.map(([, s]) => s.g));
+                if (maxG > 0) {
+                  const winners = statsArray.filter(([, s]) => s.g === maxG).map(([id]) => id);
+                  assignPositionalBonus(winners, topG, "Capocannoniere");
+                }
+              }
+              if (topA > 0) {
+                const maxA = Math.max(...statsArray.map(([, s]) => s.a));
+                if (maxA > 0) {
+                  const winners = statsArray.filter(([, s]) => s.a === maxA).map(([id]) => id);
+                  assignPositionalBonus(winners, topA, "Miglior Assistman");
+                }
+              }
+            }
+          }
+
         } catch (err) { console.warn("Errore processamento torneo collegato:", err); }
       }
     }
