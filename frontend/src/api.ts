@@ -377,43 +377,68 @@ export const checkSyncNeeded = async (groupId: string): Promise<boolean> => {
 
 export const syncCloudData = async (groupId?: string): Promise<void> => {
   try {
-    const { data } = await supabase.auth.getUser();
-    const user = data?.user;
+    const { data: userData } = await supabase.auth.getUser();
+    const user = userData?.user;
+
+    // 1. Recupero ID già salvati localmente
     const joinedCloudIdsSaved = await AsyncStorage.getItem('joined_cloud_groups');
     const joinedCloudIds: string[] = joinedCloudIdsSaved ? JSON.parse(joinedCloudIdsSaved) : [];
 
-    if (joinedCloudIds.length === 0) {
-      await AsyncStorage.setItem('cloud_groups_cache', JSON.stringify([]));
-    } else {
-      const { data: groupsData, error: groupsError } = await supabase.from('groups').select('*').in('id', joinedCloudIds);
-      if (groupsData) {
-        const rolesSaved = await AsyncStorage.getItem('cloud_group_roles');
-        const roles = rolesSaved ? JSON.parse(rolesSaved) : {};
-        const allCloud = groupsData.map((g) => {
-          let role: 'owner' | 'admin' | 'viewer' | 'member' = 'viewer';
-          if (user && g.admin_id === user.id) role = 'owner';
-          else if (roles[g.id]) role = roles[g.id];
+    // 2. AUTO-DISCOVERY: Cerchiamo sia gli ID seguiti che i gruppi di proprietà dell'utente
+    let query = supabase.from('groups').select('*');
 
-          return { ...g, storage_type: 'cloud', role };
-        });
-
-        await AsyncStorage.setItem('cloud_groups_cache', JSON.stringify(allCloud));
+    if (user) {
+      // Se loggato, cerchiamo i miei gruppi OPPURE quelli in lista locale
+      if (joinedCloudIds.length > 0) {
+        query = query.or(`admin_id.eq.${user.id},id.in.(${joinedCloudIds.join(',')})`);
+      } else {
+        query = query.eq('admin_id', user.id);
       }
+    } else if (joinedCloudIds.length > 0) {
+      // Se non loggato (difficile), solo quelli in lista
+      query = query.in('id', joinedCloudIds);
+    } else {
+      // Nulla da cercare
+      await AsyncStorage.setItem('cloud_groups_cache', JSON.stringify([]));
+      return;
     }
 
-    if (groupId) {
-      const { data: pData } = await supabase.from('players').select('*').eq('group_id', groupId);
-      if (pData) await AsyncStorage.setItem(`players_${groupId}`, JSON.stringify(pData));
+    const { data: groupsData } = await query;
 
-      const { data: mData } = await supabase.from('matches').select('*').eq('group_id', groupId).order('date', { ascending: false });
+    if (groupsData) {
+      const rolesSaved = await AsyncStorage.getItem('cloud_group_roles');
+      const roles = rolesSaved ? JSON.parse(rolesSaved) : {};
+
+      const allCloud = groupsData.map((g) => {
+        let role: 'owner' | 'admin' | 'viewer' | 'member' = 'viewer';
+        if (user && g.admin_id === user.id) role = 'owner';
+        else if (roles[g.id]) role = roles[g.id];
+
+        return { ...g, storage_type: 'cloud', role };
+      });
+
+      // AGGIORNAMENTO LISTA LOCALE: Salviamo gli ID trovati per non perderli più
+      const newJoinedIds = Array.from(new Set([...joinedCloudIds, ...groupsData.map(g => g.id)]));
+      await AsyncStorage.setItem('joined_cloud_groups', JSON.stringify(newJoinedIds));
+
+      // Salvataggio cache per caricamento istantaneo
+      await AsyncStorage.setItem('cloud_groups_cache', JSON.stringify(allCloud));
+    }
+
+    // 3. Sincronizzazione dati specifici del gruppo (se richiesto)
+    if (groupId) {
+      const safeGid = String(groupId).trim();
+      const { data: pData } = await supabase.from('players').select('*').eq('group_id', safeGid);
+      if (pData) await AsyncStorage.setItem(`players_${safeGid}`, JSON.stringify(pData));
+
+      const { data: mData } = await supabase.from('matches').select('*').eq('group_id', safeGid).order('date', { ascending: false });
       if (mData) {
-        await AsyncStorage.setItem(`matches_${groupId}`, JSON.stringify(mData));
-        // ESTRAZIONE METADATI SISTEMA tramite helper
-        await applyMetadata(groupId, mData);
+        await AsyncStorage.setItem(`matches_${safeGid}`, JSON.stringify(mData));
+        await applyMetadata(safeGid, mData);
       }
 
-      await AsyncStorage.removeItem(`needs_sync_${groupId}`);
-      await AsyncStorage.setItem(`last_sync_timestamp_${groupId}`, new Date().toISOString());
+      await AsyncStorage.removeItem(`needs_sync_${safeGid}`);
+      await AsyncStorage.setItem(`last_sync_timestamp_${safeGid}`, new Date().toISOString());
     }
   } catch (e) {
     console.error("Sync error:", e);
