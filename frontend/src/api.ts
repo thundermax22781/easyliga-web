@@ -946,6 +946,9 @@ export const calculateStandings = async (groupId: string, playersData?: Player[]
         const linkedGroupObj = updatedGroups.find(g => String(g.id).trim() === String(linkedId).trim());
         const tName = linkedGroupObj?.name || `Torneo ${linkedId}`;
 
+        const finalMatch = linkedMatches.find(m => m.match_phase === 'final' && m.status === 'played');
+        const thirdPlaceMatch = linkedMatches.find(m => m.match_phase === 'third_place' && m.status === 'played');
+
         const assignBonus = (tids: string[], amount: number, label: string, tournamentName: string) => {
           if (!tids) return;
           const nicks = tids.map(tid =>
