@@ -317,11 +317,12 @@ export default function GroupDetailScreen() {
 
   const loadData = async (forceSync = false) => {
     if (!groupId) return;
+    const safeGid = String(groupId).trim();
     try {
       // 1. Caricamento parallelo ultra-veloce
       const [p, m, groups] = await Promise.all([
-        fetchPlayers({ group_id: groupId }),
-        fetchMatches(groupId),
+        fetchPlayers({ group_id: safeGid }),
+        fetchMatches(safeGid),
         fetchGroups()
       ]);
 
@@ -330,7 +331,7 @@ export default function GroupDetailScreen() {
       setPlayers(p);
       setMatches(m);
 
-      const currentGroup = groups.find(g => g.id === groupId);
+      const currentGroup = groups.find(g => String(g.id).trim() === safeGid);
       if (currentGroup) {
         setGroup(currentGroup);
         setMatchType(currentGroup.match_type || 5);
@@ -342,12 +343,12 @@ export default function GroupDetailScreen() {
         if (currentGroup.storage_type === 'cloud' && currentGroup.group_type === 'championship' && currentGroup.linked_group_ids && currentGroup.linked_group_ids.length > 0) {
            const joinedCloudIdsSaved = await AsyncStorage.getItem('joined_cloud_groups');
            const joinedCloudIds: string[] = joinedCloudIdsSaved ? JSON.parse(joinedCloudIdsSaved) : [];
-           const missingIds = currentGroup.linked_group_ids.filter(id => !joinedCloudIds.includes(id));
+           const missingIds = currentGroup.linked_group_ids.filter(id => !joinedCloudIds.includes(String(id).trim()));
 
            if (missingIds.length > 0) {
               console.log("Detecting missing linked tournaments, joining...");
               for (const mid of missingIds) {
-                 await registerGroupJoin(mid, 'viewer');
+                 await registerGroupJoin(String(mid).trim(), 'viewer');
               }
               // Dopo il join, ricarichiamo tutto per avere i dati dei tornei pronti per la classifica
               loadData(false);
@@ -360,20 +361,20 @@ export default function GroupDetailScreen() {
       setRefreshing(false);
 
       // 2. Calcolo classifica in background passando i dati già pronti
-      calculateStandings(groupId, p, m).then(s => {
+      calculateStandings(safeGid, p, m).then(s => {
         setStandings(s);
       });
 
       // 3. Sync Cloud asincrono
       if (!forceSync) {
-        checkSyncNeeded(groupId).then(needed => {
+        checkSyncNeeded(safeGid).then(needed => {
           setHasUnsyncedChanges(needed);
         });
       } else {
         setSyncStatus('syncing');
-        await syncCloudData(groupId);
-        const [pUpdated, mUpdated, groupsUpdated] = await Promise.all([fetchPlayers({ group_id: groupId }), fetchMatches(groupId), fetchGroups()]);
-        const currentUpdated = groupsUpdated.find(g => g.id === groupId);
+        await syncCloudData(safeGid);
+        const [pUpdated, mUpdated, groupsUpdated] = await Promise.all([fetchPlayers({ group_id: safeGid }), fetchMatches(safeGid), fetchGroups()]);
+        const currentUpdated = groupsUpdated.find(g => String(g.id).trim() === safeGid);
         if (currentUpdated) {
           setGroup(currentUpdated);
           setMatchType(currentUpdated.match_type || 5);
@@ -382,7 +383,7 @@ export default function GroupDetailScreen() {
         }
         setPlayers(pUpdated);
         setMatches(mUpdated);
-        calculateStandings(groupId, pUpdated, mUpdated).then(s => setStandings(s));
+        calculateStandings(safeGid, pUpdated, mUpdated).then(s => setStandings(s));
         setHasUnsyncedChanges(false);
         setSyncStatus('done');
       }

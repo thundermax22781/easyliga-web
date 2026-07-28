@@ -267,9 +267,12 @@ export const fetchGroups = async (): Promise<Group[]> => {
   // Ottimizzazione: caricamento dati in parallelo
   await Promise.all(allGroups.map(async (g) => {
     try {
-      const pSavedPromise = AsyncStorage.getItem(`players_${g.id}`);
+      const gId = String(g.id || '').trim();
+      if (!gId) return;
+
+      const pSavedPromise = AsyncStorage.getItem(`players_${gId}`);
       const overridesPromises = CAREER_FIELDS.map(field =>
-        AsyncStorage.getItem(`override_${field}_${g.id}`).then(val => ({ field, val }))
+        AsyncStorage.getItem(`override_${field}_${gId}`).then(val => ({ field, val }))
       );
 
       const [pSaved, ...overrides] = await Promise.all([pSavedPromise, ...overridesPromises]);
@@ -277,8 +280,10 @@ export const fetchGroups = async (): Promise<Group[]> => {
       g.player_count = pSaved ? JSON.parse(pSaved).length : 0;
 
       overrides.forEach(({ field, val }) => {
-        if (val !== null) {
-          (g as any)[field] = JSON.parse(val);
+        if (val !== null && val !== undefined) {
+          try {
+            (g as any)[field] = JSON.parse(val);
+          } catch (e) {}
         }
       });
     } catch (e) {
@@ -576,7 +581,8 @@ export const joinGroup = async (token: string): Promise<void> => {
 
 export const fetchPlayers = async (params: { group_id: string; search?: string; role?: string }): Promise<Player[]> => {
   let players: any[] = [];
-  const saved = await AsyncStorage.getItem(`players_${params.group_id}`);
+  const safeGroupId = String(params.group_id || '').trim();
+  const saved = await AsyncStorage.getItem(`players_${safeGroupId}`);
 
   if (saved && saved !== '[]') {
     players = JSON.parse(saved);
@@ -586,12 +592,12 @@ export const fetchPlayers = async (params: { group_id: string; search?: string; 
       const { data, error } = await supabase
         .from('players')
         .select('*')
-        .eq('group_id', params.group_id);
+        .eq('group_id', safeGroupId);
 
       if (!error && data) {
         players = data;
         if (data.length > 0) {
-          await AsyncStorage.setItem(`players_${params.group_id}`, JSON.stringify(data));
+          await AsyncStorage.setItem(`players_${safeGroupId}`, JSON.stringify(data));
         }
       }
     } catch (e) {
@@ -601,7 +607,10 @@ export const fetchPlayers = async (params: { group_id: string; search?: string; 
 
   const mapped = players.map(p => ({ ...p, age: p.date_of_birth ? calculateAge(p.date_of_birth) : (p.age || 0) }));
   let filtered = mapped;
-  if (params.search) filtered = filtered.filter(p => p.nickname?.toLowerCase().includes(params.search!.toLowerCase()));
+  if (params.search) {
+    const s = params.search.toLowerCase();
+    filtered = filtered.filter(p => (p.nickname || '').toLowerCase().includes(s));
+  }
   if (params.role) filtered = filtered.filter(p => p.role === params.role);
   return filtered;
 };
@@ -677,28 +686,29 @@ export const applyMetadata = async (groupId: string, matches: Match[]) => {
 };
 
 export const fetchMatches = async (groupId: string): Promise<Match[]> => {
+  const safeGroupId = String(groupId || '').trim();
   // 1. Prova a caricare dal Cloud per avere dati freschi
   try {
     const { data, error } = await supabase
       .from('matches')
       .select('*')
-      .eq('group_id', groupId)
+      .eq('group_id', safeGroupId)
       .order('date', { ascending: false });
 
     if (!error && data) {
       if (data.length > 0) {
-        await AsyncStorage.setItem(`matches_${groupId}`, JSON.stringify(data));
+        await AsyncStorage.setItem(`matches_${safeGroupId}`, JSON.stringify(data));
         // APPLICHIAMO METADATI SISTEMA (Chirurgico per garantire allineamento web)
-        await applyMetadata(groupId, data);
+        await applyMetadata(safeGroupId, data);
       }
       return data;
     }
   } catch (e) {
-    console.warn(`Errore fetch cloud per ${groupId}:`, e);
+    console.warn(`Errore fetch cloud per ${safeGroupId}:`, e);
   }
 
   // 2. Fallback su cache locale se il cloud fallisce o è vuoto
-  const saved = await AsyncStorage.getItem(`matches_${groupId}`);
+  const saved = await AsyncStorage.getItem(`matches_${safeGroupId}`);
   if (saved && saved !== '[]') return JSON.parse(saved);
 
   return [];
@@ -863,8 +873,11 @@ export const resetTournament = async (groupId: string): Promise<void> => {
 export const calculateStandings = async (groupId: string, playersData?: Player[], matchesData?: Match[]): Promise<PlayerStats[]> => {
   try {
     const safeGroupId = String(groupId || '').trim();
-    const players = (playersData || await fetchPlayers({ group_id: safeGroupId })).filter(p => !!p);
-    const matches = (matchesData || await fetchMatches(safeGroupId)).filter(m => !!m);
+    if (!safeGroupId) return [];
+
+    // Caricamento dati con fallback garantito
+    const players = (playersData || await fetchPlayers({ group_id: safeGroupId })).filter(p => p && p.id);
+    const matches = (matchesData || await fetchMatches(safeGroupId)).filter(m => m && m.team_a_players && m.team_b_players);
     const allGroups = await fetchGroups();
     const group = allGroups.find(g => String(g.id).trim() === safeGroupId);
 
@@ -872,10 +885,9 @@ export const calculateStandings = async (groupId: string, playersData?: Player[]
     const personalBonuses: Record<string, number> = {};
     const defenseBonuses: Record<string, number> = {};
 
-    // Inizializzazione sicura: usiamo il nickname come chiave di fallback se l'ID manca
+    // Inizializzazione pulita
     players.forEach(p => {
-      const pid = String(p.id || '').trim();
-      if (!pid) return;
+      const pid = String(p.id).trim();
       statsMap[pid] = {
         player_id: pid,
         nickname: p.nickname || 'Sconosciuto',
@@ -898,72 +910,84 @@ export const calculateStandings = async (groupId: string, playersData?: Player[]
 
     const allMatchesToProcess = [...matches];
 
-    // LOGICA TORNEI COLLEGATI (Career Mode)
-    if (group?.import_linked_data && group.linked_group_ids && group.linked_group_ids.length > 0) {
+    // --- LOGICA TORNEI COLLEGATI ---
+    if (group?.import_linked_data && group.linked_group_ids && Array.isArray(group.linked_group_ids)) {
       const weight = group.tournament_match_weight || 1;
 
       for (const linkedId of group.linked_group_ids) {
         try {
           const safeLinkedId = String(linkedId).trim();
+          if (!safeLinkedId) continue;
+
           const [linkedMatches, linkedPlayers] = await Promise.all([
             fetchMatches(safeLinkedId),
             fetchPlayers({ group_id: safeLinkedId })
           ]);
 
-          if (linkedMatches.length > 0) {
+          if (linkedMatches && linkedMatches.length > 0) {
             allMatchesToProcess.push(...linkedMatches.map(lm => ({
               ...lm,
               is_linked: true,
               weight,
-              _tournamentPlayers: linkedPlayers
+              _tournamentPlayers: linkedPlayers || []
             })));
           }
 
           const linkedGroupObj = allGroups.find(g => String(g.id).trim() === safeLinkedId);
-          const tName = linkedGroupObj?.name || `Torneo ${safeLinkedId}`;
+          const tName = linkedGroupObj?.name || `Torneo ${safeLinkedId.substring(0, 5)}`;
 
           const assignPositionalBonus = (tids: string[], amount: number, label: string) => {
             if (!tids || !Array.isArray(tids) || amount <= 0) return;
 
-            const nicksInTeam = tids.map(tid =>
-              linkedPlayers.find(lp => String(lp.id).trim() === String(tid).trim())?.nickname?.toLowerCase().trim()
-            ).filter(Boolean);
+            // Mappatura sicura: nomi dei giocatori nel team del torneo
+            const nicksInTeam = tids.map(tid => {
+              const lp = (linkedPlayers || []).find(p => String(p.id).trim() === String(tid).trim());
+              return lp?.nickname?.toLowerCase().trim();
+            }).filter(Boolean);
 
             players.forEach(p => {
               if (p.nickname && nicksInTeam.includes(p.nickname.toLowerCase().trim())) {
-                statsMap[p.id].points += amount;
-                statsMap[p.id].bonus_points += amount;
-                statsMap[p.id].tournament_bonus_points += amount;
+                const pid = String(p.id).trim();
+                if (statsMap[pid]) {
+                  statsMap[pid].points += amount;
+                  statsMap[pid].bonus_points += amount;
+                  statsMap[pid].tournament_bonus_points += amount;
 
-                if (!statsMap[p.id].tournament_details) statsMap[p.id].tournament_details = [];
-                let tDet = statsMap[p.id].tournament_details!.find(d => d.name === tName);
-                if (!tDet) {
-                  tDet = { name: tName, points: 0, achievements: [] };
-                  statsMap[p.id].tournament_details!.push(tDet);
+                  if (!statsMap[pid].tournament_details) statsMap[pid].tournament_details = [];
+                  let tDet = statsMap[pid].tournament_details!.find(d => d.name === tName);
+                  if (!tDet) {
+                    tDet = { name: tName, points: 0, achievements: [] };
+                    statsMap[pid].tournament_details!.push(tDet);
+                  }
+                  tDet.points += amount;
+                  tDet.achievements.push(label);
                 }
-                tDet.points += amount;
-                tDet.achievements.push(label);
               }
             });
           };
 
-          // Bonus Podio
-          const final = linkedMatches.find(m => m.match_phase === 'final' && m.status === 'played');
-          if (final) {
-            const aWins = (final.team_a_score || 0) > (final.team_b_score || 0) || ((final.team_a_score === final.team_b_score) && (final.team_a_penalties || 0) > (final.team_b_penalties || 0));
-            assignPositionalBonus(aWins ? final.team_a_players : final.team_b_players, group.tournament_win_bonus || 0, "1° Posto");
-            assignPositionalBonus(aWins ? final.team_b_players : final.team_a_players, group.tournament_2nd_bonus || 0, "2° Posto");
+          // Calcolo Podio Torneo
+          const finalMatch = (linkedMatches || []).find(m => m.match_phase === 'final' && m.status === 'played');
+          if (finalMatch) {
+            const sA = Number(finalMatch.team_a_score || 0), sB = Number(finalMatch.team_b_score || 0);
+            const pA = Number(finalMatch.team_a_penalties || 0), pB = Number(finalMatch.team_b_penalties || 0);
+            const aWins = sA > sB || (sA === sB && pA > pB);
+            assignPositionalBonus(aWins ? finalMatch.team_a_players : finalMatch.team_b_players, group.tournament_win_bonus || 0, "1° Posto");
+            assignPositionalBonus(aWins ? finalMatch.team_b_players : finalMatch.team_a_players, group.tournament_2nd_bonus || 0, "2° Posto");
           }
 
-          const third = linkedMatches.find(m => m.match_phase === 'third_place' && m.status === 'played');
-          if (third) {
-            const aWins = (third.team_a_score || 0) > (third.team_b_score || 0) || ((third.team_a_score === third.team_b_score) && (third.team_a_penalties || 0) > (third.team_b_penalties || 0));
-            assignPositionalBonus(aWins ? third.team_a_players : third.team_b_players, group.tournament_3rd_bonus || 0, "3° Posto");
-            assignPositionalBonus(aWins ? third.team_b_players : third.team_a_players, group.tournament_4th_bonus || 0, "4° Posto");
+          const thirdMatch = (linkedMatches || []).find(m => m.match_phase === 'third_place' && m.status === 'played');
+          if (thirdMatch) {
+            const sA = Number(thirdMatch.team_a_score || 0), sB = Number(thirdMatch.team_b_score || 0);
+            const pA = Number(thirdMatch.team_a_penalties || 0), pB = Number(thirdMatch.team_b_penalties || 0);
+            const aWins = sA > sB || (sA === sB && pA > pB);
+            assignPositionalBonus(aWins ? thirdMatch.team_a_players : thirdMatch.team_b_players, group.tournament_3rd_bonus || 0, "3° Posto");
+            assignPositionalBonus(aWins ? thirdMatch.team_b_players : thirdMatch.team_a_players, group.tournament_4th_bonus || 0, "4° Posto");
           } else if (linkedGroupObj?.tournament_3rd_team_name || linkedGroupObj?.tournament_4th_team_name) {
+             // Fallback per assegnazioni manuali via metadati
              const getPlayersOfTeam = (teamName: string) => {
                const pids = new Set<string>();
-               linkedMatches.forEach(mx => {
+               (linkedMatches || []).forEach(mx => {
                  if (mx.team_a_name === teamName) mx.team_a_players?.forEach(id => pids.add(String(id).trim()));
                  if (mx.team_b_name === teamName) mx.team_b_players?.forEach(id => pids.add(String(id).trim()));
                });
@@ -973,122 +997,90 @@ export const calculateStandings = async (groupId: string, playersData?: Player[]
              if (linkedGroupObj.tournament_4th_team_name) assignPositionalBonus(getPlayersOfTeam(linkedGroupObj.tournament_4th_team_name), group.tournament_4th_bonus || 0, "4° Posto");
           }
 
-          // Bonus Vincitore Girone
-          const groupWinnerBonus = group.tournament_group_winner_bonus || 0;
-          if (groupWinnerBonus > 0) {
-            const maxG = Math.max(0, ...linkedMatches.map(m => m.tournament_group || 1), linkedGroupObj?.num_groups || 1);
-            for (let i = 1; i <= maxG; i++) {
-              const teamStatsMap: Record<string, any> = {};
-              const gironeMatches = linkedMatches.filter(m => (m.match_phase === 'group' || !m.match_phase) && Number(m.tournament_group || 1) === i && m.status === 'played');
-              if (gironeMatches.length > 0) {
-                gironeMatches.forEach(m => {
-                  if (!teamStatsMap[m.team_a_name]) teamStatsMap[m.team_a_name] = { name: m.team_a_name, pts: 0, players: m.team_a_players };
-                  if (!teamStatsMap[m.team_b_name]) teamStatsMap[m.team_b_name] = { name: m.team_b_name, pts: 0, players: m.team_b_players };
-                  if (m.team_a_score > m.team_b_score) teamStatsMap[m.team_a_name].pts += 3;
-                  else if (m.team_b_score > m.team_a_score) teamStatsMap[m.team_b_name].pts += 3;
-                  else { teamStatsMap[m.team_a_name].pts += 1; teamStatsMap[m.team_b_name].pts += 1; }
-                });
-                const sorted = Object.values(teamStatsMap).sort((a: any, b: any) => b.pts - a.pts);
-                assignPositionalBonus(sorted[0].players, groupWinnerBonus, `Vincitore Girone ${i}`);
-              }
-            }
-          }
-
-          // Bonus Individuali
-          const topG = group.tournament_top_scorer_bonus || 0;
-          const topA = group.tournament_top_assistant_bonus || 0;
-          if (topG > 0 || topA > 0) {
-            const stats: Record<string, {g: number, a: number}> = {};
-            linkedMatches.filter(m => m.status === 'played').forEach(m => {
-              [...m.team_a_players, ...m.team_b_players].forEach(id => {
-                if (!stats[id]) stats[id] = {g:0, a:0};
-                stats[id].g += (m.goals?.[id] || 0);
-                stats[id].a += (m.assists?.[id] || 0);
-              });
-            });
-            const entries = Object.entries(stats);
-            if (entries.length > 0) {
-              if (topG > 0) {
-                const max = Math.max(...entries.map(([,s]) => s.g));
-                if (max > 0) assignPositionalBonus(entries.filter(([,s]) => s.g === max).map(([id]) => id), topG, "Capocannoniere");
-              }
-              if (topA > 0) {
-                const max = Math.max(...entries.map(([,s]) => s.a));
-                if (max > 0) assignPositionalBonus(entries.filter(([,s]) => s.a === max).map(([id]) => id), topA, "Miglior Assistman");
-              }
-            }
-          }
-
-          // Incremento contatore tornei disputati
+          // Contatore tornei disputati
           players.forEach(p => {
             if (!p.nickname) return;
-            const played = linkedMatches.some(m => [...(m.team_a_players||[]), ...(m.team_b_players||[])].some(tid => linkedPlayers.find(lx => String(lx.id).trim() === String(tid).trim())?.nickname?.toLowerCase().trim() === p.nickname.toLowerCase().trim()));
-            if (played) statsMap[p.id].tournament_count++;
+            const pNick = p.nickname.toLowerCase().trim();
+            const hasPlayed = (linkedMatches || []).some(m => {
+              const allMatchPids = [...(m.team_a_players || []), ...(m.team_b_players || [])];
+              return allMatchPids.some(tid => {
+                const lp = (linkedPlayers || []).find(lx => String(lx.id).trim() === String(tid).trim());
+                return lp?.nickname?.toLowerCase().trim() === pNick;
+              });
+            });
+            if (hasPlayed) statsMap[String(p.id).trim()].tournament_count++;
           });
 
-        } catch (e) { console.warn(`Errore calcolo torneo collegato:`, e); }
+        } catch (err) { console.warn("Errore processamento torneo collegato:", err); }
       }
     }
 
-    // ELABORAZIONE TUTTI I MATCH (Campionato + Tornei)
+    // --- ELABORAZIONE PARTITE (Campionato + Tornei) ---
     allMatchesToProcess
       .filter(m => m && (m.status === 'played' || m.status === undefined) && m.team_a_name !== 'METADATA')
       .sort((a, b) => {
         const da = new Date(a.date || 0).getTime();
         const db = new Date(b.date || 0).getTime();
-        return (isFinite(da) ? da : 0) - (isFinite(db) ? db : 0);
+        return (isNaN(da) ? 0 : da) - (isNaN(db) ? 0 : db);
       })
       .forEach(m => {
         try {
           const sA = Number(m.team_a_score || 0), sB = Number(m.team_b_score || 0), isD = sA === sB, aW = sA > sB;
-          const isLinked = (m as any).is_linked;
-          const matchWeight = isLinked ? ((m as any).weight || 1) : 1;
+          const isLinked = !!(m as any).is_linked;
           const tournamentPlayers: Player[] = (m as any)._tournamentPlayers || [];
 
-          const processTeam = (pids: any[], score: number, opScore: number, win: boolean, cs: boolean) => {
+          const processMatchTeam = (pids: any[], score: number, opScore: number, win: boolean, cs: boolean) => {
             if (!pids || !Array.isArray(pids)) return;
             pids.forEach(rawId => {
               let pid = String(typeof rawId === 'object' ? (rawId.id || rawId.player_id) : rawId).trim();
 
-              if (isLinked && !statsMap[pid]) {
+              // Se l'ID non corrisponde (es. torneo collegato), cerchiamo per nickname
+              if (!statsMap[pid]) {
                 const lp = tournamentPlayers.find(x => String(x.id).trim() === pid);
-                const mp = players.find(p => p.nickname?.toLowerCase().trim() === String(lp?.nickname || (typeof rawId === 'object' ? rawId.nickname : rawId)).toLowerCase().trim());
-                if (mp) pid = mp.id; else return;
+                const nickToMatch = (lp?.nickname || (typeof rawId === 'object' ? rawId.nickname : pid)).toLowerCase().trim();
+                const mp = players.find(p => p.nickname?.toLowerCase().trim() === nickToMatch);
+                if (mp) pid = String(mp.id).trim(); else return;
               }
 
-              const ps = statsMap[pid] as any;
+              const ps = statsMap[pid];
               if (!ps) return;
 
               ps.goals_done += score;
               ps.goals_suffered += opScore;
 
               if (!isLinked) {
-                ps.played += 1; // Un match di campionato conta 1
+                ps.played += 1;
                 if (isD) { ps.drawn++; ps.points += Number(group?.points_draw ?? 1); ps.last_trend = 'D'; }
                 else if (win) { ps.won++; ps.points += Number(group?.points_win ?? 3); ps.last_trend = 'W'; }
                 else { ps.lost++; ps.last_trend = 'L'; }
               }
 
-              const pG = Number(m.goals?.[pid] || 0);
-              const pA = Number(m.assists?.[pid] || 0);
-              ps.individual_goals += pG;
-              ps.individual_assists += pA;
+              // Goal e Assist (usando l'ID originale presente nel match per la ricerca nel dizionario)
+              const originalId = String(typeof rawId === 'object' ? (rawId.id || rawId.player_id) : rawId).trim();
+              ps.individual_goals += Number(m.goals?.[originalId] || 0);
+              ps.individual_assists += Number(m.assists?.[originalId] || 0);
 
               // Bonus (solo per campionato)
               if (!isLinked && (group?.group_type === 'championship' || !group?.group_type)) {
                 if (cs && !m.exclude_def_bonus) ps.clean_sheets++;
                 let matchBonus = 0;
+
+                const pG = Number(m.goals?.[originalId] || 0);
+                const pA = Number(m.assists?.[originalId] || 0);
+
                 if (group?.use_bonus && pG >= (group.bonus_goals_threshold || 2) && pA >= (group.bonus_assists_threshold || 2)) {
                   personalBonuses[pid]++;
                   ps.personal_bonus_count++;
                   if (!group?.use_balance_bonus) matchBonus++;
                 }
+
                 const roleIsEx = Array.isArray(group?.gk_bonus_excluded_roles) && group.gk_bonus_excluded_roles.includes(ps.role);
                 if (group?.use_gk_bonus && !roleIsEx && opScore < (group.gk_bonus_threshold || 5) && !m.exclude_def_bonus) {
                   defenseBonuses[pid]++;
                   ps.defense_bonus_count++;
                   if (!group?.use_balance_bonus) matchBonus++;
                 }
+
                 if (group?.use_clean_sheet_bonus && cs && !m.exclude_def_bonus) matchBonus++;
                 ps.points += matchBonus;
                 ps.bonus_points += matchBonus;
@@ -1096,16 +1088,19 @@ export const calculateStandings = async (groupId: string, playersData?: Player[]
             });
           };
 
-          processTeam(m.team_a_players, sA, sB, aW, sB === 0);
-          processTeam(m.team_b_players, sB, sA, !aW && !isD, sA === 0);
-        } catch (e) {}
+          processMatchTeam(m.team_a_players, sA, sB, aW, sB === 0);
+          processMatchTeam(m.team_b_players, sB, sA, !aW && !isD, sA === 0);
+        } catch (err) { console.warn("Errore riga match:", err); }
       });
 
-    // Calcoli finali
+    // --- CONTEGGI FINALI ---
     const tWeight = group?.tournament_match_weight || 1;
     Object.values(statsMap).forEach((ps: any) => {
       ps.career_divisor = ps.played + (ps.tournament_count * tWeight);
-      ps.incisivity = Number(((ps.individual_goals + ps.individual_assists) / (ps.career_divisor || 1)).toFixed(2));
+      if (ps.career_divisor < 1) ps.career_divisor = 1;
+
+      ps.incisivity = Number(((ps.individual_goals + ps.individual_assists) / ps.career_divisor).toFixed(2));
+
       if (group?.use_balance_bonus) {
         const finalB = Math.max(personalBonuses[ps.player_id] || 0, defenseBonuses[ps.player_id] || 0);
         ps.points += finalB;
@@ -1113,7 +1108,7 @@ export const calculateStandings = async (groupId: string, playersData?: Player[]
       }
     });
 
-    const compare = (a: PlayerStats, b: PlayerStats, crit: string | undefined) => {
+    const compareStats = (a: PlayerStats, b: PlayerStats, crit: string | undefined) => {
       switch (crit) {
         case 'ratio': return (b.points / (b.played || 1)) - (a.points / (a.played || 1));
         case 'played': return b.played - a.played;
@@ -1127,15 +1122,15 @@ export const calculateStandings = async (groupId: string, playersData?: Player[]
 
     return Object.values(statsMap).sort((a, b) => {
       if (b.points !== a.points) return b.points - a.points;
-      const r1 = compare(a, b, group?.tie_breaker_1 || 'ratio');
+      const r1 = compareStats(a, b, group?.tie_breaker_1 || 'ratio');
       if (r1 !== 0) return r1;
-      const r2 = compare(a, b, group?.tie_breaker_2 || 'incisivity');
+      const r2 = compareStats(a, b, group?.tie_breaker_2 || 'incisivity');
       if (r2 !== 0) return r2;
       return (b.goals_done - b.goals_suffered) - (a.goals_done - a.goals_suffered);
     });
 
   } catch (e) {
-    console.error("Critical error in calculateStandings:", e);
+    console.error("CRITICAL ERROR in calculateStandings:", e);
     return [];
   }
 };
