@@ -232,6 +232,16 @@ export const checkPremiumStatus = async (): Promise<boolean> => {
 };
 
 export const redeemCode = async (code: string): Promise<void> => {
+  const cleanCode = code.trim();
+  const MASTER_CODE = "W@lcome-PRO-member2026";
+
+  // MASTER BYPASS: Se il codice è quello del creatore, sblocchiamo subito localmente
+  const isMaster = cleanCode.toLowerCase() === MASTER_CODE.toLowerCase();
+
+  if (isMaster) {
+    await AsyncStorage.setItem('is_premium_user', 'true');
+  }
+
   // 1. Assicuriamoci che l'utente sia loggato (attendiamo se necessario)
   let { data: { user } } = await supabase.auth.getUser();
   if (!user) {
@@ -242,41 +252,48 @@ export const redeemCode = async (code: string): Promise<void> => {
     }
   }
 
-  if (!user) throw new Error("Connessione al server in corso... Riprova tra pochi istanti.");
+  // Se è master ma l'utente non è ancora loggato, abbiamo già sbloccato localmente.
+  // Proveremo a registrare su cloud silenziosamente dopo.
+  if (!isMaster && !user) throw new Error("Connessione al server in corso... Riprova tra pochi istanti.");
 
-  const cleanCode = code.trim();
+  try {
+    if (!isMaster) {
+      // Verifica normale per altri codici
+      const { data: codeData, error: codeError } = await supabase
+        .from('activation_codes')
+        .select('*')
+        .ilike('code', cleanCode)
+        .maybeSingle();
 
-  // 1. Verifica se il codice esiste ed è valido (Ricerca CASE-INSENSITIVE)
-  // Usiamo il filtro 'ilike' per ignorare maiuscole/minuscole
-  const { data: codeData, error: codeError } = await supabase
-    .from('activation_codes')
-    .select('*')
-    .ilike('code', cleanCode)
-    .maybeSingle();
+      if (codeError || !codeData) {
+        throw new Error("Codice non valido.");
+      }
 
-  if (codeError || !codeData) {
-    throw new Error("Codice non valido.");
+      // Segna come usato (ultimo utilizzatore)
+      await supabase
+        .from('activation_codes')
+        .update({
+          is_used: true,
+          used_by: user?.id,
+          used_at: new Date().toISOString()
+        })
+        .ilike('code', cleanCode);
+    }
+
+    // 3. Registrazione Premium su Cloud (silenziosa se master)
+    if (user) {
+      await supabase
+        .from('premium_users')
+        .upsert([{ user_id: user.id }], { onConflict: 'user_id' });
+    }
+
+    // 4. Conferma cache locale
+    await AsyncStorage.setItem('is_premium_user', 'true');
+
+  } catch (e) {
+    // Se è master, ignoriamo gli errori del server (es. permessi RLS o rete)
+    if (!isMaster) throw e;
   }
-
-  // 2. Segna il codice come usato (Aggiorniamo l'ultimo utilizzatore, ma non blocchiamo futuri usi)
-  await supabase
-    .from('activation_codes')
-    .update({
-      is_used: true,
-      used_by: user.id,
-      used_at: new Date().toISOString()
-    })
-    .ilike('code', cleanCode);
-
-  // 3. Aggiungi l'utente ai premium (usiamo upsert per evitare errori se già presente)
-  const { error: premiumError } = await supabase
-    .from('premium_users')
-    .upsert([{ user_id: user.id }], { onConflict: 'user_id' });
-
-  if (premiumError) throw premiumError;
-
-  // 4. Aggiorna cache locale immediatamente
-  await AsyncStorage.setItem('is_premium_user', 'true');
 };
 
 // --- GRUPPI ---
