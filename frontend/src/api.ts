@@ -246,20 +246,19 @@ export const redeemCode = async (code: string): Promise<void> => {
 
   const cleanCode = code.trim().toUpperCase();
 
-  // 1. Verifica se il codice esiste ed è valido
+  // 1. Verifica se il codice esiste ed è valido (Rimosso check is_used per permettere multi-dispositivo)
   const { data: codeData, error: codeError } = await supabase
     .from('activation_codes')
     .select('*')
     .eq('code', cleanCode)
-    .eq('is_used', false)
     .maybeSingle();
 
   if (codeError || !codeData) {
-    throw new Error("Codice non valido o già utilizzato.");
+    throw new Error("Codice non valido.");
   }
 
-  // 2. Segna il codice come usato
-  const { error: updateError } = await supabase
+  // 2. Segna il codice come usato (Aggiorniamo l'ultimo utilizzatore, ma non blocchiamo)
+  await supabase
     .from('activation_codes')
     .update({
       is_used: true,
@@ -268,12 +267,10 @@ export const redeemCode = async (code: string): Promise<void> => {
     })
     .eq('code', cleanCode);
 
-  if (updateError) throw updateError;
-
-  // 3. Aggiungi l'utente ai premium
+  // 3. Aggiungi l'utente ai premium (usiamo upsert per evitare errori se già presente)
   const { error: premiumError } = await supabase
     .from('premium_users')
-    .insert([{ user_id: user.id }]);
+    .upsert([{ user_id: user.id }], { onConflict: 'user_id' });
 
   if (premiumError) throw premiumError;
 
