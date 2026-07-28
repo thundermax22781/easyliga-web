@@ -191,7 +191,25 @@ const calculateAge = (dob: string) => {
 
 export const checkPremiumStatus = async (): Promise<boolean> => {
   try {
-    const { data: { user } } = await supabase.auth.getUser();
+    // 1. Controlliamo prima la cache locale per velocità (fondamentale all'avvio)
+    const cachedPremium = await AsyncStorage.getItem('is_premium_user');
+    if (cachedPremium === 'true') return true;
+
+    // 2. Verifichiamo se l'utente è autenticato. Se no, attendiamo un po' (race condition auth anonimo)
+    let { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+      // Aspettiamo fino a 2 secondi che initializeAuth faccia il suo lavoro
+      for (let i = 0; i < 10; i++) {
+        await new Promise(r => setTimeout(r, 200));
+        const res = await supabase.auth.getUser();
+        if (res.data?.user) {
+          user = res.data.user;
+          break;
+        }
+      }
+    }
+
     if (!user) return false;
 
     const { data, error } = await supabase
@@ -200,22 +218,39 @@ export const checkPremiumStatus = async (): Promise<boolean> => {
       .eq('user_id', user.id)
       .maybeSingle();
 
-    if (error) return false;
-    return !!data;
+    if (error) return cachedPremium === 'true'; // Fallback su cache se c'è errore di rete
+
+    const isPremium = !!data;
+    // Aggiorniamo la cache
+    await AsyncStorage.setItem('is_premium_user', isPremium ? 'true' : 'false');
+
+    return isPremium;
   } catch (e) {
-    return false;
+    const cached = await AsyncStorage.getItem('is_premium_user');
+    return cached === 'true';
   }
 };
 
 export const redeemCode = async (code: string): Promise<void> => {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Devi essere connesso per attivare un codice.");
+  // 1. Assicuriamoci che l'utente sia loggato (attendiamo se necessario)
+  let { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    for (let i = 0; i < 10; i++) {
+      await new Promise(r => setTimeout(r, 200));
+      const res = await supabase.auth.getUser();
+      if (res.data?.user) { user = res.data.user; break; }
+    }
+  }
+
+  if (!user) throw new Error("Connessione al server in corso... Riprova tra pochi istanti.");
+
+  const cleanCode = code.trim().toUpperCase();
 
   // 1. Verifica se il codice esiste ed è valido
   const { data: codeData, error: codeError } = await supabase
     .from('activation_codes')
     .select('*')
-    .eq('code', code.trim())
+    .eq('code', cleanCode)
     .eq('is_used', false)
     .maybeSingle();
 
@@ -231,7 +266,7 @@ export const redeemCode = async (code: string): Promise<void> => {
       used_by: user.id,
       used_at: new Date().toISOString()
     })
-    .eq('code', code.trim());
+    .eq('code', cleanCode);
 
   if (updateError) throw updateError;
 
@@ -241,6 +276,9 @@ export const redeemCode = async (code: string): Promise<void> => {
     .insert([{ user_id: user.id }]);
 
   if (premiumError) throw premiumError;
+
+  // 4. Aggiorna cache locale immediatamente
+  await AsyncStorage.setItem('is_premium_user', 'true');
 };
 
 // --- GRUPPI ---
