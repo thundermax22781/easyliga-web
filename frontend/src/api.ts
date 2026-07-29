@@ -267,68 +267,92 @@ export const checkSyncNeeded = async (groupId: string): Promise<boolean> => {
 
 export const syncCloudData = async (groupId?: string): Promise<void> => {
   try {
-    const { data } = await supabase.auth.getUser();
-    const user = data?.user;
+    const { data: userData } = await supabase.auth.getUser();
+    const user = userData?.user;
+
     const joinedCloudIdsSaved = await AsyncStorage.getItem('joined_cloud_groups');
     const joinedCloudIds: string[] = joinedCloudIdsSaved ? JSON.parse(joinedCloudIdsSaved) : [];
 
-    if (joinedCloudIds.length === 0) {
-      await AsyncStorage.setItem('cloud_groups_cache', JSON.stringify([]));
-    } else {
-      const { data: groupsData, error: groupsError } = await supabase.from('groups').select('*').in('id', joinedCloudIds);
-      if (groupsData) {
-        const rolesSaved = await AsyncStorage.getItem('cloud_group_roles');
-        const roles = rolesSaved ? JSON.parse(rolesSaved) : {};
-        const allCloud = groupsData.map((g) => {
-          let role: 'owner' | 'admin' | 'viewer' | 'member' = 'viewer';
-          if (user && g.admin_id === user.id) role = 'owner';
-          else if (roles[g.id]) role = roles[g.id];
+    // Logica Semplice e Robusta: recuperiamo i gruppi cloud
+    let allCloudGroups: any[] = [];
 
-          return { ...g, storage_type: 'cloud', role };
+    if (user) {
+      // 1. I gruppi che possiedo (Discovery automatica)
+      const { data: owned } = await supabase.from('groups').select('*').eq('admin_id', user.id);
+      if (owned) allCloudGroups = [...owned];
+    }
+
+    // 2. I gruppi a cui sono stato invitato (solo se ID è un UUID valido per evitare crash SQL)
+    const validUuids = joinedCloudIds.filter(id => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id));
+    if (validUuids.length > 0) {
+      const { data: invited } = await supabase.from('groups').select('*').in('id', validUuids);
+      if (invited) {
+        invited.forEach(ig => {
+          if (!allCloudGroups.find(ag => ag.id === ig.id)) allCloudGroups.push(ig);
         });
-
-        // Applichiamo i dati salvati localmente SOLO come fallback se il cloud è vuoto
-        // (utile per migrazione o se le colonne sono state appena create)
-        const careerFields = [
-          'linked_group_ids', 'import_linked_data', 'tournament_match_weight',
-          'tournament_win_bonus', 'tournament_2nd_bonus', 'tournament_3rd_bonus',
-          'tournament_4th_bonus', 'tournament_group_winner_bonus',
-          'tournament_top_scorer_bonus', 'tournament_top_assistant_bonus',
-          'tournament_3rd_team_name', 'tournament_4th_team_name'
-        ];
-
-        for (const g of allCloud) {
-          for (const field of careerFields) {
-            // Se il campo nel cloud è nullo o non definito, cerchiamo un eventuale dato locale
-            if ((g as any)[field] === undefined || (g as any)[field] === null) {
-              const oldKey = field === 'linked_group_ids' ? `override_links_${g.id}` : null;
-              const override = await AsyncStorage.getItem(`override_${field}_${g.id}`) ||
-                               (oldKey ? await AsyncStorage.getItem(oldKey) : null);
-
-              if (override) {
-                (g as any)[field] = JSON.parse(override);
-              }
-            }
-          }
-        }
-
-        await AsyncStorage.setItem('cloud_groups_cache', JSON.stringify(allCloud));
       }
     }
 
+    if (allCloudGroups.length > 0 || user) {
+      const rolesSaved = await AsyncStorage.getItem('cloud_group_roles');
+      const roles = rolesSaved ? JSON.parse(rolesSaved) : {};
+
+      const mapped = allCloudGroups.map(g => {
+        let role: 'owner' | 'admin' | 'viewer' | 'member' = 'viewer';
+        if (user && g.admin_id === user.id) role = 'owner';
+        else if (roles[g.id]) role = roles[g.id];
+
+        return { ...g, storage_type: 'cloud', role };
+      });
+
+      // Applichiamo i metadati salvati localmente come fallback
+      const careerFields = [
+        'linked_group_ids', 'import_linked_data', 'tournament_match_weight',
+        'tournament_win_bonus', 'tournament_2nd_bonus', 'tournament_3rd_bonus',
+        'tournament_4th_bonus', 'tournament_group_winner_bonus',
+        'tournament_top_scorer_bonus', 'tournament_top_assistant_bonus',
+        'tournament_3rd_team_name', 'tournament_4th_team_name'
+      ];
+
+      for (const g of mapped) {
+        for (const field of careerFields) {
+          if (g[field] === undefined || g[field] === null) {
+            const override = await AsyncStorage.getItem(`override_${field}_${g.id}`);
+            if (override) g[field] = JSON.parse(override);
+          }
+        }
+      }
+
+      await AsyncStorage.setItem('cloud_groups_cache', JSON.stringify(mapped));
+
+      // Auto-Discovery: salviamo i nuovi ID trovati localmente per sessioni offline
+      const newJoinedIds = Array.from(new Set([...joinedCloudIds, ...allCloudGroups.map(g => g.id)]));
+      await AsyncStorage.setItem('joined_cloud_groups', JSON.stringify(newJoinedIds));
+    }
+
+    // Sincronizzazione dati specifici del gruppo (se richiesto)
     if (groupId) {
-      const { data: pData } = await supabase.from('players').select('*').eq('group_id', groupId);
-      if (pData) await AsyncStorage.setItem(`players_${groupId}`, JSON.stringify(pData));
+      const safeGid = String(groupId).trim();
+      // Solo se è un UUID valido procediamo con la fetch di players/matches
+      if (/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(safeGid)) {
+        const [pRes, mRes] = await Promise.all([
+          supabase.from('players').select('*').eq('group_id', safeGid),
+          supabase.from('matches').select('*').eq('group_id', safeGid).order('date', { ascending: false })
+        ]);
 
-      const { data: mData } = await supabase.from('matches').select('*').eq('group_id', groupId).order('date', { ascending: false });
-      if (mData) await AsyncStorage.setItem(`matches_${groupId}`, JSON.stringify(mData));
+        if (pRes.data) await AsyncStorage.setItem(`players_${safeGid}`, JSON.stringify(pRes.data));
+        if (mRes.data) {
+          await AsyncStorage.setItem(`matches_${safeGid}`, JSON.stringify(mRes.data));
+          // Importante: applicare eventuali metadati trovati nei match (per web compatibility)
+          await applyMetadata(safeGid, mRes.data);
+        }
 
-      await AsyncStorage.removeItem(`needs_sync_${groupId}`);
-      await AsyncStorage.setItem(`last_sync_timestamp_${groupId}`, new Date().toISOString());
+        await AsyncStorage.removeItem(`needs_sync_${safeGid}`);
+        await AsyncStorage.setItem(`last_sync_timestamp_${safeGid}`, new Date().toISOString());
+      }
     }
   } catch (e) {
-    console.error("Sync error:", e);
-    throw e;
+    console.warn("Sync error:", e);
   }
 };
 

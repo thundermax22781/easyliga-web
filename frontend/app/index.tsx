@@ -53,6 +53,7 @@ export default function GroupsScreen() {
   const [editGroup, setEditGroup] = useState<Group | null>(null);
   const [joinModalVisible, setJoinModalVisible] = useState(false);
   const [joinToken, setJoinToken] = useState('');
+  const [syncing, setSyncing] = useState(false);
 
   useEffect(() => {
     const checkJoinToken = async () => {
@@ -76,6 +77,7 @@ export default function GroupsScreen() {
   }, [params.join]);
 
   const loadGroups = async () => {
+    setSyncing(true);
     try {
       // Forza una sincronizzazione se siamo online
       try {
@@ -93,6 +95,7 @@ export default function GroupsScreen() {
     } finally {
       setLoading(false);
       setRefreshing(false);
+      setSyncing(false);
     }
   };
 
@@ -203,13 +206,24 @@ export default function GroupsScreen() {
           <Image source={require('../assets/images/icon.png')} style={{ width: 40, height: 40 }} resizeMode="contain" />
         </View>
         <Text style={[styles.headerTitle, dynamicStyles.text]}>EASYLIGA</Text>
-        <TouchableOpacity onPress={toggleTheme} style={styles.themeToggle}>
-          <Ionicons
-            name={isDarkMode ? "sunny-outline" : "moon-outline"}
-            size={24}
-            color={isDarkMode ? "#FFD60A" : "#1C1C1E"}
-          />
-        </TouchableOpacity>
+
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+          <TouchableOpacity onPress={loadGroups} style={{ padding: 5 }} disabled={syncing}>
+            {syncing ? (
+              <ActivityIndicator size="small" color="#007AFF" />
+            ) : (
+              <Ionicons name="cloud-download-outline" size={24} color="#007AFF" />
+            )}
+          </TouchableOpacity>
+
+          <TouchableOpacity onPress={toggleTheme} style={styles.themeToggle}>
+            <Ionicons
+              name={isDarkMode ? "sunny-outline" : "moon-outline"}
+              size={24}
+              color={isDarkMode ? "#FFD60A" : "#1C1C1E"}
+            />
+          </TouchableOpacity>
+        </View>
       </View>
 
       <View style={styles.main}>
