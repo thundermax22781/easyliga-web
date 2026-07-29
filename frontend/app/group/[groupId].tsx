@@ -317,19 +317,28 @@ export default function GroupDetailScreen() {
   const loadData = async (forceSync = false) => {
     if (!groupId) return;
     try {
-      // 1. Caricamento parallelo ultra-veloce
-      const [p, m, groups] = await Promise.all([
+      const groups = await fetchGroups();
+      let currentGroup = groups.find(g => String(g.id).trim() === String(groupId).trim());
+
+      // FORZA SYNC REGOLE PER GRUPPI CLOUD (Orologio Svizzero)
+      if (currentGroup?.storage_type === 'cloud' || forceSync) {
+        if (forceSync) setSyncStatus('syncing');
+        const updatedGroup = await syncCloudData(groupId);
+        if (updatedGroup) {
+          currentGroup = updatedGroup;
+          setGroup(updatedGroup);
+        }
+      }
+
+      const [p, m] = await Promise.all([
         fetchPlayers({ group_id: groupId }),
-        fetchMatches(groupId),
-        fetchGroups()
+        fetchMatches(groupId)
       ]);
 
       setAllGroups(groups);
-      // Imposta subito i dati (AsyncStorage è quasi istantaneo)
       setPlayers(p);
       setMatches(m);
 
-      const currentGroup = groups.find(g => g.id === groupId);
       if (currentGroup) {
         setGroup(currentGroup);
         setMatchType(currentGroup.match_type || 5);
@@ -340,32 +349,17 @@ export default function GroupDetailScreen() {
       setLoading(false);
       setRefreshing(false);
 
-      // 2. Calcolo classifica in background passando i dati già pronti
-      calculateStandings(groupId, p, m).then(s => {
-        setStandings(s);
-      });
+      // Calcolo classifica con dati e regole CERTIFICATE dal sync
+      const s = await calculateStandings(groupId, p, m);
+      setStandings(s);
 
-      // 3. Sync Cloud asincrono
-      if (!forceSync) {
-        checkSyncNeeded(groupId).then(needed => {
-          setHasUnsyncedChanges(needed);
-        });
-      } else {
-        setSyncStatus('syncing');
-        await syncCloudData(groupId);
-        const [pUpdated, mUpdated, groupsUpdated] = await Promise.all([fetchPlayers({ group_id: groupId }), fetchMatches(groupId), fetchGroups()]);
-        const currentUpdated = groupsUpdated.find(g => g.id === groupId);
-        if (currentUpdated) {
-          setGroup(currentUpdated);
-          setMatchType(currentUpdated.match_type || 5);
-          setNumTeams(currentUpdated.group_type === 'tournament' ? (currentUpdated.num_teams || 4) : 2);
-          setNumGroups(currentUpdated.num_groups || 1);
+      if (currentGroup?.storage_type === 'cloud') {
+        if (forceSync) {
+          setHasUnsyncedChanges(false);
+          setSyncStatus('done');
+        } else {
+          checkSyncNeeded(groupId).then(needed => setHasUnsyncedChanges(needed));
         }
-        setPlayers(pUpdated);
-        setMatches(mUpdated);
-        calculateStandings(groupId, pUpdated, mUpdated).then(s => setStandings(s));
-        setHasUnsyncedChanges(false);
-        setSyncStatus('done');
       }
     } catch (e) {
       console.error("LoadData Error:", e);

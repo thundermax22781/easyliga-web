@@ -265,7 +265,7 @@ export const checkSyncNeeded = async (groupId: string): Promise<boolean> => {
   return false;
 };
 
-export const syncCloudData = async (groupId?: string): Promise<void> => {
+export const syncCloudData = async (groupId?: string): Promise<Group | null> => {
   try {
     const { data: userData } = await supabase.auth.getUser();
     const user = userData?.user;
@@ -292,6 +292,8 @@ export const syncCloudData = async (groupId?: string): Promise<void> => {
         });
       }
     }
+
+    let syncedGroup: Group | null = null;
 
     if (allCloudGroups.length > 0 || user) {
       const rolesSaved = await AsyncStorage.getItem('cloud_group_roles');
@@ -328,6 +330,8 @@ export const syncCloudData = async (groupId?: string): Promise<void> => {
       // Auto-Discovery: salviamo i nuovi ID trovati localmente per sessioni offline
       const newJoinedIds = Array.from(new Set([...joinedCloudIds, ...allCloudGroups.map(g => g.id)]));
       await AsyncStorage.setItem('joined_cloud_groups', JSON.stringify(newJoinedIds));
+
+      if (groupId) syncedGroup = mapped.find(mg => String(mg.id).trim() === String(groupId).trim()) || null;
     }
 
     // Sincronizzazione dati specifici del gruppo (se richiesto)
@@ -345,14 +349,41 @@ export const syncCloudData = async (groupId?: string): Promise<void> => {
           await AsyncStorage.setItem(`matches_${safeGid}`, JSON.stringify(mRes.data));
           // Importante: applicare eventuali metadati trovati nei match (per web compatibility)
           await applyMetadata(safeGid, mRes.data);
+
+          // AUTO-DISCOVERY TORNEI COLLEGATI (Per Visualizzatore/Copia Immediata)
+          const metaMatch = mRes.data.find(mx => mx.team_a_name === 'METADATA');
+          if (metaMatch && metaMatch.description?.startsWith('JSON_METADATA:')) {
+             try {
+               const meta = JSON.parse(metaMatch.description.replace('JSON_METADATA:', ''));
+               const links = meta.linked_group_ids;
+               if (Array.isArray(links) && links.length > 0) {
+                 const currentJoinedSaved = await AsyncStorage.getItem('joined_cloud_groups');
+                 const joined: string[] = currentJoinedSaved ? JSON.parse(currentJoinedSaved) : [];
+                 let changed = false;
+                 for (const lid of links) {
+                   if (!joined.includes(lid)) {
+                     joined.push(lid);
+                     changed = true;
+                     const rolesSaved = await AsyncStorage.getItem('cloud_group_roles');
+                     const roles = rolesSaved ? JSON.parse(rolesSaved) : {};
+                     roles[lid] = 'viewer';
+                     await AsyncStorage.setItem('cloud_group_roles', JSON.stringify(roles));
+                   }
+                 }
+                 if (changed) await AsyncStorage.setItem('joined_cloud_groups', JSON.stringify(joined));
+               }
+             } catch (e) {}
+          }
         }
 
         await AsyncStorage.removeItem(`needs_sync_${safeGid}`);
         await AsyncStorage.setItem(`last_sync_timestamp_${safeGid}`, new Date().toISOString());
       }
     }
+    return syncedGroup;
   } catch (e) {
     console.warn("Sync error:", e);
+    return null;
   }
 };
 
