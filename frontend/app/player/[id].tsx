@@ -1026,9 +1026,40 @@ export default function PlayerDetailScreen() {
               {(() => {
                 const renderMatchList = (matches: Match[], title: string) => {
                   if (matches.length === 0) return null;
+
+                  const p1Id = String(id).trim();
+                  const p2Id = String(comparisonPlayer.id).trim();
+
+                  // Calcolo Totali per il riepilogo
+                  let totalP1G = 0, totalP1A = 0, totalP2G = 0, totalP2A = 0;
+                  matches.forEach(m => {
+                    totalP1G += (m.goals?.[p1Id] || 0) as number;
+                    totalP1A += (m.assists?.[p1Id] || 0) as number;
+                    totalP2G += (m.goals?.[p2Id] || 0) as number;
+                    totalP2A += (m.assists?.[p2Id] || 0) as number;
+                  });
+
                   return (
                     <View style={{ marginTop: 20 }}>
-                      <Text style={[dynamicStyles.subText, { fontSize: 10, fontWeight: '800', textTransform: 'uppercase', marginBottom: 10 }]}>{title}</Text>
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 10 }}>
+                        <Text style={[dynamicStyles.subText, { fontSize: 10, fontWeight: '800', textTransform: 'uppercase' }]}>{title}</Text>
+
+                        {/* Riga Riepilogo Totali */}
+                        <View style={{ flexDirection: 'row', gap: 12 }}>
+                           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                              <Text style={{ fontSize: 10, fontWeight: '900', color: '#007AFF' }}>{player!.nickname.toUpperCase()}:</Text>
+                              <View style={styles.miniStatBadge}><Ionicons name="football" size={10} color="#007AFF" /><Text style={{ color: '#007AFF', fontSize: 11, fontWeight: '800' }}>{totalP1G}</Text></View>
+                              <View style={styles.miniStatBadge}><Ionicons name="people-outline" size={10} color="#007AFF" /><Text style={{ color: '#007AFF', fontSize: 11, fontWeight: '800' }}>{totalP1A}</Text></View>
+                           </View>
+                           <View style={{ width: 1, height: 12, backgroundColor: isDarkMode ? '#333' : '#DDD', alignSelf: 'center' }} />
+                           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                              <Text style={{ fontSize: 10, fontWeight: '900', color: '#34C759' }}>{comparisonPlayer.nickname.toUpperCase()}:</Text>
+                              <View style={styles.miniStatBadge}><Ionicons name="football" size={10} color="#34C759" /><Text style={{ color: '#34C759', fontSize: 11, fontWeight: '800' }}>{totalP2G}</Text></View>
+                              <View style={styles.miniStatBadge}><Ionicons name="people-outline" size={10} color="#34C759" /><Text style={{ color: '#34C759', fontSize: 11, fontWeight: '800' }}>{totalP2A}</Text></View>
+                           </View>
+                        </View>
+                      </View>
+
                       {matches.map(m => {
                         const isTeamA = m.team_a_players.map(pid => String(pid).trim()).includes(String(id).trim());
                         const isWin = isTeamA ? m.team_a_score > m.team_b_score : m.team_b_score > m.team_a_score;
