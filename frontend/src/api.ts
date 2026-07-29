@@ -674,7 +674,11 @@ export const deletePlayer = async (playerId: string): Promise<void> => {
 // --- PARTITE ---
 
 export const fetchMatches = async (groupId: string): Promise<Match[]> => {
-  // 1. Prova a caricare dal Cloud per avere dati freschi
+  // 1. Priorità Assoluta: Cache Locale (Orologio Svizzero)
+  const saved = await AsyncStorage.getItem(`matches_${groupId}`);
+  if (saved) return JSON.parse(saved);
+
+  // 2. Fallback Cloud solo se cache vuota
   try {
     const { data, error } = await supabase
       .from('matches')
@@ -687,12 +691,10 @@ export const fetchMatches = async (groupId: string): Promise<Match[]> => {
       return data;
     }
   } catch (e) {
-    console.warn(`Errore fetch cloud per ${groupId}:`, e);
+    console.warn(`Errore fallback cloud per ${groupId}:`, e);
   }
 
-  // 2. Fallback su cache locale se il cloud fallisce o è vuoto
-  const saved = await AsyncStorage.getItem(`matches_${groupId}`);
-  return saved ? JSON.parse(saved) : [];
+  return [];
 };
 
 export const fetchGroupInfo = async (groupId: string): Promise<Partial<Group> | null> => {

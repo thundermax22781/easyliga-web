@@ -320,9 +320,9 @@ export default function GroupDetailScreen() {
       const groups = await fetchGroups();
       let currentGroup = groups.find(g => String(g.id).trim() === String(groupId).trim());
 
-      // FORZA SYNC REGOLE PER GRUPPI CLOUD (Orologio Svizzero)
-      if (currentGroup?.storage_type === 'cloud' || forceSync) {
-        if (forceSync) setSyncStatus('syncing');
+      // FORZA SYNC SOLO SE RICHIESTO O PRIMA VOLTA (Orologio Svizzero - Velocità Massima)
+      if (forceSync) {
+        setSyncStatus('syncing');
         const updatedGroup = await syncCloudData(groupId);
         if (updatedGroup) {
           currentGroup = updatedGroup;
@@ -330,6 +330,7 @@ export default function GroupDetailScreen() {
         }
       }
 
+      // Caricamento istantaneo (Cache First)
       const [p, m] = await Promise.all([
         fetchPlayers({ group_id: groupId }),
         fetchMatches(groupId)
@@ -349,10 +350,11 @@ export default function GroupDetailScreen() {
       setLoading(false);
       setRefreshing(false);
 
-      // Calcolo classifica con dati e regole CERTIFICATE dal sync
+      // Calcolo classifica immediato
       const s = await calculateStandings(groupId, p, m);
       setStandings(s);
 
+      // Controllo silenzioso stato sync se non in forceSync
       if (currentGroup?.storage_type === 'cloud') {
         if (forceSync) {
           setHasUnsyncedChanges(false);
