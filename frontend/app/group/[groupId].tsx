@@ -395,6 +395,8 @@ export default function GroupDetailScreen() {
         }
       }
       next.add(id);
+      // Auto-pulizia ricerca dopo selezione
+      setTeamSearch('');
     }
     setSelectedIds(next);
   };
@@ -5961,7 +5963,18 @@ export default function GroupDetailScreen() {
               <View style={{flex: 1}}>
                  <View style={[styles.searchContainer, dynamicStyles.card, { marginHorizontal: 20, marginTop: 4, marginBottom: 8 }]}>
                    <Ionicons name="search" size={20} color="#8E8E93" style={{ marginRight: 8 }} />
-                   <TextInput style={[styles.searchInput, dynamicStyles.text]} placeholder="Cerca per selezione..." placeholderTextColor={isDarkMode ? "#8E8E93" : "#C7C7CC"} value={teamSearch} onChangeText={setTeamSearch} />
+                   <TextInput
+                     style={[styles.searchInput, dynamicStyles.text]}
+                     placeholder="Cerca per selezione..."
+                     placeholderTextColor={isDarkMode ? "#8E8E93" : "#C7C7CC"}
+                     value={teamSearch}
+                     onChangeText={setTeamSearch}
+                   />
+                   {teamSearch.length > 0 && (
+                     <TouchableOpacity onPress={() => setTeamSearch('')} style={{ paddingHorizontal: 12 }}>
+                       <Ionicons name="close-circle" size={20} color="#8E8E93" />
+                     </TouchableOpacity>
+                   )}
                  </View>
                  <View style={{ paddingHorizontal: 12 }}>
                    {renderRoleFilter(teamSelectedRole, setTeamSelectedRole)}
