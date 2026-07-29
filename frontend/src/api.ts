@@ -946,6 +946,34 @@ export const calculateStandings = async (groupId: string, playersData?: Player[]
           if (linkedGroupObj.tournament_4th_team_name) {
             assignBonus(getAllTeamPlayers(linkedGroupObj.tournament_4th_team_name), group?.tournament_4th_bonus || 0, "4° Posto", tName);
           }
+        } else {
+           // LOGICA DI INTUITO (Merito): Calcolo classifica globale torneo per assegnare 3° e 4° posto
+           const teamStats: Record<string, any> = {};
+           linkedMatches.filter(m => (!m.match_phase || m.match_phase === 'group') && m.status === 'played').forEach(m => {
+             const setup = (name: string, pids: string[]) => {
+               if (!teamStats[name]) teamStats[name] = { name, points: 0, gf: 0, gs: 0, played: 0, players: pids };
+             };
+             setup(m.team_a_name, m.team_a_players); setup(m.team_b_name, m.team_b_players);
+             const sA = Number(m.team_a_score), sB = Number(m.team_b_score);
+             teamStats[m.team_a_name].gf += sA; teamStats[m.team_a_name].gs += sB; teamStats[m.team_a_name].played++;
+             teamStats[m.team_b_name].gf += sB; teamStats[m.team_b_name].gs += sA; teamStats[m.team_b_name].played++;
+             if (sA > sB) teamStats[m.team_a_name].points += 3;
+             else if (sB > sA) teamStats[m.team_b_name].points += 3;
+             else { teamStats[m.team_a_name].points += 1; teamStats[m.team_b_name].points += 1; }
+           });
+
+           const sortedTournament = Object.values(teamStats).sort((a: any, b: any) => {
+             const avgA = a.points / (a.played || 1), avgB = b.points / (b.played || 1);
+             if (avgB !== avgA) return avgB - avgA;
+             return (b.gf - b.gs) - (a.gf - a.gs) || b.gf - a.gf;
+           });
+
+           if (sortedTournament.length >= 3) {
+             assignBonus(sortedTournament[2].players, group?.tournament_3rd_bonus || 0, "3° Posto (Merito)", tName);
+           }
+           if (sortedTournament.length >= 4) {
+             assignBonus(sortedTournament[3].players, group?.tournament_4th_bonus || 0, "4° Posto (Merito)", tName);
+           }
         }
 
         // Calcolo bonus vincitore girone
