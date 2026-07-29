@@ -380,7 +380,6 @@ export const syncCloudData = async (groupId?: string): Promise<void> => {
     const { data: userData } = await supabase.auth.getUser();
     const user = userData?.user;
 
-    // 1. Recupero ID già salvati localmente
     const joinedCloudIdsSaved = await AsyncStorage.getItem('joined_cloud_groups');
     const joinedCloudIds: string[] = joinedCloudIdsSaved ? JSON.parse(joinedCloudIdsSaved) : [];
 
@@ -400,7 +399,6 @@ export const syncCloudData = async (groupId?: string): Promise<void> => {
     }
 
     // 2. Recuperiamo i gruppi a cui siamo stati invitati (tramite ID in lista)
-    // Filtriamo solo gli ID che sembrano UUID per evitare errori SQL di cast
     const validUuids = joinedCloudIds.filter(id =>
       /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)
     );
@@ -421,7 +419,7 @@ export const syncCloudData = async (groupId?: string): Promise<void> => {
       }
     }
 
-    if (allCloudGroups.length > 0 || (user || joinedCloudIds.length > 0)) {
+    if (allCloudGroups.length > 0 || user) {
       const rolesSaved = await AsyncStorage.getItem('cloud_group_roles');
       const roles = rolesSaved ? JSON.parse(rolesSaved) : {};
 
@@ -443,7 +441,6 @@ export const syncCloudData = async (groupId?: string): Promise<void> => {
     // 3. Sincronizzazione dati specifici del gruppo (se richiesto)
     if (groupId) {
       const safeGid = String(groupId).trim();
-      // Solo se è un UUID valido procediamo con la fetch di players/matches
       if (/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(safeGid)) {
         const { data: pData } = await supabase.from('players').select('*').eq('group_id', safeGid);
         if (pData) await AsyncStorage.setItem(`players_${safeGid}`, JSON.stringify(pData));
@@ -459,7 +456,7 @@ export const syncCloudData = async (groupId?: string): Promise<void> => {
       }
     }
   } catch (e) {
-    console.error("Sync error:", e);
+    console.error("Sync Critical Error:", e);
   }
 };
 
@@ -1408,84 +1405,61 @@ const restoreGroupData = async (groupId: string, data: { players: Player[], matc
 };
 
 export const restoreFullBackup = async (groupId: string, jsonString: string): Promise<void> => {
-  const backup = JSON.parse(jsonString);
-  if (!backup.group || !backup.players || !backup.matches) throw new Error('Backup non valido');
+  try {
+    const backup = JSON.parse(jsonString);
+    const players = backup.players || backup.playersData;
+    const matches = backup.matches || backup.matchesData;
 
-  const groups = await fetchGroups();
-  const targetGroup = groups.find(g => g.id === groupId);
-  if (!targetGroup) throw new Error('Gruppo non trovato');
+    if (!players || !matches) throw new Error('Backup non valido: dati mancanti.');
 
-  // Ripristiniamo le impostazioni del gruppo principale (chirurgico)
-  const groupPayload: Partial<Group> = {
-    ...backup.group,
-    id: groupId, // Manteniamo l'ID del gruppo attuale
-    storage_type: targetGroup.storage_type // Manteniamo il tipo di storage attuale
-  };
-  delete (groupPayload as any).admin_id; // Non sovrascriviamo l'owner
+    const groups = await fetchGroups();
+    const safeGid = String(groupId).trim();
+    const targetGroup = groups.find(g => String(g.id).trim() === safeGid);
+    if (!targetGroup) throw new Error('Gruppo non trovato');
 
-  await updateGroup(groupId, groupPayload);
+    // 1. Ripristino Impostazioni (Opzionale)
+    if (backup.group) {
+      const groupPayload: Partial<Group> = { ...backup.group, id: safeGid, storage_type: targetGroup.storage_type };
+      delete (groupPayload as any).admin_id;
+      await updateGroup(safeGid, groupPayload);
+    }
 
-  // Ripristino dati principali
-  await restoreGroupData(groupId, { players: backup.players, matches: backup.matches }, targetGroup.storage_type);
+    // 2. Ripristino Giocatori e Partite
+    await restoreGroupData(safeGid, { players, matches }, targetGroup.storage_type);
 
-  // Ripristino tornei collegati (se presenti nel backup)
-  if (backup.linked_groups && backup.linked_groups.length > 0) {
-    const newLinkedIds: string[] = [];
+    // 3. Ripristino Tornei Collegati (Se presenti)
+    if (backup.linked_groups && Array.isArray(backup.linked_groups)) {
+      const newLinkedIds: string[] = [];
+      for (const linkedData of backup.linked_groups) {
+        try {
+          const newTId = Math.random().toString(36).substring(7);
+          const newName = `${linkedData.group?.name || 'Torneo'} (Ripristinato)`;
 
-    for (const linkedData of backup.linked_groups) {
-      try {
-        const newTournamentName = `${linkedData.group.name} (Ripristinato)`;
-        const newTId = Math.random().toString(36).substring(7);
-
-        if (targetGroup.storage_type === 'local') {
-          const newTGroup: Group = {
-            ...linkedData.group,
-            id: newTId,
-            name: newTournamentName,
-            storage_type: 'local'
-          };
-          const currentGroups = await fetchGroups();
-          const localOnly = currentGroups.filter(g => g.storage_type === 'local');
-          await AsyncStorage.setItem('local_groups', JSON.stringify([...localOnly, newTGroup]));
-          await restoreGroupData(newTId, { players: linkedData.players, matches: linkedData.matches }, 'local');
-          newLinkedIds.push(newTId);
-        } else {
-          // Ripristino Cloud: creiamo un nuovo gruppo torneo
-          const { data: { user } } = await supabase.auth.getUser();
-          const { data: newTCloud, error: createError } = await supabase.from('groups').insert([{
-            ...linkedData.group,
-            name: newTournamentName,
-            storage_type: 'cloud',
-            admin_id: user?.id
-          }]).select().single();
-
-          if (!createError && newTCloud) {
-            // Aggiungiamo ai joined e ruoli
-            const joinedSaved = await AsyncStorage.getItem('joined_cloud_groups');
-            const joined = joinedSaved ? JSON.parse(joinedSaved) : [];
-            await AsyncStorage.setItem('joined_cloud_groups', JSON.stringify([...joined, newTCloud.id]));
-
-            const rolesSaved = await AsyncStorage.getItem('cloud_group_roles');
-            const roles = rolesSaved ? JSON.parse(rolesSaved) : {};
-            roles[newTCloud.id] = 'owner';
-            await AsyncStorage.setItem('cloud_group_roles', JSON.stringify(roles));
-
-            await restoreGroupData(newTCloud.id, { players: linkedData.players, matches: linkedData.matches }, 'cloud');
-            newLinkedIds.push(newTCloud.id);
+          if (targetGroup.storage_type === 'local') {
+             const newT: Group = { ...linkedData.group, id: newTId, name: newName, storage_type: 'local' };
+             const current = await fetchGroups();
+             await AsyncStorage.setItem('local_groups', JSON.stringify([...current.filter(x => x.storage_type === 'local'), newT]));
+             await restoreGroupData(newTId, { players: linkedData.players, matches: linkedData.matches }, 'local');
+             newLinkedIds.push(newTId);
+          } else {
+             const { data: userRes } = await supabase.auth.getUser();
+             const { data: newCloud } = await supabase.from('groups').insert([{ ...linkedData.group, name: newName, storage_type: 'cloud', admin_id: userRes.user?.id }]).select().single();
+             if (newCloud) {
+               await registerGroupJoin(newCloud.id, 'owner');
+               await restoreGroupData(newCloud.id, { players: linkedData.players, matches: linkedData.matches }, 'cloud');
+               newLinkedIds.push(newCloud.id);
+             }
           }
-        }
-      } catch (e) {
-        console.warn("Ripristino torneo collegato fallito:", e);
+        } catch (e) {}
       }
+      if (newLinkedIds.length > 0) await updateGroup(safeGid, { linked_group_ids: newLinkedIds });
     }
 
-    // Aggiorniamo il collegamento nel campionato principale
-    if (newLinkedIds.length > 0) {
-      await updateGroup(groupId, { linked_group_ids: newLinkedIds });
-    }
+    await syncCloudData(safeGid);
+  } catch (err) {
+    console.error("Restore Error:", err);
+    throw err;
   }
-
-  await syncCloudData(groupId);
 };
 
 
