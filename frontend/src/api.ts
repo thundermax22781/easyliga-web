@@ -927,52 +927,54 @@ export const calculateStandings = async (groupId: string, playersData?: Player[]
 
           assignBonus(aWins ? thirdPlaceMatch.team_a_players : thirdPlaceMatch.team_b_players, group?.tournament_3rd_bonus || 0, "3° Posto", tName);
           assignBonus(aWins ? thirdPlaceMatch.team_b_players : thirdPlaceMatch.team_a_players, group?.tournament_4th_bonus || 0, "4° Posto", tName);
-        } else if (linkedGroupObj?.tournament_3rd_team_name || linkedGroupObj?.tournament_4th_team_name) {
-          // Fallback manuale per 3° e 4° posto se il match non è giocato o non esiste
+        } else if (linkedGroupObj?.tournament_3rd_team_name?.trim() || linkedGroupObj?.tournament_4th_team_name?.trim()) {
+          // Fallback manuale per 3° e 4° posto (se inserito nome reale e non stringa vuota)
           const getAllTeamPlayers = (teamName: string) => {
-             // Cerchiamo in TUTTI i match del torneo per essere sicuri di prendere i giocatori
-             const teamMatches = linkedMatches.filter(x => x.team_a_name === teamName || x.team_b_name === teamName);
+             const cleanTarget = teamName.trim().toLowerCase();
              const pids = new Set<string>();
-             teamMatches.forEach(mx => {
-                const players = mx.team_a_name === teamName ? mx.team_a_players : mx.team_b_players;
-                players.forEach(pid => pids.add(String(pid).trim()));
+             linkedMatches.forEach(mx => {
+                if (mx.team_a_name?.trim().toLowerCase() === cleanTarget) mx.team_a_players?.forEach(p => pids.add(String(p).trim()));
+                if (mx.team_b_name?.trim().toLowerCase() === cleanTarget) mx.team_b_players?.forEach(p => pids.add(String(p).trim()));
              });
              return Array.from(pids);
           };
 
-          if (linkedGroupObj.tournament_3rd_team_name) {
+          if (linkedGroupObj.tournament_3rd_team_name?.trim()) {
             assignBonus(getAllTeamPlayers(linkedGroupObj.tournament_3rd_team_name), group?.tournament_3rd_bonus || 0, "3° Posto", tName);
           }
-          if (linkedGroupObj.tournament_4th_team_name) {
+          if (linkedGroupObj.tournament_4th_team_name?.trim()) {
             assignBonus(getAllTeamPlayers(linkedGroupObj.tournament_4th_team_name), group?.tournament_4th_bonus || 0, "4° Posto", tName);
           }
         } else {
-           // LOGICA DI INTUITO (Merito): Calcolo classifica globale torneo per assegnare 3° e 4° posto
+           // LOGICA DI INTUITO (Merito): Calcolo classifica globale torneo basata sulla fase a gironi
            const teamStats: Record<string, any> = {};
            linkedMatches.filter(m => (!m.match_phase || m.match_phase === 'group') && m.status === 'played').forEach(m => {
              const setup = (name: string, pids: string[]) => {
-               if (!teamStats[name]) teamStats[name] = { name, points: 0, gf: 0, gs: 0, played: 0, players: pids };
+               const clean = name.trim();
+               if (!teamStats[clean]) teamStats[clean] = { name: clean, points: 0, gf: 0, gs: 0, played: 0, players: new Set() };
+               pids.forEach(p => teamStats[clean].players.add(String(p).trim()));
              };
              setup(m.team_a_name, m.team_a_players); setup(m.team_b_name, m.team_b_players);
              const sA = Number(m.team_a_score), sB = Number(m.team_b_score);
-             teamStats[m.team_a_name].gf += sA; teamStats[m.team_a_name].gs += sB; teamStats[m.team_a_name].played++;
-             teamStats[m.team_b_name].gf += sB; teamStats[m.team_b_name].gs += sA; teamStats[m.team_b_name].played++;
-             if (sA > sB) teamStats[m.team_a_name].points += 3;
-             else if (sB > sA) teamStats[m.team_b_name].points += 3;
-             else { teamStats[m.team_a_name].points += 1; teamStats[m.team_b_name].points += 1; }
+             const nameA = m.team_a_name.trim(), nameB = m.team_b_name.trim();
+             teamStats[nameA].gf += sA; teamStats[nameA].gs += sB; teamStats[nameA].played++;
+             teamStats[nameB].gf += sB; teamStats[nameB].gs += sA; teamStats[nameB].played++;
+             if (sA > sB) teamStats[nameA].points += 3;
+             else if (sB > sA) teamStats[nameB].points += 3;
+             else { teamStats[nameA].points += 1; teamStats[nameB].points += 1; }
            });
 
            const sortedTournament = Object.values(teamStats).sort((a: any, b: any) => {
              const avgA = a.points / (a.played || 1), avgB = b.points / (b.played || 1);
-             if (avgB !== avgA) return avgB - avgA;
+             if (Math.abs(avgB - avgA) > 0.001) return avgB - avgA;
              return (b.gf - b.gs) - (a.gf - a.gs) || b.gf - a.gf;
            });
 
            if (sortedTournament.length >= 3) {
-             assignBonus(sortedTournament[2].players, group?.tournament_3rd_bonus || 0, "3° Posto (Merito)", tName);
+             assignBonus(Array.from(sortedTournament[2].players), group?.tournament_3rd_bonus || 0, "3° Posto (Merito)", tName);
            }
            if (sortedTournament.length >= 4) {
-             assignBonus(sortedTournament[3].players, group?.tournament_4th_bonus || 0, "4° Posto (Merito)", tName);
+             assignBonus(Array.from(sortedTournament[3].players), group?.tournament_4th_bonus || 0, "4° Posto (Merito)", tName);
            }
         }
 
