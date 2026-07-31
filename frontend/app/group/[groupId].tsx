@@ -137,6 +137,7 @@ export default function GroupDetailScreen() {
   const [importing, setImporting] = useState(false);
   const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'done'>('idle');
   const [hasUnsyncedChanges, setHasUnsyncedChanges] = useState(false);
+  const [favoriteIds, setFavoriteIds] = useState<Set<string>>(new Set());
 
   // Match Info Editor
   const [matchDescription, setMatchDescription] = useState('');
@@ -314,8 +315,21 @@ export default function GroupDetailScreen() {
   useFocusEffect(
     React.useCallback(() => {
       loadData();
+      if (groupId) {
+        AsyncStorage.getItem(`favorites_${groupId}`).then(val => {
+          if (val) setFavoriteIds(new Set(JSON.parse(val)));
+        });
+      }
     }, [groupId])
   );
+
+  const toggleFavorite = async (playerId: string) => {
+    const next = new Set(favoriteIds);
+    if (next.has(playerId)) next.delete(playerId);
+    else next.add(playerId);
+    setFavoriteIds(next);
+    await AsyncStorage.setItem(`favorites_${groupId}`, JSON.stringify(Array.from(next)));
+  };
 
   const loadData = async (forceSync = false) => {
     if (!groupId) return;
@@ -1805,7 +1819,7 @@ export default function GroupDetailScreen() {
   const renderRoleFilter = (current: string | null, setter: (r: string | null) => void) => (
     <View style={{ flexDirection: 'row', paddingHorizontal: 0, marginBottom: 8 }}>
       <View style={{ flexDirection: 'row', flex: 1, borderRadius: 12, overflow: 'hidden', borderWidth: 1, borderColor: isDarkMode ? '#3A3A3C' : '#E5E5EA' }}>
-        {['Portiere', 'Difensore', 'Mediana', 'Attaccante'].map((r, i) => {
+        {['Preferiti', 'Portiere', 'Difensore', 'Mediana', 'Attaccante'].map((r, i) => {
           const active = current === r;
           return (
             <TouchableOpacity
@@ -1821,17 +1835,21 @@ export default function GroupDetailScreen() {
                 borderLeftColor: isDarkMode ? '#3A3A3C' : '#E5E5EA',
               }}
             >
-              <Text
-                style={{
-                  color: active ? '#FFF' : (isDarkMode ? '#AEAEB2' : '#8E8E93'),
-                  fontSize: 8.2,
-                  fontWeight: '900',
-                  textAlign: 'center'
-                }}
-                numberOfLines={1}
-              >
-                {r.toUpperCase()}
-              </Text>
+              {r === 'Preferiti' ? (
+                <Ionicons name={active ? "heart" : "heart-outline"} size={16} color={active ? '#FFF' : '#FF2D55'} />
+              ) : (
+                <Text
+                  style={{
+                    color: active ? '#FFF' : (isDarkMode ? '#AEAEB2' : '#8E8E93'),
+                    fontSize: 8.2,
+                    fontWeight: '900',
+                    textAlign: 'center'
+                  }}
+                  numberOfLines={1}
+                >
+                  {r.toUpperCase()}
+                </Text>
+              )}
             </TouchableOpacity>
           );
         })}
@@ -1915,20 +1933,20 @@ export default function GroupDetailScreen() {
     return players
       .filter(p =>
         !assignedIds.has(p.id) &&
-        (teamSelectedRole ? p.role === teamSelectedRole : true) &&
+        (teamSelectedRole === 'Preferiti' ? favoriteIds.has(p.id) : (teamSelectedRole ? p.role === teamSelectedRole : true)) &&
         (teamSearch ? p.nickname.toLowerCase().includes(teamSearch.toLowerCase()) : true)
       )
       .sort((a, b) => a.nickname.localeCompare(b.nickname, 'it', { sensitivity: 'base' }));
-  }, [players, teamSelectedRole, teamSearch, manualTeamsData]);
+  }, [players, teamSelectedRole, teamSearch, manualTeamsData, favoriteIds]);
 
   const filteredPlayersList = React.useMemo(() => {
     return players
       .filter(p =>
-        (selectedRole ? p.role === selectedRole : true) &&
+        (selectedRole === 'Preferiti' ? favoriteIds.has(p.id) : (selectedRole ? p.role === selectedRole : true)) &&
         (search ? p.nickname.toLowerCase().includes(search.toLowerCase()) : true)
       )
       .sort((a, b) => a.nickname.localeCompare(b.nickname, 'it', { sensitivity: 'base' }));
-  }, [players, selectedRole, search]);
+  }, [players, selectedRole, search, favoriteIds]);
 
   const teamAParticipants = React.useMemo(() => {
     if (editingMatchId) {
@@ -6022,7 +6040,13 @@ export default function GroupDetailScreen() {
                         <Text style={[styles.pNickname, dynamicStyles.text, { fontSize: 15 }]}>{item.nickname}</Text>
                         <Text style={[styles.pRoleText, { color: ROLE_COLORS[item.role], fontSize: 10 }]}>{item.role}</Text>
                       </View>
-                      <View style={[styles.pStrBadge, { backgroundColor: isDarkMode ? '#3A3A3C' : '#F2F2F7', flexDirection: 'row', width: isAdminOrOwner ? 75 : 45, gap: 6, paddingVertical: 3, borderRadius: 8, justifyContent: 'center' }]}>
+                      <View style={[styles.pStrBadge, { backgroundColor: isDarkMode ? '#3A3A3C' : '#F2F2F7', flexDirection: 'row', width: isAdminOrOwner ? 100 : 70, gap: 6, paddingVertical: 3, borderRadius: 8, justifyContent: 'center' }]}>
+                        <TouchableOpacity
+                          onPress={(e) => { e.stopPropagation(); toggleFavorite(item.id); }}
+                          style={{ paddingHorizontal: 4 }}
+                        >
+                          <Ionicons name={favoriteIds.has(item.id) ? "heart" : "heart-outline"} size={16} color={favoriteIds.has(item.id) ? "#FF2D55" : "#8E8E93"} />
+                        </TouchableOpacity>
                         <View style={{alignItems: 'center'}}><Text style={[styles.pAge, dynamicStyles.subText, {fontSize: 11, fontWeight: '700'}]}>{item.age}</Text><Text style={styles.pStrLabel}>ANNI</Text></View>
                         {isAdminOrOwner && (
                           <>
@@ -6088,7 +6112,13 @@ export default function GroupDetailScreen() {
                      <TouchableOpacity style={[styles.selCard, dynamicStyles.card, isSel && styles.selCardActive]} onPress={() => togglePlayer(item.id)}>
                        <View style={[styles.chk, isSel && styles.chkActive]}>{isSel && <Ionicons name="checkmark" size={14} color="#FFF" />}</View>
                        <View style={styles.selPlayerInfo}><Text style={[styles.selNick, dynamicStyles.text, { fontSize: 15 }]}>{item.nickname}</Text><Text style={[styles.selRole, { color: ROLE_COLORS[item.role], fontSize: 10 }]}>{item.role}</Text></View>
-                       <View style={[styles.pStrBadge, { backgroundColor: isDarkMode ? '#3A3A3C' : '#F2F2F7', flexDirection: 'row', width: isAdminOrOwner ? 75 : 45, gap: 6, paddingVertical: 3, borderRadius: 8, justifyContent: 'center', marginLeft: 10 }]}>
+                       <View style={[styles.pStrBadge, { backgroundColor: isDarkMode ? '#3A3A3C' : '#F2F2F7', flexDirection: 'row', width: isAdminOrOwner ? 100 : 70, gap: 6, paddingVertical: 3, borderRadius: 8, justifyContent: 'center', marginLeft: 10 }]}>
+                         <TouchableOpacity
+                           onPress={(e) => { e.stopPropagation(); toggleFavorite(item.id); }}
+                           style={{ paddingHorizontal: 4 }}
+                         >
+                           <Ionicons name={favoriteIds.has(item.id) ? "heart" : "heart-outline"} size={16} color={favoriteIds.has(item.id) ? "#FF2D55" : "#8E8E93"} />
+                         </TouchableOpacity>
                          <View style={{alignItems: 'center'}}><Text style={[styles.pAge, dynamicStyles.subText, {fontSize: 11, fontWeight: '700'}]}>{item.age}</Text><Text style={styles.pStrLabel}>ANNI</Text></View>
                          {isAdminOrOwner && (
                            <>

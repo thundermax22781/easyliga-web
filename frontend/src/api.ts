@@ -56,6 +56,7 @@ export interface Player {
   name?: string;
   surname?: string;
   group_id: string;
+  is_favorite?: boolean;
 }
 
 export interface Match {
@@ -1381,7 +1382,7 @@ export const JERSEY_COLORS = [
   { value: 'Marrone', hex: '#A2845E' },
   { value: 'Nera', hex: '#1C1C1E' }
 ];
-export const ROLE_COLORS: Record<string, string> = { 'Attaccante': '#FF3B30', 'Mediana': '#34C759', 'Difensore': '#007AFF', 'Portiere': '#FF9500' };
+export const ROLE_COLORS: Record<string, string> = { 'Attaccante': '#FF3B30', 'Mediana': '#34C759', 'Difensore': '#007AFF', 'Portiere': '#FF9500', 'Preferiti': '#FF2D55' };
 export const ROLES = ['Portiere', 'Difensore', 'Mediana', 'Attaccante'];
 export const STRENGTH_VALUES = [1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5, 5.5, 6, 6.5, 7, 7.5, 8, 8.5, 9, 9.5, 10];
 export interface TeamResult {
