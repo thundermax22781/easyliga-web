@@ -1369,6 +1369,13 @@ export default function GroupDetailScreen() {
     if (!groupId) return;
     try {
       const existingMatch = editingMatchId ? matches.find(m => m.id === editingMatchId) : null;
+
+      // Catturiamo gli overrides (ruolo e forza attuali nel modal)
+      const overrides: Record<string, { role?: string; strength?: number }> = {};
+      [...editRosterA, ...editRosterB].forEach(p => {
+        overrides[p.id] = { role: p.role, strength: p.strength };
+      });
+
       const matchData: Match = {
         id: editingMatchId || '',
         group_id: groupId,
@@ -1397,7 +1404,8 @@ export default function GroupDetailScreen() {
         exclude_def_bonus: existingMatch?.exclude_def_bonus || false,
         description: matchDescription || undefined,
         location: matchLocation || undefined,
-        status: status
+        status: status,
+        player_overrides: overrides
       };
 
 
@@ -5184,8 +5192,18 @@ export default function GroupDetailScreen() {
     const teamAHex = getJerseyHex(m.team_a_color);
     const teamBHex = getJerseyHex(m.team_b_color);
 
-    const teamAPlayers = players.filter(p => m.team_a_players.map(x => String(x).trim()).includes(String(p.id).trim()));
-    const teamBPlayers = players.filter(p => m.team_b_players.map(x => String(x).trim()).includes(String(p.id).trim()));
+    // Recuperiamo i giocatori applicando eventuali overrides salvati nel match
+    const getPlayersWithOverrides = (pids: string[]) => {
+      return pids.map(pid => {
+        const p = players.find(x => String(x.id).trim() === String(pid).trim());
+        if (!p) return null;
+        const ovr = m.player_overrides?.[p.id];
+        return ovr ? { ...p, ...ovr } : p;
+      }).filter(p => !!p) as Player[];
+    };
+
+    const teamAPlayers = sortPlayersByRole(getPlayersWithOverrides(m.team_a_players));
+    const teamBPlayers = sortPlayersByRole(getPlayersWithOverrides(m.team_b_players));
 
     // Calcolo Medie per Anteprima (Scheduled)
     const totalStrA = teamAPlayers.reduce((acc, p) => acc + p.strength, 0);

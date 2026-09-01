@@ -88,6 +88,7 @@ export interface Match {
   team_b_logo?: string;
   exclude_def_bonus?: boolean;
   knockout_index?: number; // Indice univoco per identificare gli incontri della fase finale
+  player_overrides?: Record<string, { role?: string; strength?: number }>; // Ruoli/Forza personalizzati per questo match
 }
 
 
