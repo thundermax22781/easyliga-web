@@ -29,6 +29,8 @@ export default function AddPlayerScreen() {
   const [surname, setSurname] = useState('');
   const [nickname, setNickname] = useState('');
   const [dob, setDob] = useState(new Date(2000, 0, 1));
+  const [manualDobText, setManualDobText] = useState('01/01/2000');
+  const [isManualDob, setIsManualDob] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [role, setRole] = useState('Attaccante');
   const [strength, setStrength] = useState(5);
@@ -45,7 +47,39 @@ export default function AddPlayerScreen() {
 
   const onDateChange = (event: any, selectedDate?: Date) => {
     setShowDatePicker(Platform.OS === 'ios');
-    if (selectedDate) setDob(selectedDate);
+    if (selectedDate) {
+      setDob(selectedDate);
+      setManualDobText(selectedDate.toLocaleDateString('it-IT'));
+    }
+  };
+
+  const handleManualDobChange = (text: string) => {
+    // Rimuovi tutto ciò che non è numero
+    let cleaned = text.replace(/\D/g, '');
+    let formatted = cleaned;
+
+    if (cleaned.length > 2) {
+      formatted = cleaned.slice(0, 2) + '/' + cleaned.slice(2);
+    }
+    if (cleaned.length > 4) {
+      formatted = cleaned.slice(0, 2) + '/' + cleaned.slice(2, 4) + '/' + cleaned.slice(4, 8);
+    }
+
+    setManualDobText(formatted);
+
+    // Se la data è completa (DD/MM/YYYY), proviamo a validarla e aggiornare dob
+    if (cleaned.length === 8) {
+      const day = parseInt(cleaned.slice(0, 2));
+      const month = parseInt(cleaned.slice(2, 4)) - 1;
+      const year = parseInt(cleaned.slice(4, 8));
+
+      if (month >= 0 && month <= 11 && day >= 1 && day <= 31) {
+        const newDate = new Date(year, month, day);
+        if (newDate.getFullYear() === year && newDate.getMonth() === month && newDate.getDate() === day) {
+          setDob(newDate);
+        }
+      }
+    }
   };
 
   const handleSave = async () => {
@@ -123,13 +157,30 @@ export default function AddPlayerScreen() {
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={[styles.label, dynamicStyles.text]}>Data di Nascita</Text>
-              <View style={styles.ageContainer}>
-                <TouchableOpacity style={[styles.input, dynamicStyles.input, styles.datePickerButton]} onPress={() => setShowDatePicker(true)}>
-                  <Ionicons name="calendar-outline" size={20} color="#007AFF" style={{marginRight: 10}} />
-                  <Text style={[styles.dateText, dynamicStyles.text]}>{dob.toLocaleDateString('it-IT')}</Text>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                <Text style={[styles.label, dynamicStyles.text, { marginBottom: 0 }]}>Data di Nascita</Text>
+                <TouchableOpacity onPress={() => setIsManualDob(!isManualDob)} style={{ padding: 4 }}>
+                  <Ionicons name={isManualDob ? "calendar-outline" : "pencil-outline"} size={18} color="#007AFF" />
                 </TouchableOpacity>
-                <View style={[styles.ageBox, dynamicStyles.card, {borderColor: isDarkMode ? '#3A3A3C' : '#E5E5EA'}]}>
+              </View>
+              <View style={styles.ageContainer}>
+                {isManualDob ? (
+                  <TextInput
+                    style={[styles.input, dynamicStyles.input, { flex: 1, marginRight: 12 }]}
+                    value={manualDobText}
+                    onChangeText={handleManualDobChange}
+                    placeholder="GG/MM/AAAA"
+                    placeholderTextColor={isDarkMode ? "#8E8E93" : "#C7C7CC"}
+                    keyboardType="numeric"
+                    maxLength={10}
+                  />
+                ) : (
+                  <TouchableOpacity style={[styles.input, dynamicStyles.input, styles.datePickerButton]} onPress={() => setShowDatePicker(true)}>
+                    <Ionicons name="calendar-outline" size={20} color="#007AFF" style={{ marginRight: 10 }} />
+                    <Text style={[styles.dateText, dynamicStyles.text]}>{dob.toLocaleDateString('it-IT')}</Text>
+                  </TouchableOpacity>
+                )}
+                <View style={[styles.ageBox, dynamicStyles.card, { borderColor: isDarkMode ? '#3A3A3C' : '#E5E5EA' }]}>
                   <Text style={styles.ageNumber}>{calculateAgeDisplay(dob)}</Text>
                   <Text style={[styles.ageLabel, dynamicStyles.subText]}>ANNI</Text>
                 </View>
