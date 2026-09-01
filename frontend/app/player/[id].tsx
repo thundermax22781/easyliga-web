@@ -649,7 +649,7 @@ export default function PlayerDetailScreen() {
       pdPoints = stats.personal_bonus_count + stats.defense_bonus_count;
     }
 
-    const rows = [
+    const rows: { label: string; value: string; points: string; onPress?: () => void }[] = [
       { label: 'Bonus Personali', value: `${stats.personal_bonus_count} volte`, points: balanceBonus ? '-' : `+${stats.personal_bonus_count}` },
       { label: 'Bonus Difesa', value: `${stats.defense_bonus_count} volte`, points: balanceBonus ? '-' : `+${stats.defense_bonus_count}` },
     ];
@@ -1443,7 +1443,7 @@ export default function PlayerDetailScreen() {
                     <Text style={[styles.dateText, dynamicStyles.text]}>{dob.toLocaleDateString('it-IT')}</Text>
                   </TouchableOpacity>
                 )}
-                <View style={[styles.ageBox, dynamicStyles.card, { borderColor: isDarkMode ? '#3A3A3C' : '#E5E5EA' }]>
+                <View style={[styles.ageBox, dynamicStyles.card, { borderColor: isDarkMode ? '#3A3A3C' : '#E5E5EA' }]}>
                   <Text style={styles.ageNumber}>{calculateAgeDisplay(dob)}</Text>
                   <Text style={[styles.ageLabel, dynamicStyles.subText]}>ANNI</Text>
                 </View>

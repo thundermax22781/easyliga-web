@@ -178,7 +178,7 @@ const RadarChart: React.FC<RadarChartProps> = ({ stats, comparisonStats, isDarkM
                 fill={isDarkMode ? '#AEAEB2' : '#8E8E93'}
                 fontSize="9"
                 fontWeight="900"
-                textAnchor={anchor}
+                textAnchor={anchor as any}
                 alignmentBaseline="middle"
               >
                 {d.label.toUpperCase()}

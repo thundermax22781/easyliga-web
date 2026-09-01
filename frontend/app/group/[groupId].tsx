@@ -523,19 +523,29 @@ export default function GroupDetailScreen() {
 
       if (teams) {
         if (res.teams && teams.teams) {
-          res.teams = res.teams.map((t, idx) => ({
-            ...t,
-            name: teams.teams[idx]?.name || t.name,
-            color: teams.teams[idx]?.color || t.color,
-            logo: teams.teams[idx]?.logo || t.logo
-          }));
+          const oldTeams = teams.teams;
+          res.teams = res.teams.map((t, idx) => {
+            const oldT = oldTeams[idx];
+            return {
+              ...t,
+              name: oldT?.name || t.name,
+              color: oldT?.color || t.color,
+              logo: oldT?.logo || t.logo
+            };
+          });
           // Sincronizziamo anche le proprietà top-level
-          res.team_a_name = res.teams[0].name;
-          res.team_b_name = res.teams[1].name;
-          res.team_a_color = res.teams[0].color;
-          res.team_b_color = res.teams[1].color;
-          res.team_a_logo = res.teams[0].logo;
-          res.team_b_logo = res.teams[1].logo;
+          const firstTeam = res.teams[0];
+          const secondTeam = res.teams[1];
+          if (firstTeam) {
+            res.team_a_name = firstTeam.name;
+            res.team_a_color = firstTeam.color;
+            res.team_a_logo = firstTeam.logo;
+          }
+          if (secondTeam) {
+            res.team_b_name = secondTeam.name;
+            res.team_b_color = secondTeam.color;
+            res.team_b_logo = secondTeam.logo;
+          }
         } else {
           res.team_a_name = teams.team_a_name;
           res.team_b_name = teams.team_b_name;
@@ -996,7 +1006,7 @@ export default function GroupDetailScreen() {
 
   const handleResetPlayerTemp = () => {
     if (!showPlayerEditor || !teams) return;
-    let player;
+    let player: Player | undefined;
     if (teams.teams) {
       const team = teams.teams.find((t: any) => t.key === showPlayerEditor.team);
       player = team?.players.find((p: any) => p.id === showPlayerEditor.id);
@@ -1007,7 +1017,7 @@ export default function GroupDetailScreen() {
 
     if (player) {
       // Troviamo il giocatore originale nei dati base per il reset vero
-      const original = players.find(p => p.id === player.id);
+      const original = players.find(p => p.id === player!.id);
       if (original) {
         setTempRole(original.role);
         setTempStrength(original.strength);
@@ -1154,7 +1164,7 @@ export default function GroupDetailScreen() {
       }
       setHasUnsyncedChanges(true);
       await loadData();
-      setShowTeamDetails(prev => prev ? { ...prev, name: newName, color: newColor, logo: newLogo ?? prev.logo } : null);
+      setShowTeamDetails((prev: any) => prev ? { ...prev, name: newName, color: newColor, logo: newLogo ?? prev.logo } : null);
     } catch (e) {
       console.error("Update Team Error:", e);
       Alert.alert('Errore', 'Impossibile aggiornare le info della squadra.');
@@ -2251,8 +2261,9 @@ export default function GroupDetailScreen() {
                       if ((group as any)?.teams_distribution) {
                         setTeams({
                           description: group?.name,
-                          teams: (group as any).teams_distribution
-                        });
+                          teams: (group as any).teams_distribution,
+                          team_a: [], team_b: [], team_a_total_strength: 0, team_b_total_strength: 0, team_a_avg_age: 0, team_b_avg_age: 0, team_a_name: '', team_b_name: '', team_a_color: '', team_b_color: ''
+                        } as any);
                       } else {
                         // 2. Altrimenti la ricostruiamo dai match esistenti
                         const teamsMap = new Map();
@@ -2286,8 +2297,9 @@ export default function GroupDetailScreen() {
                         if (teamsMap.size > 0) {
                           setTeams({
                             description: group?.name || 'Rose Torneo',
-                            teams: Array.from(teamsMap.values())
-                          });
+                            teams: Array.from(teamsMap.values()),
+                            team_a: [], team_b: [], team_a_total_strength: 0, team_b_total_strength: 0, team_a_avg_age: 0, team_b_avg_age: 0, team_a_name: '', team_b_name: '', team_a_color: '', team_b_color: ''
+                          } as any);
                         } else {
                           Alert.alert('Info', 'Nessuna distribuzione squadre trovata.');
                         }
@@ -3329,7 +3341,7 @@ export default function GroupDetailScreen() {
                           </View>
                         </View>
                       </View>
-                      {t.players.map((p) => (
+                      {t.players.map((p: Player) => (
                         <View key={p.id} style={[styles.teamPlayerRow, { paddingVertical: sharing ? 2 : 4 }]}>
                           <TouchableOpacity
                             style={[styles.tpInfo, { marginLeft: 0 }]}
@@ -4249,7 +4261,7 @@ export default function GroupDetailScreen() {
                     <Text style={[dynamicStyles.subText, { fontSize: 11 }]}>Include goal/assist dei tornei.</Text>
                   </View>
                   <Switch
-                    scaleX={1.0} scaleY={1.0}
+                    style={{ transform: [{ scale: 1.0 }] }}
                     trackColor={{ false: '#767577', true: '#5856D6' }}
                     thumbColor="#FFF"
                     value={group?.import_linked_data}
@@ -5359,7 +5371,7 @@ export default function GroupDetailScreen() {
                         )}
                       </View>
                     ))}
-                    {!isScheduled && t.own > 0 && (
+                    {!isScheduled && (t.own || 0) > 0 && (
                       <View style={[styles.teamPlayerRow, { paddingVertical: 2, opacity: 0.7 }]}>
                         <View style={{ flex: 1 }} />
                         <Text style={[dynamicStyles.subText, { fontSize: 11, fontStyle: 'italic' }]}>{t.own} Autorete/i</Text>
@@ -5594,7 +5606,7 @@ export default function GroupDetailScreen() {
                             <View>
                               <View style={styles.bonusRow}>
                                 <Text style={[dynamicStyles.text, { fontSize: 14, fontWeight: '600' }]}>Bonus Giocatore (Combo)</Text>
-                                <Switch scaleX={1.1} scaleY={1.1} trackColor={{ false: '#767577', true: '#34C759' }} thumbColor="#FFF" value={group?.use_bonus} onValueChange={(v) => handleUpdateGroupSettings({ use_bonus: v })} />
+                                <Switch style={{ transform: [{ scale: 1.1 }] }} trackColor={{ false: '#767577', true: '#34C759' }} thumbColor="#FFF" value={group?.use_bonus} onValueChange={(v) => handleUpdateGroupSettings({ use_bonus: v })} />
                               </View>
                               {group?.use_bonus && (
                                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 5 }}>
@@ -5623,8 +5635,7 @@ export default function GroupDetailScreen() {
                               <View style={styles.bonusRow}>
                                 <Text style={[dynamicStyles.text, { fontSize: 14, fontWeight: '600' }]}>Bonus Difesa</Text>
                                 <Switch
-                                  scaleX={1.1}
-                                  scaleY={1.1}
+                                  style={{ transform: [{ scale: 1.1 }] }}
                                   trackColor={{ false: '#767577', true: '#34C759' }}
                                   thumbColor="#FFF"
                                   value={group?.use_gk_bonus}
@@ -5687,8 +5698,7 @@ export default function GroupDetailScreen() {
                                 <Text style={[dynamicStyles.subText, { fontSize: 11 }]}>Attiva solo il bonus più alto tra Personale e Difesa.</Text>
                               </View>
                               <Switch
-                                scaleX={1.1}
-                                scaleY={1.1}
+                                style={{ transform: [{ scale: 1.1 }] }}
                                 trackColor={{ false: '#767577', true: '#FF9500' }}
                                 thumbColor="#FFF"
                                 value={group?.use_balance_bonus}
@@ -5700,7 +5710,7 @@ export default function GroupDetailScreen() {
 
                             <View style={styles.bonusRow}>
                               <Text style={[dynamicStyles.text, { fontSize: 14, fontWeight: '600' }]}>Bonus Clean Sheet</Text>
-                              <Switch scaleX={1.1} scaleY={1.1} trackColor={{ false: '#767577', true: '#34C759' }} thumbColor="#FFF" value={group?.use_clean_sheet_bonus} onValueChange={(v) => handleUpdateGroupSettings({ use_clean_sheet_bonus: v })} />
+                              <Switch style={{ transform: [{ scale: 1.1 }] }} trackColor={{ false: '#767577', true: '#34C759' }} thumbColor="#FFF" value={group?.use_clean_sheet_bonus} onValueChange={(v) => handleUpdateGroupSettings({ use_clean_sheet_bonus: v })} />
                             </View>
 
 
@@ -5876,11 +5886,11 @@ export default function GroupDetailScreen() {
                           <View style={{ backgroundColor: isDarkMode ? '#1C1C1E' : '#F2F2F7', borderRadius: 12, padding: 12, gap: 10, marginBottom: 20 }}>
                             <View style={styles.bonusRow}>
                               <Text style={[dynamicStyles.text, { fontSize: 14, fontWeight: '600' }]}>Marcatori</Text>
-                              <Switch scaleX={1.1} scaleY={1.1} trackColor={{ false: '#767577', true: '#34C759' }} thumbColor="#FFF" value={group?.show_scorers} onValueChange={(v) => handleUpdateGroupSettings({ show_scorers: v })} />
+                              <Switch style={{ transform: [{ scale: 1.1 }] }} trackColor={{ false: '#767577', true: '#34C759' }} thumbColor="#FFF" value={group?.show_scorers} onValueChange={(v) => handleUpdateGroupSettings({ show_scorers: v })} />
                             </View>
                             <View style={styles.bonusRow}>
                               <Text style={[dynamicStyles.text, { fontSize: 14, fontWeight: '600' }]}>Assist</Text>
-                              <Switch scaleX={1.1} scaleY={1.1} trackColor={{ false: '#767577', true: '#34C759' }} thumbColor="#FFF" value={group?.show_assists} onValueChange={(v) => handleUpdateGroupSettings({ show_assists: v })} />
+                              <Switch style={{ transform: [{ scale: 1.1 }] }} trackColor={{ false: '#767577', true: '#34C759' }} thumbColor="#FFF" value={group?.show_assists} onValueChange={(v) => handleUpdateGroupSettings({ show_assists: v })} />
                             </View>
                           </View>
                         )}
@@ -6661,4 +6671,7 @@ const styles = StyleSheet.create({
   tpAge: { fontSize: 12 },
   adjustBtn: { width: 50, height: 50, borderRadius: 25, alignItems: 'center', justifyContent: 'center' },
   strengthLargeInput: { fontSize: 48, fontWeight: '900', textAlign: 'center', minWidth: 80, padding: 0, margin: 0 },
+  gironeHeader: { elevation: 3, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4 },
+  groupIcon: { alignItems: 'center', justifyContent: 'center' },
+  detailDivider: { height: 1, marginHorizontal: 20 },
 });

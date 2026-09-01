@@ -267,6 +267,21 @@ export const checkSyncNeeded = async (groupId: string): Promise<boolean> => {
   return false;
 };
 
+// Utility per sincronizzare i metadati del gruppo tramite un match "finto"
+const applyMetadata = async (groupId: string, matches: Match[]) => {
+  const metaMatch = matches.find(m => m.team_a_name === 'METADATA');
+  if (metaMatch && metaMatch.description?.startsWith('JSON_METADATA:')) {
+    try {
+      const meta = JSON.parse(metaMatch.description.replace('JSON_METADATA:', ''));
+      if (meta) {
+        await AsyncStorage.setItem(`metadata_${groupId}`, JSON.stringify(meta));
+      }
+    } catch (e) {
+      console.warn("Error applying metadata:", e);
+    }
+  }
+};
+
 export const syncCloudData = async (groupId?: string): Promise<Group | null> => {
   try {
     const { data: userData } = await supabase.auth.getUser();
@@ -1815,3 +1830,6 @@ export const scheduleBirthdayNotifications = async () => {
     console.error("Birthday notification error:", e);
   }
 };
+
+export const getBackgroundImage = async () => null;
+export const setBackgroundImage = async (uri: string | null) => {};
