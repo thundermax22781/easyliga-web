@@ -24,7 +24,8 @@ import ViewShot from 'react-native-view-shot';
 import * as Sharing from 'expo-sharing';
 import { fetchPlayers, savePlayer, deletePlayer, ROLES, ROLE_COLORS, STRENGTH_VALUES, Player, Match, calculateStandings, PlayerStats, fetchGroups, fetchMatches } from '../../src/api';
 import { useTheme } from '../../src/ThemeContext';
-import RadarChart from '../../src/components/RadarChart';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import RadarChart, { DataPoint } from '../../src/components/RadarChart';
 
 export default function PlayerDetailScreen() {
   const router = useRouter();

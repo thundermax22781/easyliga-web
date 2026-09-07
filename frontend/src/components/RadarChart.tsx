@@ -126,7 +126,6 @@ const RadarChart: React.FC<RadarChartProps> = ({ data, comparisonData, isDarkMod
                 textAnchor={anchor as any}
                 alignmentBaseline="middle"
                 onPress={() => onLabelPress?.(i)}
-                style={{ cursor: 'pointer' }}
               >
                 {d.label.toUpperCase()}
               </SvgText>
