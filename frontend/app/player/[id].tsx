@@ -14,6 +14,7 @@ import {
   TouchableWithoutFeedback,
   Modal,
   Image,
+  Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -66,6 +67,7 @@ export default function PlayerDetailScreen() {
   // Editable fields
   const [name, setName] = useState('');
   const [surname, setSurname] = useState('');
+  const [phone, setPhone] = useState('');
   const [nickname, setNickname] = useState('');
   const [dob, setDob] = useState(new Date());
   const [manualDobText, setManualDobText] = useState('');
@@ -124,6 +126,7 @@ export default function PlayerDetailScreen() {
         setPlayer(found);
         setName(found.name || '');
         setSurname(found.surname || '');
+        setPhone(found.phone || '');
         setNickname(found.nickname);
         const birthDate = found.date_of_birth ? new Date(found.date_of_birth) : new Date();
         setDob(birthDate);
@@ -245,6 +248,7 @@ export default function PlayerDetailScreen() {
         nickname: nickname.trim(),
         name: name.trim() || undefined,
         surname: surname.trim() || undefined,
+        phone: phone.trim() || undefined,
         date_of_birth: dob.toISOString().split('T')[0],
         role,
         strength,
@@ -768,6 +772,15 @@ export default function PlayerDetailScreen() {
                     <View style={[styles.rolePill, { backgroundColor: getRoleColor(player.role), marginTop: 4, alignSelf: 'flex-start' }]}>
                       <Text style={styles.rolePillText}>{player.role}</Text>
                     </View>
+                    {player.phone && (
+                      <TouchableOpacity
+                        onPress={() => Linking.openURL(`https://wa.me/${player.phone!.replace(/\D/g, '')}`)}
+                        style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 8, backgroundColor: '#25D36620', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, alignSelf: 'flex-start' }}
+                      >
+                        <Ionicons name="logo-whatsapp" size={16} color="#25D366" />
+                        <Text style={[dynamicStyles.text, { fontSize: 13, fontWeight: '700' }]}>{player.phone}</Text>
+                      </TouchableOpacity>
+                    )}
                     <View style={[styles.trendRowCompact, { marginTop: 6, gap: 4 }]}>
                       {championshipMatches.slice(0, 5).reverse().map((m) => {
                         const isTeamA = m.team_a_players.map(pid => String(pid).trim()).includes(String(id).trim());
@@ -1417,6 +1430,17 @@ export default function PlayerDetailScreen() {
                 <Text style={[styles.charCount, dynamicStyles.subText]}>{nickname.length}/8</Text>
               </View>
               <TextInput style={[styles.input, dynamicStyles.input]} value={nickname} onChangeText={setNickname} placeholder="Nickname" placeholderTextColor={isDarkMode ? "#8E8E93" : "#C7C7CC"} maxLength={8} />
+            </View>
+            <View style={styles.inputGroup}>
+              <Text style={[styles.label, dynamicStyles.text]}>Telefono (opz.)</Text>
+              <TextInput
+                style={[styles.input, dynamicStyles.input]}
+                value={phone}
+                onChangeText={setPhone}
+                placeholder="Es. 333 1234567"
+                placeholderTextColor={isDarkMode ? "#8E8E93" : "#C7C7CC"}
+                keyboardType="phone-pad"
+              />
             </View>
             <View style={{ flexDirection: 'row', gap: 12, marginBottom: 12 }}><View style={[styles.inputGroup, { flex: 1, marginBottom: 0 }]}><Text style={[styles.label, dynamicStyles.text]}>Nome (opz.)</Text><TextInput style={[styles.input, dynamicStyles.input]} value={name} onChangeText={setName} placeholder="Nome" placeholderTextColor={isDarkMode ? "#8E8E93" : "#C7C7CC"} /></View><View style={[styles.inputGroup, { flex: 1, marginBottom: 0 }]}><Text style={[styles.label, dynamicStyles.text]}>Cognome (opz.)</Text><TextInput style={[styles.input, dynamicStyles.input]} value={surname} onChangeText={setSurname} placeholder="Cognome" placeholderTextColor={isDarkMode ? "#8E8E93" : "#C7C7CC"} /></View></View>
             <View style={styles.inputGroup}>

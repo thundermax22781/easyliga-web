@@ -28,6 +28,7 @@ export default function AddPlayerScreen() {
   const [name, setName] = useState('');
   const [surname, setSurname] = useState('');
   const [nickname, setNickname] = useState('');
+  const [phone, setPhone] = useState('');
   const [dob, setDob] = useState(new Date(2000, 0, 1));
   const [manualDobText, setManualDobText] = useState('01/01/2000');
   const [isManualDob, setIsManualDob] = useState(false);
@@ -92,6 +93,7 @@ export default function AddPlayerScreen() {
         nickname: nickname.trim(),
         name: name.trim() || undefined,
         surname: surname.trim() || undefined,
+        phone: phone.trim() || undefined,
         date_of_birth: dob.toISOString().split('T')[0],
         role,
         strength,
@@ -138,6 +140,18 @@ export default function AddPlayerScreen() {
             </View>
 
             <View style={styles.inputGroup}>
+              <Text style={[styles.label, dynamicStyles.text]}>Telefono (opz.)</Text>
+              <TextInput
+                style={[styles.input, dynamicStyles.input]}
+                value={phone}
+                onChangeText={setPhone}
+                placeholder="Es. 333 1234567"
+                placeholderTextColor={isDarkMode ? "#8E8E93" : "#C7C7CC"}
+                keyboardType="phone-pad"
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
                 <Text style={[styles.label, dynamicStyles.text]}>Nickname</Text>
                 <Text style={[styles.charCount, dynamicStyles.subText]}>{nickname.length}/8</Text>
@@ -154,6 +168,18 @@ export default function AddPlayerScreen() {
                 <Text style={[styles.label, dynamicStyles.text]}>Cognome (opz.)</Text>
                 <TextInput style={[styles.input, dynamicStyles.input]} value={surname} onChangeText={setSurname} placeholder="Es. Rossi" placeholderTextColor={isDarkMode ? "#8E8E93" : "#C7C7CC"} />
               </View>
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={[styles.label, dynamicStyles.text]}>Telefono (opz.)</Text>
+              <TextInput
+                style={[styles.input, dynamicStyles.input]}
+                value={phone}
+                onChangeText={setPhone}
+                placeholder="Es. 333 1234567"
+                placeholderTextColor={isDarkMode ? "#8E8E93" : "#C7C7CC"}
+                keyboardType="phone-pad"
+              />
             </View>
 
             <View style={styles.inputGroup}>
@@ -191,6 +217,18 @@ export default function AddPlayerScreen() {
             </View>
 
             <View style={styles.inputGroup}>
+              <Text style={[styles.label, dynamicStyles.text]}>Telefono (opz.)</Text>
+              <TextInput
+                style={[styles.input, dynamicStyles.input]}
+                value={phone}
+                onChangeText={setPhone}
+                placeholder="Es. 333 1234567"
+                placeholderTextColor={isDarkMode ? "#8E8E93" : "#C7C7CC"}
+                keyboardType="phone-pad"
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
               <Text style={[styles.label, dynamicStyles.text]}>Ruolo</Text>
               <View style={styles.roleGrid}>
                 {ROLES.map((r) => (
@@ -199,6 +237,18 @@ export default function AddPlayerScreen() {
                   </TouchableOpacity>
                 ))}
               </View>
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={[styles.label, dynamicStyles.text]}>Telefono (opz.)</Text>
+              <TextInput
+                style={[styles.input, dynamicStyles.input]}
+                value={phone}
+                onChangeText={setPhone}
+                placeholder="Es. 333 1234567"
+                placeholderTextColor={isDarkMode ? "#8E8E93" : "#C7C7CC"}
+                keyboardType="phone-pad"
+              />
             </View>
 
             <View style={styles.inputGroup}>

@@ -55,6 +55,7 @@ export interface Player {
   date_of_birth?: string;
   name?: string;
   surname?: string;
+  phone?: string;
   group_id: string;
   is_favorite?: boolean;
 }
@@ -668,7 +669,16 @@ export const savePlayer = async (player: Partial<Player> & { group_id: string })
   await AsyncStorage.setItem(`players_${player.group_id}`, JSON.stringify(updatedLocal));
   if (group?.storage_type === 'cloud') {
     await setNeedsSync(player.group_id);
-    const dataToSave = { nickname: player.nickname, name: player.name, surname: player.surname, date_of_birth: player.date_of_birth, role: player.role, strength: player.strength, group_id: player.group_id };
+    const dataToSave = {
+      nickname: player.nickname,
+      name: player.name,
+      surname: player.surname,
+      phone: player.phone,
+      date_of_birth: player.date_of_birth,
+      role: player.role,
+      strength: player.strength,
+      group_id: player.group_id
+    };
     try {
       if (player.id && player.id.length > 20) await supabase.from('players').update(dataToSave).eq('id', player.id);
       else await supabase.from('players').insert([dataToSave]);
