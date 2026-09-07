@@ -81,6 +81,7 @@ export default function PlayerDetailScreen() {
 
   const [selectedChartStats, setSelectedChartStats] = useState(['incisivity', 'avg_a', 'p_bonus', 'd_bonus', 'avg_g']);
   const [editingStatIndex, setEditingStatIndex] = useState<number | null>(null);
+  const [showFullChartConfig, setShowFullChartConfig] = useState(false);
 
   useEffect(() => {
     AsyncStorage.getItem('chart_stats_config').then(val => {
@@ -1352,7 +1353,9 @@ export default function PlayerDetailScreen() {
             <View style={[styles.chartCard, dynamicStyles.card]}>
                <View style={{ flexDirection: 'row', justifyContent: 'space-between', width: '100%', marginBottom: 5 }}>
                   <Text style={[styles.chartTitle, dynamicStyles.text]}>Analisi Prestazioni</Text>
-                  <Ionicons name="options-outline" size={18} color="#007AFF" />
+                  <TouchableOpacity onPress={() => setShowFullChartConfig(true)} style={{ padding: 4 }}>
+                    <Ionicons name="options-outline" size={20} color="#007AFF" />
+                  </TouchableOpacity>
                </View>
                <Text style={[dynamicStyles.subText, { fontSize: 10, marginBottom: 10, alignSelf: 'flex-start' }]}>Tocca le voci blu per cambiare parametro</Text>
                <RadarChart
@@ -1418,6 +1421,49 @@ export default function PlayerDetailScreen() {
         {renderTournamentBreakdownModal()}
         {renderProfileSharePreview()}
         {renderComparisonSharePreview()}
+
+        {/* Modal Configurazione Completa Chart */}
+        <Modal visible={showFullChartConfig} transparent animationType="slide">
+          <View style={styles.modalOverlay}>
+            <TouchableWithoutFeedback onPress={() => setShowFullChartConfig(false)}>
+              <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
+            </TouchableWithoutFeedback>
+            <View style={[styles.modalContent, dynamicStyles.modalContent, { height: 'auto', paddingBottom: 40, borderTopLeftRadius: 25, borderTopRightRadius: 25 }]}>
+              <View style={styles.modalHeader}>
+                <View>
+                  <Text style={[styles.modalTitle, dynamicStyles.text]}>Configura Grafico</Text>
+                  <Text style={[dynamicStyles.subText, { fontSize: 12 }]}>Personalizza i 5 parametri del pentagramma</Text>
+                </View>
+                <TouchableOpacity onPress={() => setShowFullChartConfig(false)}>
+                  <Ionicons name="close" size={28} color={dynamicStyles.text.color} />
+                </TouchableOpacity>
+              </View>
+              <View style={{ padding: 10 }}>
+                {selectedChartStats.map((currentKey, slotIdx) => {
+                  const label = CHART_STATS_OPTIONS.find(o => o.key === currentKey)?.label || '';
+                  return (
+                    <TouchableOpacity
+                      key={slotIdx}
+                      style={[styles.input, dynamicStyles.input, { height: 50, marginBottom: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 15 }]}
+                      onPress={() => {
+                        setShowFullChartConfig(false);
+                        setEditingStatIndex(slotIdx);
+                      }}
+                    >
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                        <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: '#007AFF20', alignItems: 'center', justifyContent: 'center' }}>
+                          <Text style={{ color: '#007AFF', fontSize: 12, fontWeight: '900' }}>{slotIdx + 1}</Text>
+                        </View>
+                        <Text style={[dynamicStyles.text, { fontWeight: '700' }]}>{label.toUpperCase()}</Text>
+                      </View>
+                      <Ionicons name="pencil-outline" size={18} color="#8E8E93" />
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </View>
+          </View>
+        </Modal>
 
         {/* Modal Selettore Parametro Chart */}
         <Modal visible={editingStatIndex !== null} transparent animationType="fade">

@@ -116,19 +116,26 @@ const RadarChart: React.FC<RadarChartProps> = ({ data, comparisonData, isDarkMod
             if (i === Math.floor(data.length / 2) || i === Math.ceil(data.length / 2)) dy = 12;
 
             return (
-              <SvgText
-                key={`label-${i}`}
-                x={x}
-                y={y + dy}
-                fill={isDarkMode ? '#007AFF' : '#007AFF'}
-                fontSize="10"
-                fontWeight="900"
-                textAnchor={anchor as any}
-                alignmentBaseline="middle"
-                onPress={() => onLabelPress?.(i)}
-              >
-                {d.label.toUpperCase()}
-              </SvgText>
+              <G key={`label-group-${i}`} onPress={() => onLabelPress?.(i)}>
+                {/* Area di tocco invisibile espansa */}
+                <Circle
+                  cx={x}
+                  cy={y + dy}
+                  r="25"
+                  fill="transparent"
+                />
+                <SvgText
+                  x={x}
+                  y={y + dy}
+                  fill="#007AFF"
+                  fontSize="10"
+                  fontWeight="900"
+                  textAnchor={anchor as any}
+                  alignmentBaseline="middle"
+                >
+                  {d.label.toUpperCase()}
+                </SvgText>
+              </G>
             );
           })}
         </G>
