@@ -769,18 +769,18 @@ export default function PlayerDetailScreen() {
                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
                   <View style={{ flex: 1 }}>
                     <Text style={[dynamicStyles.text, { fontSize: 24, fontWeight: '900' }]}>{player.nickname.toUpperCase()}</Text>
+                    {(player.name || player.surname || player.phone) && (
+                      <View style={{ marginTop: 2, marginBottom: 4 }}>
+                        <Text style={[dynamicStyles.subText, { fontSize: 11, fontWeight: '700' }]}>
+                          {player.name || ''} {player.surname || ''}
+                          {(player.name || player.surname) && player.phone ? ' • ' : ''}
+                          {player.phone || ''}
+                        </Text>
+                      </View>
+                    )}
                     <View style={[styles.rolePill, { backgroundColor: getRoleColor(player.role), marginTop: 4, alignSelf: 'flex-start' }]}>
                       <Text style={styles.rolePillText}>{player.role}</Text>
                     </View>
-                    {player.phone && (
-                      <TouchableOpacity
-                        onPress={() => Linking.openURL(`https://wa.me/${player.phone!.replace(/\D/g, '')}`)}
-                        style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 8, backgroundColor: '#25D36620', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, alignSelf: 'flex-start' }}
-                      >
-                        <Ionicons name="logo-whatsapp" size={16} color="#25D366" />
-                        <Text style={[dynamicStyles.text, { fontSize: 13, fontWeight: '700' }]}>{player.phone}</Text>
-                      </TouchableOpacity>
-                    )}
                     <View style={[styles.trendRowCompact, { marginTop: 6, gap: 4 }]}>
                       {championshipMatches.slice(0, 5).reverse().map((m) => {
                         const isTeamA = m.team_a_players.map(pid => String(pid).trim()).includes(String(id).trim());
@@ -1195,6 +1195,15 @@ export default function PlayerDetailScreen() {
           <View style={styles.profileSection}>
             <View style={{ flex: 1 }}>
               <Text style={[styles.profileNickname, dynamicStyles.text]}>{player.nickname}</Text>
+              {(player.name || player.surname || player.phone) && (
+                <View style={{ marginTop: 2, marginBottom: 4 }}>
+                  <Text style={[dynamicStyles.subText, { fontSize: 11, fontWeight: '700' }]}>
+                    {player.name || ''} {player.surname || ''}
+                    {(player.name || player.surname) && player.phone ? ' • ' : ''}
+                    {player.phone || ''}
+                  </Text>
+                </View>
+              )}
               <View style={{ marginTop: 8 }}>
                 <View style={{ flexDirection: 'row' }}>
                   <View style={[styles.rolePill, { backgroundColor: getRoleColor(player.role) }]}><Text style={styles.rolePillText}>{player.role}</Text></View>
