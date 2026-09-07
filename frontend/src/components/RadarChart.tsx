@@ -1,102 +1,52 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import Svg, { Polygon, Line, Circle, G, Text as SvgText } from 'react-native-svg';
 
-interface PlayerStats {
-  goals: number;
-  assists: number;
-  cleanSheets: number;
-  goalsConceded: number;
-  wins: number;
-  matches: number;
-  points: number;
-  personalBonus?: number;
-  defenseBonus?: number;
-  incisivity?: number; // Valore già calcolato (G+A)/P
+export interface DataPoint {
+  label: string;
+  value: number; // 0-100 (già normalizzato)
 }
 
 interface RadarChartProps {
-  stats: PlayerStats;
-  comparisonStats?: PlayerStats;
+  data: DataPoint[];
+  comparisonData?: DataPoint[] | null;
   isDarkMode: boolean;
-  matchType: number;
-  maxStats?: {
-    personalBonus: number;
-    defenseBonus: number;
-    incisivity: number;
-    goals: number;
-    assists: number;
-  };
+  onLabelPress?: (index: number) => void;
 }
 
-const RadarChart: React.FC<RadarChartProps> = ({ stats, comparisonStats, isDarkMode, matchType, maxStats }) => {
-  const size = 240;
+const RadarChart: React.FC<RadarChartProps> = ({ data, comparisonData, isDarkMode, onLabelPress }) => {
+  const size = 260;
   const centerX = size / 2;
   const centerY = size / 2;
-  const radius = 60;
+  const radius = 75;
 
-  const normalizeData = (s: PlayerStats) => {
-    const matches = s.matches || 1;
+  if (!data || data.length === 0) return null;
 
-    // Per i bonus usiamo la normalizzazione relativa se maxStats è fornito, altrimenti fallback
-    const pBonusScore = maxStats?.personalBonus
-      ? (s.personalBonus || 0) / maxStats.personalBonus * 100
-      : Math.min(100, (s.personalBonus || 0) * 15);
-
-    const dBonusScore = maxStats?.defenseBonus
-      ? (s.defenseBonus || 0) / maxStats.defenseBonus * 100
-      : Math.min(100, (s.defenseBonus || 0) * 15);
-
-    // Per Incisività, Attacco e Regia usiamo pure la normalizzazione relativa se disponibile
-    const incisivityScore = maxStats?.incisivity
-      ? (s.incisivity || 0) / maxStats.incisivity * 100
-      : Math.min(100, (s.incisivity || 0) * 40);
-
-    const attackScore = maxStats?.goals
-      ? (s.goals / matches) / (maxStats.goals / matches || 1) * 100
-      : Math.min(100, (s.goals / matches) * 50);
-
-    const playmakingScore = maxStats?.assists
-      ? (s.assists / matches) / (maxStats.assists / matches || 1) * 100
-      : Math.min(100, (s.assists / matches) * 60);
-
-    return [
-      { label: 'Incisività', value: Math.min(100, incisivityScore) },
-      { label: 'Regia', value: Math.min(100, playmakingScore) },
-      { label: 'Bonus Personale', value: Math.min(100, pBonusScore) },
-      { label: 'Bonus Difesa', value: Math.min(100, dBonusScore) },
-      { label: 'Attacco', value: Math.min(100, attackScore) },
-    ];
-  };
-
-  const data1 = normalizeData(stats);
-  const data2 = comparisonStats ? normalizeData(comparisonStats) : null;
-
-  const angleStep = (Math.PI * 2) / data1.length;
+  const angleStep = (Math.PI * 2) / data.length;
 
   const getCoordinates = (value: number, index: number, maxRadius: number) => {
     const angle = index * angleStep - Math.PI / 2;
-    const r = (value / 100) * maxRadius;
+    const r = (Math.max(5, value) / 100) * maxRadius; // Minimo 5% per visibilità
     return {
       x: centerX + r * Math.cos(angle),
       y: centerY + r * Math.sin(angle),
     };
   };
 
-  const getPoints = (data: { value: number }[]) =>
-    data.map((d, i) => {
+  const getPoints = (dSet: DataPoint[]) =>
+    dSet.map((d, i) => {
       const { x, y } = getCoordinates(d.value, i, radius);
       return `${x},${y}`;
     }).join(' ');
 
-  const points1 = getPoints(data1);
-  const points2 = data2 ? getPoints(data2) : null;
+  const points1 = getPoints(data);
+  const points2 = comparisonData ? getPoints(comparisonData) : null;
 
   const gridLevels = [25, 50, 75, 100];
   const gridPolygons = gridLevels.map(level => (
     <Polygon
       key={`grid-${level}`}
-      points={data1.map((_, i) => {
+      points={data.map((_, i) => {
         const { x, y } = getCoordinates(level, i, radius);
         return `${x},${y}`;
       }).join(' ')}
@@ -112,7 +62,7 @@ const RadarChart: React.FC<RadarChartProps> = ({ stats, comparisonStats, isDarkM
         <G>
           {gridPolygons}
 
-          {data1.map((_, i) => {
+          {data.map((_, i) => {
             const { x, y } = getCoordinates(100, i, radius);
             return (
               <Line
@@ -144,42 +94,39 @@ const RadarChart: React.FC<RadarChartProps> = ({ stats, comparisonStats, isDarkM
           )}
 
           {/* Pallini sui vertici */}
-          {data1.map((d, i) => {
+          {data.map((d, i) => {
             const { x, y } = getCoordinates(d.value, i, radius);
-            return <Circle key={`dot1-${i}`} cx={x} cy={y} r="3" fill="#007AFF" />;
+            return <Circle key={`dot1-${i}`} cx={x} cy={y} r="3.5" fill="#007AFF" />;
           })}
 
-          {data2 && data2.map((d, i) => {
+          {comparisonData && comparisonData.map((d, i) => {
             const { x, y } = getCoordinates(d.value, i, radius);
-            return <Circle key={`dot2-${i}`} cx={x} cy={y} r="3" fill="#34C759" />;
+            return <Circle key={`dot2-${i}`} cx={x} cy={y} r="3.5" fill="#34C759" />;
           })}
 
-          {data1.map((d, i) => {
-            const { x, y } = getCoordinates(121, i, radius);
+          {data.map((d, i) => {
+            const { x, y } = getCoordinates(120, i, radius);
 
             let anchor = "middle";
-            if (i === 1 || i === 2) anchor = "start";
-            if (i === 3 || i === 4) anchor = "end";
+            if (i > 0 && i < data.length / 2) anchor = "start";
+            else if (i > data.length / 2) anchor = "end";
 
-            let finalX = x;
             let dy = 0;
-
-            if (i === 0) dy = -10; // Vertice alto
-            if (i === 2 || i === 3) dy = 15; // I due vertici bassi
-
-            if (i === 2) finalX += 5;
-            if (i === 3) finalX -= 5;
+            if (i === 0) dy = -12;
+            if (i === Math.floor(data.length / 2) || i === Math.ceil(data.length / 2)) dy = 12;
 
             return (
               <SvgText
                 key={`label-${i}`}
-                x={finalX}
+                x={x}
                 y={y + dy}
-                fill={isDarkMode ? '#AEAEB2' : '#8E8E93'}
-                fontSize="9"
+                fill={isDarkMode ? '#007AFF' : '#007AFF'}
+                fontSize="10"
                 fontWeight="900"
                 textAnchor={anchor as any}
                 alignmentBaseline="middle"
+                onPress={() => onLabelPress?.(i)}
+                style={{ cursor: 'pointer' }}
               >
                 {d.label.toUpperCase()}
               </SvgText>
