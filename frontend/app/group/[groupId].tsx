@@ -1950,20 +1950,34 @@ export default function GroupDetailScreen() {
     const assignedIds = new Set(manualTeamsData.flat().map(p => p.id));
 
     return players
-      .filter(p =>
-        !assignedIds.has(p.id) &&
-        (teamSelectedRole === 'Preferiti' ? favoriteIds.has(p.id) : (teamSelectedRole ? p.role === teamSelectedRole : true)) &&
-        (teamSearch ? p.nickname.toLowerCase().includes(teamSearch.toLowerCase()) : true)
-      )
+      .filter(p => {
+        const matchesRole = teamSelectedRole === 'Preferiti' ? favoriteIds.has(p.id) : (teamSelectedRole ? p.role === teamSelectedRole : true);
+        if (!matchesRole) return false;
+        if (!assignedIds.has(p.id)) {
+          if (!teamSearch) return true;
+          const s = teamSearch.toLowerCase();
+          return p.nickname.toLowerCase().includes(s) ||
+                 (p.name || '').toLowerCase().includes(s) ||
+                 (p.surname || '').toLowerCase().includes(s) ||
+                 (p.phone || '').includes(s);
+        }
+        return false;
+      })
       .sort((a, b) => a.nickname.localeCompare(b.nickname, 'it', { sensitivity: 'base' }));
   }, [players, teamSelectedRole, teamSearch, manualTeamsData, favoriteIds]);
 
   const filteredPlayersList = React.useMemo(() => {
     return players
-      .filter(p =>
-        (selectedRole === 'Preferiti' ? favoriteIds.has(p.id) : (selectedRole ? p.role === selectedRole : true)) &&
-        (search ? p.nickname.toLowerCase().includes(search.toLowerCase()) : true)
-      )
+      .filter(p => {
+        const matchesRole = selectedRole === 'Preferiti' ? favoriteIds.has(p.id) : (selectedRole ? p.role === selectedRole : true);
+        if (!matchesRole) return false;
+        if (!search) return true;
+        const s = search.toLowerCase();
+        return p.nickname.toLowerCase().includes(s) ||
+               (p.name || '').toLowerCase().includes(s) ||
+               (p.surname || '').toLowerCase().includes(s) ||
+               (p.phone || '').includes(s);
+      })
       .sort((a, b) => a.nickname.localeCompare(b.nickname, 'it', { sensitivity: 'base' }));
   }, [players, selectedRole, search, favoriteIds]);
 
@@ -2078,11 +2092,18 @@ export default function GroupDetailScreen() {
       if (m.team_b_players) m.team_b_players.forEach(pid => assignedPlayerIds.add(pid));
     });
 
-    // Filtriamo i giocatori del gruppo che NON sono assegnati a NESSUNA squadra
-    const availablePlayers = players.filter(p => !assignedPlayerIds.has(p.id))
-      .filter(p => p.nickname.toLowerCase().includes(search.toLowerCase()))
-      .filter(p => !modalRole || p.role === modalRole)
-      .sort((a, b) => a.nickname.localeCompare(b.nickname));
+    const availablePlayers = players.filter(p => {
+      const isAssigned = assignedPlayerIds.has(p.id);
+      if (isAssigned) return false;
+      const matchesRole = !modalRole || p.role === modalRole;
+      if (!matchesRole) return false;
+      if (!search) return true;
+      const s = search.toLowerCase();
+      return p.nickname.toLowerCase().includes(s) ||
+             (p.name || '').toLowerCase().includes(s) ||
+             (p.surname || '').toLowerCase().includes(s) ||
+             (p.phone || '').includes(s);
+    }).sort((a, b) => a.nickname.localeCompare(b.nickname));
 
     return (
       <Modal visible={true} transparent animationType="fade">
@@ -2148,10 +2169,18 @@ export default function GroupDetailScreen() {
     const team = showRosterAddSelector;
     const currentRosterIds = new Set([...editRosterA, ...editRosterB].map(p => p.id));
 
-    const available = players.filter(p => !currentRosterIds.has(p.id))
-      .filter(p => p.nickname.toLowerCase().includes(search.toLowerCase()))
-      .filter(p => !modalRole || p.role === modalRole)
-      .sort((a, b) => a.nickname.localeCompare(b.nickname));
+    const available = players.filter(p => {
+      const isInRoster = currentRosterIds.has(p.id);
+      if (isInRoster) return false;
+      const matchesRole = !modalRole || p.role === modalRole;
+      if (!matchesRole) return false;
+      if (!search) return true;
+      const s = search.toLowerCase();
+      return p.nickname.toLowerCase().includes(s) ||
+             (p.name || '').toLowerCase().includes(s) ||
+             (p.surname || '').toLowerCase().includes(s) ||
+             (p.phone || '').includes(s);
+    }).sort((a, b) => a.nickname.localeCompare(b.nickname));
 
     return (
       <Modal visible={true} transparent animationType="fade">

@@ -1387,7 +1387,16 @@ export default function PlayerDetailScreen() {
               </View>
               <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 20 }}>
                 {allPlayers
-                  .filter(p => (comparisonRole ? p.role === comparisonRole : true) && (comparisonSearch ? p.nickname.toLowerCase().includes(comparisonSearch.toLowerCase()) : true))
+                  .filter(p => {
+                    const matchesRole = comparisonRole ? p.role === comparisonRole : true;
+                    if (!matchesRole) return false;
+                    if (!comparisonSearch) return true;
+                    const s = comparisonSearch.toLowerCase();
+                    return p.nickname.toLowerCase().includes(s) ||
+                           (p.name || '').toLowerCase().includes(s) ||
+                           (p.surname || '').toLowerCase().includes(s) ||
+                           (p.phone || '').includes(s);
+                  })
                   .sort((a, b) => a.nickname.localeCompare(b.nickname, 'it', { sensitivity: 'base' }))
                   .map(p => (
                     <TouchableOpacity key={p.id} style={[styles.playerSelectItem, { borderBottomColor: isDarkMode ? '#3A3A3C' : '#E5E5EA' }]} onPress={() => handleStartComparison(p)}>
