@@ -870,6 +870,42 @@ export default function GroupDetailScreen() {
     }
   };
 
+  const getPlayerAge = (p: any): number => {
+    if (typeof p?.age === 'number' && p.age > 0) return p.age;
+    if (p?.date_of_birth) {
+      const today = new Date();
+      const birthDate = new Date(p.date_of_birth);
+      if (!isNaN(birthDate.getTime())) {
+        let age = today.getFullYear() - birthDate.getFullYear();
+        const m = today.getMonth() - birthDate.getMonth();
+        if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) age--;
+        if (age > 0) return age;
+      }
+    }
+    const found = players.find((gp: any) => String(gp.id) === String(p?.id));
+    if (found) {
+      if (typeof found.age === 'number' && found.age > 0) return found.age;
+      if (found.date_of_birth) {
+        const today = new Date();
+        const birthDate = new Date(found.date_of_birth);
+        if (!isNaN(birthDate.getTime())) {
+          let age = today.getFullYear() - birthDate.getFullYear();
+          const m = today.getMonth() - birthDate.getMonth();
+          if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) age--;
+          if (age > 0) return age;
+        }
+      }
+    }
+    return 0;
+  };
+
+  const calcTeamAvgAge = (teamPlayers: any[]): number => {
+    if (!teamPlayers || teamPlayers.length === 0) return 0;
+    const ages = teamPlayers.map(p => getPlayerAge(p)).filter(a => a > 0);
+    if (ages.length === 0) return 0;
+    return Number((ages.reduce((sum, age) => sum + age, 0) / ages.length).toFixed(1));
+  };
+
   const movePlayer = (playerId: string, fromTeamKey: string, direction: 'up' | 'down') => {
     if (!teams) return;
     const newTeams = { ...teams };
@@ -905,7 +941,7 @@ export default function GroupDetailScreen() {
   const roleOrder: Record<string, number> = { 'Portiere': 1, 'Difensore': 2, 'Mediana': 3, 'Attaccante': 4 };
   const sortPlayersByRole = (list: Player[]) => [...list].sort((a, b) => (roleOrder[a.role] || 99) - (roleOrder[b.role] || 99) || b.strength - a.strength);
 
-  const swapPlayer = (playerId: string, fromTeamKey: string) => {
+  const swapPlayer = (playerId: string, fromTeamKey: string, direction: 'next' | 'prev' = 'next') => {
     if (!teams) return;
     const newTeams = { ...teams };
 
@@ -921,7 +957,11 @@ export default function GroupDetailScreen() {
     }
 
     const sIdx = teamData.findIndex(t => t.key === fromTeamKey);
-    const targetTeamIdx = (sIdx + 1) % teamData.length;
+    if (sIdx === -1) return;
+
+    const targetTeamIdx = direction === 'prev'
+      ? (sIdx - 1 + teamData.length) % teamData.length
+      : (sIdx + 1) % teamData.length;
 
     const sourceList = [...teamData[sIdx].players];
     const targetList = [...teamData[targetTeamIdx].players];
@@ -958,14 +998,24 @@ export default function GroupDetailScreen() {
     if (newTeams.teams) {
       teamData.forEach(t => {
         t.total_strength = Number(t.players.reduce((acc: number, p: any) => acc + p.strength, 0).toFixed(1));
-        t.avg_age = t.players.length ? Number((t.players.reduce((acc: number, p: any) => acc + p.age, 0) / t.players.length).toFixed(1)) : 0;
+        t.avg_age = calcTeamAvgAge(t.players);
       });
       newTeams.teams = teamData;
+      if (teamData.length >= 2) {
+        newTeams.team_a = teamData[0].players;
+        newTeams.team_b = teamData[1].players;
+        newTeams.team_a_total_strength = teamData[0].total_strength;
+        newTeams.team_b_total_strength = teamData[1].total_strength;
+        newTeams.team_a_avg_age = teamData[0].avg_age;
+        newTeams.team_b_avg_age = teamData[1].avg_age;
+      }
     } else {
       newTeams.team_a = teamData[0].players;
       newTeams.team_b = teamData[1].players;
       newTeams.team_a_total_strength = Number(newTeams.team_a.reduce((acc, p) => acc + p.strength, 0).toFixed(1));
       newTeams.team_b_total_strength = Number(newTeams.team_b.reduce((acc, p) => acc + p.strength, 0).toFixed(1));
+      newTeams.team_a_avg_age = calcTeamAvgAge(newTeams.team_a);
+      newTeams.team_b_avg_age = calcTeamAvgAge(newTeams.team_b);
     }
 
     setTeams(newTeams);
@@ -984,8 +1034,10 @@ export default function GroupDetailScreen() {
     if (showPlayerEditor.team === 'a' || showPlayerEditor.team === 'b') {
       const teamKey = showPlayerEditor.team === 'a' ? 'team_a' : 'team_b';
       const strengthKey = showPlayerEditor.team === 'a' ? 'team_a_total_strength' : 'team_b_total_strength';
+      const avgAgeKey = showPlayerEditor.team === 'a' ? 'team_a_avg_age' : 'team_b_avg_age';
       newTeams[teamKey] = newTeams[teamKey].map(p => p.id === showPlayerEditor.id ? { ...p, role: tempRole, strength: tempStrength } : p);
       newTeams[strengthKey] = Number(newTeams[teamKey].reduce((acc, p) => acc + p.strength, 0).toFixed(1));
+      newTeams[avgAgeKey] = calcTeamAvgAge(newTeams[teamKey]);
     }
 
     if (newTeams.teams) {
@@ -996,6 +1048,7 @@ export default function GroupDetailScreen() {
           p.id === showPlayerEditor.id ? { ...p, role: tempRole, strength: tempStrength } : p
         );
         teamToUpdate.total_strength = Number(teamToUpdate.players.reduce((acc: number, p: any) => acc + p.strength, 0).toFixed(1));
+        teamToUpdate.avg_age = calcTeamAvgAge(teamToUpdate.players);
         newTeams.teams = [...newTeams.teams];
         newTeams.teams[tIdx] = teamToUpdate;
       }
@@ -3306,7 +3359,7 @@ export default function GroupDetailScreen() {
                           </View>
                           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
                             <Text style={[styles.teamStatsSub, { fontSize: 10 }]}>
-                              {t.avg_age} Età Media • {(t.total_strength / (t.players.length || 1)).toFixed(1)} FRZ Media
+                              {calcTeamAvgAge(t.players)} Età Media • {(t.total_strength / (t.players.length || 1)).toFixed(1)} FRZ Media
                             </Text>
                           </View>
                           {isAdminOrOwner && !sharing && (
@@ -3400,12 +3453,22 @@ export default function GroupDetailScreen() {
                               </View>
                             )}
                             {!sharing && (
-                              <TouchableOpacity
-                                onPress={() => swapPlayer(p.id, t.key as any)}
-                                style={[styles.swapBtn, { padding: 8, backgroundColor: '#007AFF15', borderRadius: 8 }]}
-                              >
-                                <Ionicons name="swap-horizontal" size={22} color="#007AFF" />
-                              </TouchableOpacity>
+                              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                                {teamData.length > 2 && (
+                                  <TouchableOpacity
+                                    onPress={() => swapPlayer(p.id, t.key as any, 'prev')}
+                                    style={[styles.swapBtn, { padding: 6, backgroundColor: '#007AFF15', borderRadius: 8 }]}
+                                  >
+                                    <Ionicons name="arrow-back" size={18} color="#007AFF" />
+                                  </TouchableOpacity>
+                                )}
+                                <TouchableOpacity
+                                  onPress={() => swapPlayer(p.id, t.key as any, 'next')}
+                                  style={[styles.swapBtn, { padding: teamData.length > 2 ? 6 : 8, backgroundColor: '#007AFF15', borderRadius: 8 }]}
+                                >
+                                  <Ionicons name={teamData.length > 2 ? "arrow-forward" : "swap-horizontal"} size={teamData.length > 2 ? 18 : 22} color="#007AFF" />
+                                </TouchableOpacity>
+                              </View>
                             )}
                           </View>
                         </View>
@@ -5248,11 +5311,11 @@ export default function GroupDetailScreen() {
 
     // Calcolo Medie per Anteprima (Scheduled)
     const totalStrA = teamAPlayers.reduce((acc, p) => acc + p.strength, 0);
-    const avgAgeA = teamAPlayers.length ? (teamAPlayers.reduce((acc, p) => acc + p.age, 0) / teamAPlayers.length).toFixed(1) : '0';
+    const avgAgeA = calcTeamAvgAge(teamAPlayers);
     const avgStrA = teamAPlayers.length ? (totalStrA / teamAPlayers.length).toFixed(1) : '0';
 
     const totalStrB = teamBPlayers.reduce((acc, p) => acc + p.strength, 0);
-    const avgAgeB = teamBPlayers.length ? (teamBPlayers.reduce((acc, p) => acc + p.age, 0) / teamBPlayers.length).toFixed(1) : '0';
+    const avgAgeB = calcTeamAvgAge(teamBPlayers);
     const avgStrB = teamBPlayers.length ? (totalStrB / teamBPlayers.length).toFixed(1) : '0';
 
     return (
@@ -6698,7 +6761,7 @@ const styles = StyleSheet.create({
   teamSectionTitle: { fontSize: 14, fontWeight: '800' },
   tpStrength: { fontSize: 16, fontWeight: '800' },
   tpAge: { fontSize: 12 },
-  adjustBtn: { width: 50, height: 50, borderRadius: 25, alignItems: 'center', justifyContent: 'center' },
+  adjustBtn: { width: 50, height: 50, borderRadius: 25, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   strengthLargeInput: { fontSize: 48, fontWeight: '900', textAlign: 'center', minWidth: 80, padding: 0, margin: 0 },
   gironeHeader: { elevation: 3, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4 },
   groupIcon: { alignItems: 'center', justifyContent: 'center' },

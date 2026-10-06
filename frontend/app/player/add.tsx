@@ -140,6 +140,14 @@ export default function AddPlayerScreen() {
             </View>
 
             <View style={styles.inputGroup}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Text style={[styles.label, dynamicStyles.text]}>Nickname</Text>
+                <Text style={[styles.charCount, dynamicStyles.subText]}>{nickname.length}/8</Text>
+              </View>
+              <TextInput style={[styles.input, dynamicStyles.input]} value={nickname} onChangeText={setNickname} placeholder="Nickname" placeholderTextColor={isDarkMode ? "#8E8E93" : "#C7C7CC"} maxLength={8} />
+            </View>
+
+            <View style={styles.inputGroup}>
               <Text style={[styles.label, dynamicStyles.text]}>Telefono (opz.)</Text>
               <TextInput
                 style={[styles.input, dynamicStyles.input]}
@@ -149,14 +157,6 @@ export default function AddPlayerScreen() {
                 placeholderTextColor={isDarkMode ? "#8E8E93" : "#C7C7CC"}
                 keyboardType="phone-pad"
               />
-            </View>
-
-            <View style={styles.inputGroup}>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Text style={[styles.label, dynamicStyles.text]}>Nickname</Text>
-                <Text style={[styles.charCount, dynamicStyles.subText]}>{nickname.length}/8</Text>
-              </View>
-              <TextInput style={[styles.input, dynamicStyles.input]} value={nickname} onChangeText={setNickname} placeholder="Nickname" placeholderTextColor={isDarkMode ? "#8E8E93" : "#C7C7CC"} maxLength={8} />
             </View>
 
             <View style={{ flexDirection: 'row', gap: 12, marginBottom: 12 }}>
@@ -168,18 +168,6 @@ export default function AddPlayerScreen() {
                 <Text style={[styles.label, dynamicStyles.text]}>Cognome (opz.)</Text>
                 <TextInput style={[styles.input, dynamicStyles.input]} value={surname} onChangeText={setSurname} placeholder="Es. Rossi" placeholderTextColor={isDarkMode ? "#8E8E93" : "#C7C7CC"} />
               </View>
-            </View>
-
-            <View style={styles.inputGroup}>
-              <Text style={[styles.label, dynamicStyles.text]}>Telefono (opz.)</Text>
-              <TextInput
-                style={[styles.input, dynamicStyles.input]}
-                value={phone}
-                onChangeText={setPhone}
-                placeholder="Es. 333 1234567"
-                placeholderTextColor={isDarkMode ? "#8E8E93" : "#C7C7CC"}
-                keyboardType="phone-pad"
-              />
             </View>
 
             <View style={styles.inputGroup}>
@@ -217,18 +205,6 @@ export default function AddPlayerScreen() {
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={[styles.label, dynamicStyles.text]}>Telefono (opz.)</Text>
-              <TextInput
-                style={[styles.input, dynamicStyles.input]}
-                value={phone}
-                onChangeText={setPhone}
-                placeholder="Es. 333 1234567"
-                placeholderTextColor={isDarkMode ? "#8E8E93" : "#C7C7CC"}
-                keyboardType="phone-pad"
-              />
-            </View>
-
-            <View style={styles.inputGroup}>
               <Text style={[styles.label, dynamicStyles.text]}>Ruolo</Text>
               <View style={styles.roleGrid}>
                 {ROLES.map((r) => (
@@ -237,18 +213,6 @@ export default function AddPlayerScreen() {
                   </TouchableOpacity>
                 ))}
               </View>
-            </View>
-
-            <View style={styles.inputGroup}>
-              <Text style={[styles.label, dynamicStyles.text]}>Telefono (opz.)</Text>
-              <TextInput
-                style={[styles.input, dynamicStyles.input]}
-                value={phone}
-                onChangeText={setPhone}
-                placeholder="Es. 333 1234567"
-                placeholderTextColor={isDarkMode ? "#8E8E93" : "#C7C7CC"}
-                keyboardType="phone-pad"
-              />
             </View>
 
             <View style={styles.inputGroup}>
@@ -280,15 +244,16 @@ export default function AddPlayerScreen() {
             </View>
 
             <View style={{ padding: 30, alignItems: 'center' }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 25 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 20 }}>
                 <TouchableOpacity
                   onPress={() => setStrength(prev => Math.max(1, prev - 0.5))}
                   style={[styles.adjustBtn, { backgroundColor: isDarkMode ? '#3A3A3C' : '#F2F2F7' }]}
+                  activeOpacity={0.7}
                 >
                   <Ionicons name="remove" size={32} color="#007AFF" />
                 </TouchableOpacity>
 
-                <View style={{ alignItems: 'center', minWidth: 100 }}>
+                <View style={{ alignItems: 'center', minWidth: 90, marginHorizontal: 8 }}>
                   <TextInput
                     style={[styles.strengthLargeInput, dynamicStyles.text]}
                     keyboardType="decimal-pad"
@@ -313,6 +278,7 @@ export default function AddPlayerScreen() {
                 <TouchableOpacity
                   onPress={() => setStrength(prev => Math.min(10, prev + 0.5))}
                   style={[styles.adjustBtn, { backgroundColor: isDarkMode ? '#3A3A3C' : '#F2F2F7' }]}
+                  activeOpacity={0.7}
                 >
                   <Ionicons name="add" size={32} color="#007AFF" />
                 </TouchableOpacity>
@@ -358,13 +324,13 @@ const styles = StyleSheet.create({
   strengthDisplay: { alignItems: 'center', justifyContent: 'center', width: 54, height: 54, borderRadius: 12 },
   strengthNumber: { fontSize: 22, fontWeight: '800' },
   strengthSubText: { fontSize: 9, fontWeight: '700', marginTop: -2 },
-  adjustBtn: { width: 60, height: 60, borderRadius: 30, alignItems: 'center', justifyContent: 'center' },
+  adjustBtn: { width: 60, height: 60, borderRadius: 30, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   strengthLargeInput: { fontSize: 48, fontWeight: '900', textAlign: 'center', minWidth: 80, padding: 0, margin: 0 },
   saveButton: { backgroundColor: '#007AFF', borderRadius: 14, paddingVertical: 16, alignItems: 'center', justifyContent: 'center', marginTop: 12 },
   saveButtonText: { color: '#FFFFFF', fontSize: 17, fontWeight: '700' },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
   modalContent: { borderTopLeftRadius: 20, borderTopRightRadius: 20, height: '50%', paddingBottom: 40 },
-  modalHeader: { padding: 20, borderBottomWidth: 1 },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, borderBottomWidth: 1 },
   modalTitle: { fontSize: 17, fontWeight: '700' },
   strengthGrid: { flexDirection: 'row', flexWrap: 'wrap', padding: 10, justifyContent: 'center' },
   strengthOption: { width: '22%', aspectRatio: 1, margin: '1%', borderRadius: 12, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
