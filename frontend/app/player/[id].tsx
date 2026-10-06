@@ -1704,15 +1704,15 @@ export default function PlayerDetailScreen() {
               </TouchableOpacity>
             </View>
             <View style={{ padding: 30, alignItems: 'center' }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 20 }}>
+              <View style={{ width: '100%', flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
                 <TouchableOpacity
                   onPress={() => setStrength(prev => Math.max(1, prev - 0.5))}
-                  style={[styles.adjustBtn, { backgroundColor: isDarkMode ? '#3A3A3C' : '#F2F2F7' }]}
+                  style={[styles.adjustBtn, { backgroundColor: isDarkMode ? '#3A3A3C' : '#E5E5EA' }]}
                   activeOpacity={0.7}
                 >
-                  <Ionicons name="remove" size={32} color="#007AFF" />
+                  <Text style={{ fontSize: 32, fontWeight: '700', color: '#007AFF', lineHeight: 34, textAlign: 'center' }}>−</Text>
                 </TouchableOpacity>
-                <View style={{ alignItems: 'center', minWidth: 90, marginHorizontal: 8 }}>
+                <View style={{ alignItems: 'center', width: 110, marginHorizontal: 15 }}>
                   <TextInput
                     style={[styles.strengthLargeInput, dynamicStyles.text]}
                     keyboardType="decimal-pad"
@@ -1735,10 +1735,10 @@ export default function PlayerDetailScreen() {
                 </View>
                 <TouchableOpacity
                   onPress={() => setStrength(prev => Math.min(10, prev + 0.5))}
-                  style={[styles.adjustBtn, { backgroundColor: isDarkMode ? '#3A3A3C' : '#F2F2F7' }]}
+                  style={[styles.adjustBtn, { backgroundColor: isDarkMode ? '#3A3A3C' : '#E5E5EA' }]}
                   activeOpacity={0.7}
                 >
-                  <Ionicons name="add" size={32} color="#007AFF" />
+                  <Text style={{ fontSize: 32, fontWeight: '700', color: '#007AFF', lineHeight: 34, textAlign: 'center' }}>+</Text>
                 </TouchableOpacity>
               </View>
               <TouchableOpacity

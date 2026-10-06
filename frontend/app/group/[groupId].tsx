@@ -6603,15 +6603,16 @@ export default function GroupDetailScreen() {
 
               <Text style={[styles.configSectionTitle, dynamicStyles.text, { fontSize: 13, marginBottom: 8 }]}>Forza (FRZ)</Text>
               <View style={{ alignItems: 'center', paddingVertical: 10 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 20 }}>
+                <View style={{ width: '100%', flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
                   <TouchableOpacity
                     onPress={() => setTempStrength(prev => Math.max(1, prev - 0.5))}
-                    style={[styles.adjustBtn, { backgroundColor: isDarkMode ? '#3A3A3C' : '#F2F2F7' }]}
+                    style={[styles.adjustBtn, { backgroundColor: isDarkMode ? '#3A3A3C' : '#E5E5EA' }]}
+                    activeOpacity={0.7}
                   >
-                    <Ionicons name="remove" size={28} color="#007AFF" />
+                    <Text style={{ fontSize: 28, fontWeight: '700', color: '#007AFF', lineHeight: 30, textAlign: 'center' }}>−</Text>
                   </TouchableOpacity>
 
-                  <View style={{ alignItems: 'center', minWidth: 80 }}>
+                  <View style={{ alignItems: 'center', width: 90, marginHorizontal: 15 }}>
                     <TextInput
                       style={[styles.strengthLargeInput, dynamicStyles.text, { fontSize: 40 }]}
                       keyboardType="decimal-pad"
@@ -6634,9 +6635,10 @@ export default function GroupDetailScreen() {
 
                   <TouchableOpacity
                     onPress={() => setTempStrength(prev => Math.min(10, prev + 0.5))}
-                    style={[styles.adjustBtn, { backgroundColor: isDarkMode ? '#3A3A3C' : '#F2F2F7' }]}
+                    style={[styles.adjustBtn, { backgroundColor: isDarkMode ? '#3A3A3C' : '#E5E5EA' }]}
+                    activeOpacity={0.7}
                   >
-                    <Ionicons name="add" size={28} color="#007AFF" />
+                    <Text style={{ fontSize: 28, fontWeight: '700', color: '#007AFF', lineHeight: 30, textAlign: 'center' }}>+</Text>
                   </TouchableOpacity>
                 </View>
               </View>
