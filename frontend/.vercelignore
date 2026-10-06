@@ -1,0 +1,10 @@
+android/
+backups/
+node_modules/
+.expo/
+.metro-cache/
+.idea/
+dist/
+.git/
+*.apk
+*.log
