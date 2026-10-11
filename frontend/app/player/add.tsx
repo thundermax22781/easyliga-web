@@ -254,12 +254,10 @@ export default function AddPlayerScreen() {
               <View style={{ width: '100%', flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
                 <TouchableOpacity
                   onPress={() => {
-                    setStrength((prev) => {
-                      const num = typeof prev === 'number' && !isNaN(prev) ? prev : (parseFloat(String(strengthInput).replace(',', '.')) || 1);
-                      const next = Math.max(0.5, Math.round((num - 0.5) * 10) / 10);
-                      setStrengthInput(String(next).replace('.', ','));
-                      return next;
-                    });
+                    const currentVal = typeof strength === 'number' && !isNaN(strength) ? strength : (parseFloat(String(strengthInput).replace(',', '.')) || 1);
+                    const nextVal = Math.max(0.5, Math.round((currentVal - 0.5) * 10) / 10);
+                    setStrength(nextVal);
+                    setStrengthInput(String(nextVal).replace('.', ','));
                   }}
                   style={[styles.adjustBtn, { backgroundColor: isDarkMode ? '#3A3A3C' : '#E5E5EA' }]}
                   activeOpacity={0.7}
@@ -284,12 +282,10 @@ export default function AddPlayerScreen() {
                       }
                     }}
                     onBlur={() => {
-                      setStrength((prev) => {
-                        const num = typeof prev === 'number' && !isNaN(prev) ? prev : (parseFloat(String(strengthInput).replace(',', '.')) || 1);
-                        const clamped = Math.max(0.5, Math.min(10, num));
-                        setStrengthInput(String(clamped).replace('.', ','));
-                        return clamped;
-                      });
+                      const currentVal = typeof strength === 'number' && !isNaN(strength) ? strength : (parseFloat(String(strengthInput).replace(',', '.')) || 1);
+                      const clamped = Math.max(0.5, Math.min(10, currentVal));
+                      setStrength(clamped);
+                      setStrengthInput(String(clamped).replace('.', ','));
                     }}
                   />
                   <Text style={[dynamicStyles.subText, { fontSize: 10, fontWeight: '800', marginTop: -5, letterSpacing: 1 }]}>VALORE ATTUALE</Text>
@@ -297,12 +293,10 @@ export default function AddPlayerScreen() {
 
                 <TouchableOpacity
                   onPress={() => {
-                    setStrength((prev) => {
-                      const num = typeof prev === 'number' && !isNaN(prev) ? prev : (parseFloat(String(strengthInput).replace(',', '.')) || 1);
-                      const next = Math.min(10, Math.round((num + 0.5) * 10) / 10);
-                      setStrengthInput(String(next).replace('.', ','));
-                      return next;
-                    });
+                    const currentVal = typeof strength === 'number' && !isNaN(strength) ? strength : (parseFloat(String(strengthInput).replace(',', '.')) || 1);
+                    const nextVal = Math.min(10, Math.round((currentVal + 0.5) * 10) / 10);
+                    setStrength(nextVal);
+                    setStrengthInput(String(nextVal).replace('.', ','));
                   }}
                   style={[styles.adjustBtn, { backgroundColor: isDarkMode ? '#3A3A3C' : '#E5E5EA' }]}
                   activeOpacity={0.7}
@@ -314,12 +308,10 @@ export default function AddPlayerScreen() {
               <TouchableOpacity
                 style={[styles.saveButton, { width: '100%', marginTop: 40, height: 54 }]}
                 onPress={() => {
-                  setStrength((prev) => {
-                    const num = typeof prev === 'number' && !isNaN(prev) ? prev : (parseFloat(String(strengthInput).replace(',', '.')) || 1);
-                    const clamped = Math.max(0.5, Math.min(10, num));
-                    setStrengthInput(String(clamped).replace('.', ','));
-                    return clamped;
-                  });
+                  const currentVal = typeof strength === 'number' && !isNaN(strength) ? strength : (parseFloat(String(strengthInput).replace(',', '.')) || 1);
+                  const clamped = Math.max(0.5, Math.min(10, currentVal));
+                  setStrength(clamped);
+                  setStrengthInput(String(clamped).replace('.', ','));
                   setShowStrengthModal(false);
                 }}
               >
