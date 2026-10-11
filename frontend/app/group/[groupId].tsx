@@ -5606,8 +5606,8 @@ export default function GroupDetailScreen() {
         {teams ? renderTeamsResult() : (
           <View style={{ flex: 1 }}>
             {showConfig && (
-              <View style={[styles.configContainer, dynamicStyles.card, { marginHorizontal: 20, marginBottom: 12, padding: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 12, elevation: 5 }]}>
-                <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 20 }}>
+              <View style={[styles.configContainer, dynamicStyles.card, { marginHorizontal: 20, marginBottom: 12, padding: 20, maxHeight: Platform.OS === 'web' ? '70vh' : 520, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 12, elevation: 5 }]}>
+                <ScrollView showsVerticalScrollIndicator={true} style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 20 }}>
                   <View style={styles.configSection}>
 
                     {/* SEZIONE CAMPIONATO */}
