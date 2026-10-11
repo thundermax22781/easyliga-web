@@ -35,6 +35,7 @@ export default function AddPlayerScreen() {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [role, setRole] = useState('Attaccante');
   const [strength, setStrength] = useState(5);
+  const [strengthInput, setStrengthInput] = useState('5');
   const [saving, setSaving] = useState(false);
   const [showStrengthModal, setShowStrengthModal] = useState(false);
 
@@ -217,7 +218,13 @@ export default function AddPlayerScreen() {
 
             <View style={styles.inputGroup}>
               <Text style={[styles.label, dynamicStyles.text]}>Livello di Forza</Text>
-              <TouchableOpacity style={[styles.strengthPreviewBox, dynamicStyles.card, {borderColor: isDarkMode ? '#3A3A3C' : '#E5E5EA'}]} onPress={() => setShowStrengthModal(true)}>
+              <TouchableOpacity
+                style={[styles.strengthPreviewBox, dynamicStyles.card, {borderColor: isDarkMode ? '#3A3A3C' : '#E5E5EA'}]}
+                onPress={() => {
+                  setStrengthInput(String(strength).replace('.', ','));
+                  setShowStrengthModal(true);
+                }}
+              >
                 <View style={[styles.strengthDisplay, {backgroundColor: isDarkMode ? '#3A3A3C' : '#F2F2F7'}]}>
                    <Text style={[styles.strengthNumber, dynamicStyles.text]}>{strength}</Text>
                    <Text style={[styles.strengthSubText, dynamicStyles.subText]}>VALORE</Text>
@@ -246,48 +253,68 @@ export default function AddPlayerScreen() {
             <View style={{ padding: 30, alignItems: 'center' }}>
               <View style={{ width: '100%', flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
                 <TouchableOpacity
-                  onPress={() => setStrength(prev => Math.max(1, prev - 0.5))}
+                  onPress={() => {
+                    const curr = typeof strength === 'number' && !isNaN(strength) ? strength : (parseFloat(String(strengthInput).replace(',', '.')) || 1);
+                    const newNum = Math.max(1, Math.round((curr - 0.5) * 10) / 10);
+                    setStrength(newNum);
+                    setStrengthInput(String(newNum).replace('.', ','));
+                  }}
                   style={[styles.adjustBtn, { backgroundColor: isDarkMode ? '#3A3A3C' : '#E5E5EA' }]}
                   activeOpacity={0.7}
                 >
-                  <Text style={{ fontSize: 32, fontWeight: '700', color: '#007AFF', lineHeight: 34, textAlign: 'center' }}>−</Text>
+                  <Text pointerEvents="none" style={{ fontSize: 32, fontWeight: '700', color: '#007AFF', lineHeight: 34, textAlign: 'center' }}>−</Text>
                 </TouchableOpacity>
 
                 <View style={{ alignItems: 'center', width: 110, marginHorizontal: 15 }}>
                   <TextInput
                     style={[styles.strengthLargeInput, dynamicStyles.text]}
                     keyboardType="decimal-pad"
-                    value={String(strength)}
+                    value={strengthInput}
                     selectTextOnFocus
                     onChangeText={(v) => {
+                      setStrengthInput(v);
                       const sanitized = v.replace(',', '.');
-                      if (sanitized === '') {
-                        setStrength(0);
+                      if (sanitized.trim() === '') {
+                        setStrength(1);
                       } else {
-                        const val = parseFloat(sanitized);
-                        if (!isNaN(val)) setStrength(val);
+                        const parsed = parseFloat(sanitized);
+                        if (!isNaN(parsed)) setStrength(parsed);
                       }
                     }}
                     onBlur={() => {
-                      setStrength(Math.max(1, Math.min(10, strength)));
+                      const curr = typeof strength === 'number' && !isNaN(strength) ? strength : (parseFloat(String(strengthInput).replace(',', '.')) || 1);
+                      const clamped = Math.max(1, Math.min(10, curr));
+                      setStrength(clamped);
+                      setStrengthInput(String(clamped).replace('.', ','));
                     }}
                   />
                   <Text style={[dynamicStyles.subText, { fontSize: 10, fontWeight: '800', marginTop: -5, letterSpacing: 1 }]}>VALORE ATTUALE</Text>
                 </View>
 
                 <TouchableOpacity
-                  onPress={() => setStrength(prev => Math.min(10, prev + 0.5))}
+                  onPress={() => {
+                    const curr = typeof strength === 'number' && !isNaN(strength) ? strength : (parseFloat(String(strengthInput).replace(',', '.')) || 1);
+                    const newNum = Math.min(10, Math.round((curr + 0.5) * 10) / 10);
+                    setStrength(newNum);
+                    setStrengthInput(String(newNum).replace('.', ','));
+                  }}
                   style={[styles.adjustBtn, { backgroundColor: isDarkMode ? '#3A3A3C' : '#E5E5EA' }]}
                   activeOpacity={0.7}
                 >
-                  <Text style={{ fontSize: 32, fontWeight: '700', color: '#007AFF', lineHeight: 34, textAlign: 'center' }}>+</Text>
+                  <Text pointerEvents="none" style={{ fontSize: 32, fontWeight: '700', color: '#007AFF', lineHeight: 34, textAlign: 'center' }}>+</Text>
                 </TouchableOpacity>
               </View>
 
               <TouchableOpacity
                 style={[styles.saveButton, { width: '100%', marginTop: 40, height: 54 }]}
                 onPress={() => {
-                  setStrength(Math.max(1, Math.min(10, strength)));
+                  const curr = typeof strength === 'number' && !isNaN(strength) ? strength : (parseFloat(String(strengthInput).replace(',', '.')) || 1);
+                  const clamped = Math.max(1, Math.min(10, curr));
+                  setStrength(clamped);
+                  setStrengthInput(String(clamped).replace('.', ','));
+                  setShowStrengthModal(false);
+                }}
+              >
                   setShowStrengthModal(false);
                 }}
               >

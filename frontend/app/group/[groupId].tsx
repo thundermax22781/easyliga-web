@@ -133,6 +133,7 @@ export default function GroupDetailScreen() {
   const [showPlayerEditor, setShowPlayerEditor] = useState<{ id: string, team: 'a' | 'b' } | null>(null);
   const [tempRole, setTempRole] = useState('');
   const [tempStrength, setTempStrength] = useState(5);
+  const [tempStrengthInput, setTempStrengthInput] = useState('5');
   const [tempTeamName, setTempTeamName] = useState('');
   const [tempJerseyColor, setTempJerseyColor] = useState('');
   const [importing, setImporting] = useState(false);
@@ -1024,18 +1025,21 @@ export default function GroupDetailScreen() {
   const handleOpenPlayerEditor = (player: Player, teamKey: string) => {
     setTempRole(player.role);
     setTempStrength(player.strength);
+    setTempStrengthInput(String(player.strength).replace('.', ','));
     setShowPlayerEditor({ id: player.id, team: teamKey as any });
   };
 
   const handleUpdatePlayerTemp = () => {
     if (!showPlayerEditor || !teams) return;
     const newTeams = { ...teams };
+    const currStr = typeof tempStrength === 'number' && !isNaN(tempStrength) ? tempStrength : (parseFloat(String(tempStrengthInput).replace(',', '.')) || 1);
+    const finalStrength = Math.max(1, Math.min(10, currStr));
 
     if (showPlayerEditor.team === 'a' || showPlayerEditor.team === 'b') {
       const teamKey = showPlayerEditor.team === 'a' ? 'team_a' : 'team_b';
       const strengthKey = showPlayerEditor.team === 'a' ? 'team_a_total_strength' : 'team_b_total_strength';
       const avgAgeKey = showPlayerEditor.team === 'a' ? 'team_a_avg_age' : 'team_b_avg_age';
-      newTeams[teamKey] = newTeams[teamKey].map(p => p.id === showPlayerEditor.id ? { ...p, role: tempRole, strength: tempStrength } : p);
+      newTeams[teamKey] = newTeams[teamKey].map(p => p.id === showPlayerEditor.id ? { ...p, role: tempRole, strength: finalStrength } : p);
       newTeams[strengthKey] = Number(newTeams[teamKey].reduce((acc, p) => acc + p.strength, 0).toFixed(1));
       newTeams[avgAgeKey] = calcTeamAvgAge(newTeams[teamKey]);
     }
@@ -1045,7 +1049,7 @@ export default function GroupDetailScreen() {
       if (tIdx !== -1) {
         const teamToUpdate = { ...newTeams.teams[tIdx] };
         teamToUpdate.players = teamToUpdate.players.map((p: any) =>
-          p.id === showPlayerEditor.id ? { ...p, role: tempRole, strength: tempStrength } : p
+          p.id === showPlayerEditor.id ? { ...p, role: tempRole, strength: finalStrength } : p
         );
         teamToUpdate.total_strength = Number(teamToUpdate.players.reduce((acc: number, p: any) => acc + p.strength, 0).toFixed(1));
         teamToUpdate.avg_age = calcTeamAvgAge(teamToUpdate.players);
@@ -1074,6 +1078,7 @@ export default function GroupDetailScreen() {
       if (original) {
         setTempRole(original.role);
         setTempStrength(original.strength);
+        setTempStrengthInput(String(original.strength).replace('.', ','));
       }
     }
   };
@@ -6605,40 +6610,54 @@ export default function GroupDetailScreen() {
               <View style={{ alignItems: 'center', paddingVertical: 10 }}>
                 <View style={{ width: '100%', flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
                   <TouchableOpacity
-                    onPress={() => setTempStrength(prev => Math.max(1, prev - 0.5))}
+                    onPress={() => {
+                      const curr = typeof tempStrength === 'number' && !isNaN(tempStrength) ? tempStrength : (parseFloat(String(tempStrengthInput).replace(',', '.')) || 1);
+                      const newNum = Math.max(1, Math.round((curr - 0.5) * 10) / 10);
+                      setTempStrength(newNum);
+                      setTempStrengthInput(String(newNum).replace('.', ','));
+                    }}
                     style={[styles.adjustBtn, { backgroundColor: isDarkMode ? '#3A3A3C' : '#E5E5EA' }]}
                     activeOpacity={0.7}
                   >
-                    <Text style={{ fontSize: 28, fontWeight: '700', color: '#007AFF', lineHeight: 30, textAlign: 'center' }}>−</Text>
+                    <Text pointerEvents="none" style={{ fontSize: 28, fontWeight: '700', color: '#007AFF', lineHeight: 30, textAlign: 'center' }}>−</Text>
                   </TouchableOpacity>
 
                   <View style={{ alignItems: 'center', width: 90, marginHorizontal: 15 }}>
                     <TextInput
                       style={[styles.strengthLargeInput, dynamicStyles.text, { fontSize: 40 }]}
                       keyboardType="decimal-pad"
-                      value={String(tempStrength)}
+                      value={tempStrengthInput}
                       selectTextOnFocus
                       onChangeText={(v) => {
+                        setTempStrengthInput(v);
                         const sanitized = v.replace(',', '.');
-                        if (sanitized === '') {
-                          setTempStrength(0);
+                        if (sanitized.trim() === '') {
+                          setTempStrength(1);
                         } else {
-                          const val = parseFloat(sanitized);
-                          if (!isNaN(val)) setTempStrength(val);
+                          const parsed = parseFloat(sanitized);
+                          if (!isNaN(parsed)) setTempStrength(parsed);
                         }
                       }}
                       onBlur={() => {
-                        setTempStrength(Math.max(1, Math.min(10, tempStrength)));
+                        const curr = typeof tempStrength === 'number' && !isNaN(tempStrength) ? tempStrength : (parseFloat(String(tempStrengthInput).replace(',', '.')) || 1);
+                        const clamped = Math.max(1, Math.min(10, curr));
+                        setTempStrength(clamped);
+                        setTempStrengthInput(String(clamped).replace('.', ','));
                       }}
                     />
                   </View>
 
                   <TouchableOpacity
-                    onPress={() => setTempStrength(prev => Math.min(10, prev + 0.5))}
+                    onPress={() => {
+                      const curr = typeof tempStrength === 'number' && !isNaN(tempStrength) ? tempStrength : (parseFloat(String(tempStrengthInput).replace(',', '.')) || 1);
+                      const newNum = Math.min(10, Math.round((curr + 0.5) * 10) / 10);
+                      setTempStrength(newNum);
+                      setTempStrengthInput(String(newNum).replace('.', ','));
+                    }}
                     style={[styles.adjustBtn, { backgroundColor: isDarkMode ? '#3A3A3C' : '#E5E5EA' }]}
                     activeOpacity={0.7}
                   >
-                    <Text style={{ fontSize: 28, fontWeight: '700', color: '#007AFF', lineHeight: 30, textAlign: 'center' }}>+</Text>
+                    <Text pointerEvents="none" style={{ fontSize: 28, fontWeight: '700', color: '#007AFF', lineHeight: 30, textAlign: 'center' }}>+</Text>
                   </TouchableOpacity>
                 </View>
               </View>
