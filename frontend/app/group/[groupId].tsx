@@ -6622,15 +6622,17 @@ export default function GroupDetailScreen() {
                 <View style={{ width: '100%', flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
                   <TouchableOpacity
                     onPress={() => {
-                      const curr = typeof tempStrength === 'number' && !isNaN(tempStrength) ? tempStrength : (parseFloat(String(tempStrengthInput).replace(',', '.')) || 1);
-                      const newNum = Math.max(1, Math.round((curr - 0.5) * 10) / 10);
-                      setTempStrength(newNum);
-                      setTempStrengthInput(String(newNum).replace('.', ','));
+                      setTempStrength((prev) => {
+                        const num = typeof prev === 'number' && !isNaN(prev) ? prev : (parseFloat(String(tempStrengthInput).replace(',', '.')) || 1);
+                        const next = Math.max(0.5, Math.round((num - 0.5) * 10) / 10);
+                        setTempStrengthInput(String(next).replace('.', ','));
+                        return next;
+                      });
                     }}
                     style={[styles.adjustBtn, { backgroundColor: isDarkMode ? '#3A3A3C' : '#E5E5EA' }]}
                     activeOpacity={0.7}
                   >
-                    <Text pointerEvents="none" style={{ fontSize: 28, fontWeight: '700', color: '#007AFF', lineHeight: 30, textAlign: 'center' }}>−</Text>
+                    <Text style={{ fontSize: 28, fontWeight: '700', color: '#007AFF', lineHeight: 30, textAlign: 'center' }}>-</Text>
                   </TouchableOpacity>
 
                   <View style={{ alignItems: 'center', width: 90, marginHorizontal: 15 }}>
@@ -6650,20 +6652,24 @@ export default function GroupDetailScreen() {
                         }
                       }}
                       onBlur={() => {
-                        const curr = typeof tempStrength === 'number' && !isNaN(tempStrength) ? tempStrength : (parseFloat(String(tempStrengthInput).replace(',', '.')) || 1);
-                        const clamped = Math.max(1, Math.min(10, curr));
-                        setTempStrength(clamped);
-                        setTempStrengthInput(String(clamped).replace('.', ','));
+                        setTempStrength((prev) => {
+                          const num = typeof prev === 'number' && !isNaN(prev) ? prev : (parseFloat(String(tempStrengthInput).replace(',', '.')) || 1);
+                          const clamped = Math.max(0.5, Math.min(10, num));
+                          setTempStrengthInput(String(clamped).replace('.', ','));
+                          return clamped;
+                        });
                       }}
                     />
                   </View>
 
                   <TouchableOpacity
                     onPress={() => {
-                      const curr = typeof tempStrength === 'number' && !isNaN(tempStrength) ? tempStrength : (parseFloat(String(tempStrengthInput).replace(',', '.')) || 1);
-                      const newNum = Math.min(10, Math.round((curr + 0.5) * 10) / 10);
-                      setTempStrength(newNum);
-                      setTempStrengthInput(String(newNum).replace('.', ','));
+                      setTempStrength((prev) => {
+                        const num = typeof prev === 'number' && !isNaN(prev) ? prev : (parseFloat(String(tempStrengthInput).replace(',', '.')) || 1);
+                        const next = Math.min(10, Math.round((num + 0.5) * 10) / 10);
+                        setTempStrengthInput(String(next).replace('.', ','));
+                        return next;
+                      });
                     }}
                     style={[styles.adjustBtn, { backgroundColor: isDarkMode ? '#3A3A3C' : '#E5E5EA' }]}
                     activeOpacity={0.7}
