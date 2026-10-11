@@ -5998,17 +5998,28 @@ export default function GroupDetailScreen() {
 
 
 
-                    <Text style={[styles.configSectionTitle, dynamicStyles.text, { fontSize: 14, fontWeight: '700', marginBottom: 10 }]}>Backup ed Excel</Text>
-                    <View style={{ flexDirection: 'row', gap: 8, marginBottom: 8 }}>
-                      <TouchableOpacity style={[styles.saveBtn, { flex: 1, backgroundColor: '#007AFF', height: 40, borderRadius: 8, flexDirection: 'row' }]} onPress={handleExportPlayers}><Ionicons name="download-outline" size={16} color="#FFF" style={{marginRight: 6}}/><Text style={[styles.saveBtnText, {fontSize: 13, fontWeight: '700'}]}>Esporta</Text></TouchableOpacity>
+                    <View style={{ flexDirection: 'row', gap: 8, marginBottom: 8, marginTop: 10 }}>
+                      <TouchableOpacity style={[styles.saveBtn, { flex: 1, backgroundColor: '#007AFF', height: 42, borderRadius: 8, flexDirection: 'row', paddingHorizontal: 4 }]} onPress={handleExportPlayers}>
+                        <Ionicons name="download-outline" size={16} color="#FFF" style={{marginRight: 4}}/>
+                        <Text style={[styles.saveBtnText, {fontSize: 12, fontWeight: '700'}]}>Esporta Giocatori</Text>
+                      </TouchableOpacity>
                       {isAdminOrOwner && (
-                        <TouchableOpacity style={[styles.saveBtn, { flex: 1, backgroundColor: '#34C759', height: 40, borderRadius: 8, flexDirection: 'row' }]} onPress={handleImportPlayers}><Ionicons name="arrow-up-outline" size={16} color="#FFF" style={{marginRight: 6}}/><Text style={[styles.saveBtnText, {fontSize: 13, fontWeight: '700'}]}>Importa</Text></TouchableOpacity>
+                        <TouchableOpacity style={[styles.saveBtn, { flex: 1, backgroundColor: '#34C759', height: 42, borderRadius: 8, flexDirection: 'row', paddingHorizontal: 4 }]} onPress={handleImportPlayers}>
+                          <Ionicons name="arrow-up-outline" size={16} color="#FFF" style={{marginRight: 4}}/>
+                          <Text style={[styles.saveBtnText, {fontSize: 12, fontWeight: '700'}]}>Importa Giocatori</Text>
+                        </TouchableOpacity>
                       )}
                     </View>
                     <View style={{ flexDirection: 'row', gap: 8, marginBottom: 20 }}>
-                      <TouchableOpacity style={[styles.saveBtn, { flex: 1, backgroundColor: '#8E8E93', height: 40, borderRadius: 8, flexDirection: 'row' }]} onPress={handleCreateGroupBackup}><Ionicons name="copy-outline" size={16} color="#FFF" style={{marginRight: 6}}/><Text style={[styles.saveBtnText, {fontSize: 13, fontWeight: '700'}]}>Backup</Text></TouchableOpacity>
+                      <TouchableOpacity style={[styles.saveBtn, { flex: 1, backgroundColor: '#8E8E93', height: 42, borderRadius: 8, flexDirection: 'row', paddingHorizontal: 4 }]} onPress={handleCreateGroupBackup}>
+                        <Ionicons name="copy-outline" size={16} color="#FFF" style={{marginRight: 4}}/>
+                        <Text style={[styles.saveBtnText, {fontSize: 12, fontWeight: '700'}]}>Esporta Backup</Text>
+                      </TouchableOpacity>
                       {isAdminOrOwner && (
-                        <TouchableOpacity style={[styles.saveBtn, { flex: 1, backgroundColor: '#FF9500', height: 40, borderRadius: 8, flexDirection: 'row' }]} onPress={handleRestoreGroupBackup}><Ionicons name="refresh-outline" size={16} color="#FFF" style={{marginRight: 6}}/><Text style={[styles.saveBtnText, {fontSize: 13, fontWeight: '700'}]}>Ripristina</Text></TouchableOpacity>
+                        <TouchableOpacity style={[styles.saveBtn, { flex: 1, backgroundColor: '#FF9500', height: 42, borderRadius: 8, flexDirection: 'row', paddingHorizontal: 4 }]} onPress={handleRestoreGroupBackup}>
+                          <Ionicons name="refresh-outline" size={16} color="#FFF" style={{marginRight: 4}}/>
+                          <Text style={[styles.saveBtnText, {fontSize: 12, fontWeight: '700'}]}>Ripristina Backup</Text>
+                        </TouchableOpacity>
                       )}
                     </View>
 
