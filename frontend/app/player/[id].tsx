@@ -75,6 +75,7 @@ export default function PlayerDetailScreen() {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [role, setRole] = useState('');
   const [strength, setStrength] = useState(5);
+  const [strengthText, setStrengthText] = useState('5');
 
   const maxStats = useMemo(() => {
     if (groupStats.length === 0) return { personalBonus: 1, defenseBonus: 1, incisivity: 1, goals: 1, assists: 1 };
@@ -133,6 +134,7 @@ export default function PlayerDetailScreen() {
         setManualDobText(birthDate.toLocaleDateString('it-IT'));
         setRole(found.role);
         setStrength(found.strength);
+        setStrengthText(String(found.strength));
 
         const allStats = await calculateStandings(groupId);
         setGroupStats(allStats);
@@ -1508,7 +1510,7 @@ export default function PlayerDetailScreen() {
           </View>
           <View style={styles.inputGroup}>
             <Text style={[styles.label, dynamicStyles.text]}>Livello di Forza</Text>
-            <TouchableOpacity style={[styles.strengthPreviewBox, dynamicStyles.card, {borderColor: isDarkMode ? '#3A3A3C' : '#E5E5EA'}]} onPress={() => setShowStrengthModal(true)}><View style={[styles.strengthDisplay, {backgroundColor: isDarkMode ? '#3A3A3C' : '#F2F2F7'}]}><Text style={[styles.strengthNumber, dynamicStyles.text]}>{strength}</Text><Text style={[styles.strengthSubText, dynamicStyles.subText]}>VALORE</Text></View><Ionicons name="chevron-down" size={24} color="#8E8E93" /></TouchableOpacity>
+            <TouchableOpacity style={[styles.strengthPreviewBox, dynamicStyles.card, {borderColor: isDarkMode ? '#3A3A3C' : '#E5E5EA'}]} onPress={() => { setStrengthText(String(strength)); setShowStrengthModal(true); }}><View style={[styles.strengthDisplay, {backgroundColor: isDarkMode ? '#3A3A3C' : '#F2F2F7'}]}><Text style={[styles.strengthNumber, dynamicStyles.text]}>{strength}</Text><Text style={[styles.strengthSubText, dynamicStyles.subText]}>VALORE</Text></View><Ionicons name="chevron-down" size={24} color="#8E8E93" /></TouchableOpacity>
           </View>
           <TouchableOpacity style={styles.saveButton} onPress={handleSave} disabled={saving}>{saving ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.saveButtonText}>Salva Modifiche</Text>}</TouchableOpacity>
         </ScrollView>
@@ -1525,7 +1527,11 @@ export default function PlayerDetailScreen() {
             <View style={{ padding: 30, alignItems: 'center' }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 25 }}>
                 <TouchableOpacity
-                  onPress={() => setStrength(prev => Math.max(1, prev - 0.5))}
+                  onPress={() => {
+                    const newVal = Math.max(1, Number((strength - 0.5).toFixed(1)));
+                    setStrength(newVal);
+                    setStrengthText(String(newVal));
+                  }}
                   style={[styles.adjustBtn, { backgroundColor: isDarkMode ? '#3A3A3C' : '#F2F2F7' }]}
                 >
                   <Ionicons name="remove" size={32} color="#007AFF" />
@@ -1534,25 +1540,32 @@ export default function PlayerDetailScreen() {
                   <TextInput
                     style={[styles.strengthLargeInput, dynamicStyles.text]}
                     keyboardType="decimal-pad"
-                    value={String(strength)}
+                    value={strengthText}
                     selectTextOnFocus
                     onChangeText={(v) => {
+                      setStrengthText(v);
                       const sanitized = v.replace(',', '.');
-                      if (sanitized === '') {
-                        setStrength(0);
-                      } else {
-                        const val = parseFloat(sanitized);
-                        if (!isNaN(val)) setStrength(val);
-                      }
+                      const val = parseFloat(sanitized);
+                      if (!isNaN(val)) setStrength(val);
                     }}
                     onBlur={() => {
-                      setStrength(Math.max(1, Math.min(10, strength)));
+                      const sanitized = strengthText.replace(',', '.');
+                      let val = parseFloat(sanitized);
+                      if (isNaN(val)) val = strength || 5;
+                      val = Math.max(1, Math.min(10, val));
+                      val = Number(val.toFixed(1));
+                      setStrength(val);
+                      setStrengthText(String(val));
                     }}
                   />
                   <Text style={[dynamicStyles.subText, { fontSize: 10, fontWeight: '800', marginTop: -5, letterSpacing: 1 }]}>VALORE ATTUALE</Text>
                 </View>
                 <TouchableOpacity
-                  onPress={() => setStrength(prev => Math.min(10, prev + 0.5))}
+                  onPress={() => {
+                    const newVal = Math.min(10, Number((strength + 0.5).toFixed(1)));
+                    setStrength(newVal);
+                    setStrengthText(String(newVal));
+                  }}
                   style={[styles.adjustBtn, { backgroundColor: isDarkMode ? '#3A3A3C' : '#F2F2F7' }]}
                 >
                   <Ionicons name="add" size={32} color="#007AFF" />
@@ -1561,7 +1574,13 @@ export default function PlayerDetailScreen() {
               <TouchableOpacity
                 style={[styles.saveButton, { width: '100%', marginTop: 40, height: 54 }]}
                 onPress={() => {
-                  setStrength(Math.max(1, Math.min(10, strength)));
+                  const sanitized = strengthText.replace(',', '.');
+                  let val = parseFloat(sanitized);
+                  if (isNaN(val)) val = strength || 5;
+                  val = Math.max(1, Math.min(10, val));
+                  val = Number(val.toFixed(1));
+                  setStrength(val);
+                  setStrengthText(String(val));
                   setShowStrengthModal(false);
                 }}
               >

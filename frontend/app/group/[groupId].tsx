@@ -133,7 +133,7 @@ export default function GroupDetailScreen() {
   const [showPlayerEditor, setShowPlayerEditor] = useState<{ id: string, team: 'a' | 'b' } | null>(null);
   const [tempRole, setTempRole] = useState('');
   const [tempStrength, setTempStrength] = useState(5);
-  const [tempStrengthInput, setTempStrengthInput] = useState('5');
+  const [tempStrengthText, setTempStrengthText] = useState('5');
   const [tempTeamName, setTempTeamName] = useState('');
   const [tempJerseyColor, setTempJerseyColor] = useState('');
   const [importing, setImporting] = useState(false);
@@ -871,42 +871,6 @@ export default function GroupDetailScreen() {
     }
   };
 
-  const getPlayerAge = (p: any): number => {
-    if (typeof p?.age === 'number' && p.age > 0) return p.age;
-    if (p?.date_of_birth) {
-      const today = new Date();
-      const birthDate = new Date(p.date_of_birth);
-      if (!isNaN(birthDate.getTime())) {
-        let age = today.getFullYear() - birthDate.getFullYear();
-        const m = today.getMonth() - birthDate.getMonth();
-        if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) age--;
-        if (age > 0) return age;
-      }
-    }
-    const found = players.find((gp: any) => String(gp.id) === String(p?.id));
-    if (found) {
-      if (typeof found.age === 'number' && found.age > 0) return found.age;
-      if (found.date_of_birth) {
-        const today = new Date();
-        const birthDate = new Date(found.date_of_birth);
-        if (!isNaN(birthDate.getTime())) {
-          let age = today.getFullYear() - birthDate.getFullYear();
-          const m = today.getMonth() - birthDate.getMonth();
-          if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) age--;
-          if (age > 0) return age;
-        }
-      }
-    }
-    return 0;
-  };
-
-  const calcTeamAvgAge = (teamPlayers: any[]): number => {
-    if (!teamPlayers || teamPlayers.length === 0) return 0;
-    const ages = teamPlayers.map(p => getPlayerAge(p)).filter(a => a > 0);
-    if (ages.length === 0) return 0;
-    return Number((ages.reduce((sum, age) => sum + age, 0) / ages.length).toFixed(1));
-  };
-
   const movePlayer = (playerId: string, fromTeamKey: string, direction: 'up' | 'down') => {
     if (!teams) return;
     const newTeams = { ...teams };
@@ -957,6 +921,8 @@ export default function GroupDetailScreen() {
       ];
     }
 
+    if (teamData.length < 2) return;
+
     const sIdx = teamData.findIndex(t => t.key === fromTeamKey);
     if (sIdx === -1) return;
 
@@ -999,24 +965,14 @@ export default function GroupDetailScreen() {
     if (newTeams.teams) {
       teamData.forEach(t => {
         t.total_strength = Number(t.players.reduce((acc: number, p: any) => acc + p.strength, 0).toFixed(1));
-        t.avg_age = calcTeamAvgAge(t.players);
+        t.avg_age = t.players.length ? Number((t.players.reduce((acc: number, p: any) => acc + p.age, 0) / t.players.length).toFixed(1)) : 0;
       });
       newTeams.teams = teamData;
-      if (teamData.length >= 2) {
-        newTeams.team_a = teamData[0].players;
-        newTeams.team_b = teamData[1].players;
-        newTeams.team_a_total_strength = teamData[0].total_strength;
-        newTeams.team_b_total_strength = teamData[1].total_strength;
-        newTeams.team_a_avg_age = teamData[0].avg_age;
-        newTeams.team_b_avg_age = teamData[1].avg_age;
-      }
     } else {
       newTeams.team_a = teamData[0].players;
       newTeams.team_b = teamData[1].players;
       newTeams.team_a_total_strength = Number(newTeams.team_a.reduce((acc, p) => acc + p.strength, 0).toFixed(1));
       newTeams.team_b_total_strength = Number(newTeams.team_b.reduce((acc, p) => acc + p.strength, 0).toFixed(1));
-      newTeams.team_a_avg_age = calcTeamAvgAge(newTeams.team_a);
-      newTeams.team_b_avg_age = calcTeamAvgAge(newTeams.team_b);
     }
 
     setTeams(newTeams);
@@ -1025,23 +981,19 @@ export default function GroupDetailScreen() {
   const handleOpenPlayerEditor = (player: Player, teamKey: string) => {
     setTempRole(player.role);
     setTempStrength(player.strength);
-    setTempStrengthInput(String(player.strength).replace('.', ','));
+    setTempStrengthText(String(player.strength));
     setShowPlayerEditor({ id: player.id, team: teamKey as any });
   };
 
   const handleUpdatePlayerTemp = () => {
     if (!showPlayerEditor || !teams) return;
     const newTeams = { ...teams };
-    const currStr = typeof tempStrength === 'number' && !isNaN(tempStrength) ? tempStrength : (parseFloat(String(tempStrengthInput).replace(',', '.')) || 1);
-    const finalStrength = Math.max(1, Math.min(10, currStr));
 
     if (showPlayerEditor.team === 'a' || showPlayerEditor.team === 'b') {
       const teamKey = showPlayerEditor.team === 'a' ? 'team_a' : 'team_b';
       const strengthKey = showPlayerEditor.team === 'a' ? 'team_a_total_strength' : 'team_b_total_strength';
-      const avgAgeKey = showPlayerEditor.team === 'a' ? 'team_a_avg_age' : 'team_b_avg_age';
-      newTeams[teamKey] = newTeams[teamKey].map(p => p.id === showPlayerEditor.id ? { ...p, role: tempRole, strength: finalStrength } : p);
+      newTeams[teamKey] = newTeams[teamKey].map(p => p.id === showPlayerEditor.id ? { ...p, role: tempRole, strength: tempStrength } : p);
       newTeams[strengthKey] = Number(newTeams[teamKey].reduce((acc, p) => acc + p.strength, 0).toFixed(1));
-      newTeams[avgAgeKey] = calcTeamAvgAge(newTeams[teamKey]);
     }
 
     if (newTeams.teams) {
@@ -1049,10 +1001,9 @@ export default function GroupDetailScreen() {
       if (tIdx !== -1) {
         const teamToUpdate = { ...newTeams.teams[tIdx] };
         teamToUpdate.players = teamToUpdate.players.map((p: any) =>
-          p.id === showPlayerEditor.id ? { ...p, role: tempRole, strength: finalStrength } : p
+          p.id === showPlayerEditor.id ? { ...p, role: tempRole, strength: tempStrength } : p
         );
         teamToUpdate.total_strength = Number(teamToUpdate.players.reduce((acc: number, p: any) => acc + p.strength, 0).toFixed(1));
-        teamToUpdate.avg_age = calcTeamAvgAge(teamToUpdate.players);
         newTeams.teams = [...newTeams.teams];
         newTeams.teams[tIdx] = teamToUpdate;
       }
@@ -1078,7 +1029,6 @@ export default function GroupDetailScreen() {
       if (original) {
         setTempRole(original.role);
         setTempStrength(original.strength);
-        setTempStrengthInput(String(original.strength).replace('.', ','));
       }
     }
   };
@@ -3364,7 +3314,7 @@ export default function GroupDetailScreen() {
                           </View>
                           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
                             <Text style={[styles.teamStatsSub, { fontSize: 10 }]}>
-                              {calcTeamAvgAge(t.players)} Età Media • {(t.total_strength / (t.players.length || 1)).toFixed(1)} FRZ Media
+                              {t.avg_age} Età Media • {(t.total_strength / (t.players.length || 1)).toFixed(1)} FRZ Media
                             </Text>
                           </View>
                           {isAdminOrOwner && !sharing && (
@@ -3458,20 +3408,20 @@ export default function GroupDetailScreen() {
                               </View>
                             )}
                             {!sharing && (
-                              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                                {teamData.length > 2 && (
-                                  <TouchableOpacity
-                                    onPress={() => swapPlayer(p.id, t.key as any, 'prev')}
-                                    style={[styles.swapBtn, { padding: 6, backgroundColor: '#007AFF15', borderRadius: 8 }]}
-                                  >
-                                    <Ionicons name="arrow-back" size={18} color="#007AFF" />
-                                  </TouchableOpacity>
-                                )}
+                              <View style={{ flexDirection: 'row', gap: 4, alignItems: 'center' }}>
+                                <TouchableOpacity
+                                  onPress={() => swapPlayer(p.id, t.key as any, 'prev')}
+                                  style={{ paddingHorizontal: 7, paddingVertical: 6, backgroundColor: '#007AFF15', borderRadius: 8, alignItems: 'center', justifyContent: 'center' }}
+                                  activeOpacity={0.7}
+                                >
+                                  <Ionicons name="arrow-up" size={16} color="#007AFF" />
+                                </TouchableOpacity>
                                 <TouchableOpacity
                                   onPress={() => swapPlayer(p.id, t.key as any, 'next')}
-                                  style={[styles.swapBtn, { padding: teamData.length > 2 ? 6 : 8, backgroundColor: '#007AFF15', borderRadius: 8 }]}
+                                  style={{ paddingHorizontal: 7, paddingVertical: 6, backgroundColor: '#007AFF15', borderRadius: 8, alignItems: 'center', justifyContent: 'center' }}
+                                  activeOpacity={0.7}
                                 >
-                                  <Ionicons name={teamData.length > 2 ? "arrow-forward" : "swap-horizontal"} size={teamData.length > 2 ? 18 : 22} color="#007AFF" />
+                                  <Ionicons name="arrow-down" size={16} color="#007AFF" />
                                 </TouchableOpacity>
                               </View>
                             )}
@@ -5316,11 +5266,11 @@ export default function GroupDetailScreen() {
 
     // Calcolo Medie per Anteprima (Scheduled)
     const totalStrA = teamAPlayers.reduce((acc, p) => acc + p.strength, 0);
-    const avgAgeA = calcTeamAvgAge(teamAPlayers);
+    const avgAgeA = teamAPlayers.length ? (teamAPlayers.reduce((acc, p) => acc + p.age, 0) / teamAPlayers.length).toFixed(1) : '0';
     const avgStrA = teamAPlayers.length ? (totalStrA / teamAPlayers.length).toFixed(1) : '0';
 
     const totalStrB = teamBPlayers.reduce((acc, p) => acc + p.strength, 0);
-    const avgAgeB = calcTeamAvgAge(teamBPlayers);
+    const avgAgeB = teamBPlayers.length ? (teamBPlayers.reduce((acc, p) => acc + p.age, 0) / teamBPlayers.length).toFixed(1) : '0';
     const avgStrB = teamBPlayers.length ? (totalStrB / teamBPlayers.length).toFixed(1) : '0';
 
     return (
@@ -5606,8 +5556,8 @@ export default function GroupDetailScreen() {
         {teams ? renderTeamsResult() : (
           <View style={{ flex: 1 }}>
             {showConfig && (
-              <View style={[styles.configContainer, dynamicStyles.card, { marginHorizontal: 20, marginBottom: 12, padding: 20, maxHeight: Platform.OS === 'web' ? '70vh' : 520, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 12, elevation: 5 }]}>
-                <ScrollView showsVerticalScrollIndicator={true} style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 20 }}>
+              <View style={[styles.configContainer, dynamicStyles.card, { marginHorizontal: 20, marginBottom: 12, padding: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 12, elevation: 5 }]}>
+                <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 20 }}>
                   <View style={styles.configSection}>
 
                     {/* SEZIONE CAMPIONATO */}
@@ -5996,30 +5946,16 @@ export default function GroupDetailScreen() {
 
                     {/* AZIONI COMUNI (Backup, Token, Dati) */}
 
-
-
                     <View style={{ flexDirection: 'row', gap: 8, marginBottom: 8, marginTop: 10 }}>
-                      <TouchableOpacity style={[styles.saveBtn, { flex: 1, backgroundColor: '#007AFF', height: 42, borderRadius: 8, flexDirection: 'row', paddingHorizontal: 4 }]} onPress={handleExportPlayers}>
-                        <Ionicons name="download-outline" size={16} color="#FFF" style={{marginRight: 4}}/>
-                        <Text style={[styles.saveBtnText, {fontSize: 12, fontWeight: '700'}]}>Esporta Giocatori</Text>
-                      </TouchableOpacity>
+                      <TouchableOpacity style={[styles.saveBtn, { flex: 1, backgroundColor: '#007AFF', height: 40, borderRadius: 8, flexDirection: 'row' }]} onPress={handleExportPlayers}><Ionicons name="download-outline" size={16} color="#FFF" style={{marginRight: 6}}/><Text style={[styles.saveBtnText, {fontSize: 12, fontWeight: '700'}]} numberOfLines={1}>Esporta Giocatori</Text></TouchableOpacity>
                       {isAdminOrOwner && (
-                        <TouchableOpacity style={[styles.saveBtn, { flex: 1, backgroundColor: '#34C759', height: 42, borderRadius: 8, flexDirection: 'row', paddingHorizontal: 4 }]} onPress={handleImportPlayers}>
-                          <Ionicons name="arrow-up-outline" size={16} color="#FFF" style={{marginRight: 4}}/>
-                          <Text style={[styles.saveBtnText, {fontSize: 12, fontWeight: '700'}]}>Importa Giocatori</Text>
-                        </TouchableOpacity>
+                        <TouchableOpacity style={[styles.saveBtn, { flex: 1, backgroundColor: '#34C759', height: 40, borderRadius: 8, flexDirection: 'row' }]} onPress={handleImportPlayers}><Ionicons name="arrow-up-outline" size={16} color="#FFF" style={{marginRight: 6}}/><Text style={[styles.saveBtnText, {fontSize: 12, fontWeight: '700'}]} numberOfLines={1}>Importa Giocatori</Text></TouchableOpacity>
                       )}
                     </View>
                     <View style={{ flexDirection: 'row', gap: 8, marginBottom: 20 }}>
-                      <TouchableOpacity style={[styles.saveBtn, { flex: 1, backgroundColor: '#8E8E93', height: 42, borderRadius: 8, flexDirection: 'row', paddingHorizontal: 4 }]} onPress={handleCreateGroupBackup}>
-                        <Ionicons name="copy-outline" size={16} color="#FFF" style={{marginRight: 4}}/>
-                        <Text style={[styles.saveBtnText, {fontSize: 12, fontWeight: '700'}]}>Esporta Backup</Text>
-                      </TouchableOpacity>
+                      <TouchableOpacity style={[styles.saveBtn, { flex: 1, backgroundColor: '#8E8E93', height: 40, borderRadius: 8, flexDirection: 'row' }]} onPress={handleCreateGroupBackup}><Ionicons name="copy-outline" size={16} color="#FFF" style={{marginRight: 6}}/><Text style={[styles.saveBtnText, {fontSize: 12, fontWeight: '700'}]} numberOfLines={1}>Crea Backup</Text></TouchableOpacity>
                       {isAdminOrOwner && (
-                        <TouchableOpacity style={[styles.saveBtn, { flex: 1, backgroundColor: '#FF9500', height: 42, borderRadius: 8, flexDirection: 'row', paddingHorizontal: 4 }]} onPress={handleRestoreGroupBackup}>
-                          <Ionicons name="refresh-outline" size={16} color="#FFF" style={{marginRight: 4}}/>
-                          <Text style={[styles.saveBtnText, {fontSize: 12, fontWeight: '700'}]}>Ripristina Backup</Text>
-                        </TouchableOpacity>
+                        <TouchableOpacity style={[styles.saveBtn, { flex: 1, backgroundColor: '#FF9500', height: 40, borderRadius: 8, flexDirection: 'row' }]} onPress={handleRestoreGroupBackup}><Ionicons name="refresh-outline" size={16} color="#FFF" style={{marginRight: 6}}/><Text style={[styles.saveBtnText, {fontSize: 12, fontWeight: '700'}]} numberOfLines={1}>Ripristina Backup</Text></TouchableOpacity>
                       )}
                     </View>
 
@@ -6619,62 +6555,51 @@ export default function GroupDetailScreen() {
 
               <Text style={[styles.configSectionTitle, dynamicStyles.text, { fontSize: 13, marginBottom: 8 }]}>Forza (FRZ)</Text>
               <View style={{ alignItems: 'center', paddingVertical: 10 }}>
-                <View style={{ width: '100%', flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 20 }}>
                   <TouchableOpacity
                     onPress={() => {
-                      const currentVal = typeof tempStrength === 'number' && !isNaN(tempStrength) ? tempStrength : (parseFloat(String(tempStrengthInput).replace(',', '.')) || 1);
-                      const nextVal = Math.max(0.5, Math.round((currentVal - 0.5) * 10) / 10);
-                      setTempStrength(nextVal);
-                      setTempStrengthInput(String(nextVal).replace('.', ','));
+                      const newVal = Math.max(1, Number((tempStrength - 0.5).toFixed(1)));
+                      setTempStrength(newVal);
+                      setTempStrengthText(String(newVal));
                     }}
-                    style={[styles.adjustBtn, { backgroundColor: isDarkMode ? '#3A3A3C' : '#E5E5EA' }]}
-                    activeOpacity={0.7}
+                    style={[styles.adjustBtn, { backgroundColor: isDarkMode ? '#3A3A3C' : '#F2F2F7' }]}
                   >
-                    <Text style={{ fontSize: 28, fontWeight: '700', color: '#007AFF', lineHeight: 30, textAlign: 'center' }}>-</Text>
+                    <Ionicons name="remove" size={28} color="#007AFF" />
                   </TouchableOpacity>
 
-                  <View style={{ alignItems: 'center', width: 90, marginHorizontal: 15 }}>
+                  <View style={{ alignItems: 'center', minWidth: 80 }}>
                     <TextInput
                       style={[styles.strengthLargeInput, dynamicStyles.text, { fontSize: 40 }]}
                       keyboardType="decimal-pad"
-                      value={tempStrengthInput}
+                      value={tempStrengthText}
                       selectTextOnFocus
                       onChangeText={(v) => {
-                        setTempStrengthInput(v);
+                        setTempStrengthText(v);
                         const sanitized = v.replace(',', '.');
-                        if (sanitized.trim() === '') {
-                          setTempStrength(1);
-                        } else {
-                          const parsed = parseFloat(sanitized);
-                          if (!isNaN(parsed)) setTempStrength(parsed);
-                        }
+                        const val = parseFloat(sanitized);
+                        if (!isNaN(val)) setTempStrength(val);
                       }}
                       onBlur={() => {
-                        const currentVal = typeof tempStrength === 'number' && !isNaN(tempStrength) ? tempStrength : (parseFloat(String(tempStrengthInput).replace(',', '.')) || 1);
-                        const clamped = Math.max(0.5, Math.min(10, currentVal));
-                        setTempStrength(clamped);
-                        setTempStrengthInput(String(clamped).replace('.', ','));
+                        const sanitized = tempStrengthText.replace(',', '.');
+                        let val = parseFloat(sanitized);
+                        if (isNaN(val)) val = tempStrength || 5;
+                        val = Math.max(1, Math.min(10, val));
+                        val = Number(val.toFixed(1));
+                        setTempStrength(val);
+                        setTempStrengthText(String(val));
                       }}
                     />
                   </View>
 
                   <TouchableOpacity
                     onPress={() => {
-                      const currentVal = typeof tempStrength === 'number' && !isNaN(tempStrength) ? tempStrength : (parseFloat(String(tempStrengthInput).replace(',', '.')) || 1);
-                      const nextVal = Math.min(10, Math.round((currentVal + 0.5) * 10) / 10);
-                      setTempStrength(nextVal);
-                      setTempStrengthInput(String(nextVal).replace('.', ','));
+                      const newVal = Math.min(10, Number((tempStrength + 0.5).toFixed(1)));
+                      setTempStrength(newVal);
+                      setTempStrengthText(String(newVal));
                     }}
-                    style={[styles.adjustBtn, { backgroundColor: isDarkMode ? '#3A3A3C' : '#E5E5EA' }]}
-                    activeOpacity={0.7}
+                    style={[styles.adjustBtn, { backgroundColor: isDarkMode ? '#3A3A3C' : '#F2F2F7' }]}
                   >
-                        return next;
-                      });
-                    }}
-                    style={[styles.adjustBtn, { backgroundColor: isDarkMode ? '#3A3A3C' : '#E5E5EA' }]}
-                    activeOpacity={0.7}
-                  >
-                    <Text pointerEvents="none" style={{ fontSize: 28, fontWeight: '700', color: '#007AFF', lineHeight: 30, textAlign: 'center' }}>+</Text>
+                    <Ionicons name="add" size={28} color="#007AFF" />
                   </TouchableOpacity>
                 </View>
               </View>
@@ -6799,7 +6724,7 @@ const styles = StyleSheet.create({
   teamSectionTitle: { fontSize: 14, fontWeight: '800' },
   tpStrength: { fontSize: 16, fontWeight: '800' },
   tpAge: { fontSize: 12 },
-  adjustBtn: { width: 50, height: 50, borderRadius: 25, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  adjustBtn: { width: 50, height: 50, borderRadius: 25, alignItems: 'center', justifyContent: 'center' },
   strengthLargeInput: { fontSize: 48, fontWeight: '900', textAlign: 'center', minWidth: 80, padding: 0, margin: 0 },
   gironeHeader: { elevation: 3, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4 },
   groupIcon: { alignItems: 'center', justifyContent: 'center' },
