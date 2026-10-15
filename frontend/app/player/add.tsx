@@ -10,8 +10,6 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
-  Keyboard,
-  TouchableWithoutFeedback,
   Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -35,7 +33,6 @@ export default function AddPlayerScreen() {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [role, setRole] = useState('Attaccante');
   const [strength, setStrength] = useState(5);
-  const [strengthInput, setStrengthInput] = useState('5');
   const [saving, setSaving] = useState(false);
   const [showStrengthModal, setShowStrengthModal] = useState(false);
 
@@ -126,118 +123,110 @@ export default function AddPlayerScreen() {
         style={{ flex: 1 }}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
       >
-        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-          <ScrollView
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={styles.scrollContent}
-            keyboardShouldPersistTaps="handled"
-          >
-            <View style={styles.header}>
-              <TouchableOpacity onPress={() => router.back()} style={styles.closeBtn}>
-                <Ionicons name="close" size={28} color={isDarkMode ? "#FFF" : "#1C1C1E"} />
-              </TouchableOpacity>
-              <Text style={[styles.headerTitle, dynamicStyles.text]}>Nuovo Giocatore</Text>
-              <View style={{ width: 44 }} />
-            </View>
-
-            <View style={styles.inputGroup}>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Text style={[styles.label, dynamicStyles.text]}>Nickname</Text>
-                <Text style={[styles.charCount, dynamicStyles.subText]}>{nickname.length}/8</Text>
-              </View>
-              <TextInput style={[styles.input, dynamicStyles.input]} value={nickname} onChangeText={setNickname} placeholder="Nickname" placeholderTextColor={isDarkMode ? "#8E8E93" : "#C7C7CC"} maxLength={8} />
-            </View>
-
-            <View style={styles.inputGroup}>
-              <Text style={[styles.label, dynamicStyles.text]}>Telefono (opz.)</Text>
-              <TextInput
-                style={[styles.input, dynamicStyles.input]}
-                value={phone}
-                onChangeText={setPhone}
-                placeholder="Es. 333 1234567"
-                placeholderTextColor={isDarkMode ? "#8E8E93" : "#C7C7CC"}
-                keyboardType="phone-pad"
-              />
-            </View>
-
-            <View style={{ flexDirection: 'row', gap: 12, marginBottom: 12 }}>
-              <View style={[styles.inputGroup, { flex: 1, marginBottom: 0 }]}>
-                <Text style={[styles.label, dynamicStyles.text]}>Nome (opz.)</Text>
-                <TextInput style={[styles.input, dynamicStyles.input]} value={name} onChangeText={setName} placeholder="Es. Mario" placeholderTextColor={isDarkMode ? "#8E8E93" : "#C7C7CC"} />
-              </View>
-              <View style={[styles.inputGroup, { flex: 1, marginBottom: 0 }]}>
-                <Text style={[styles.label, dynamicStyles.text]}>Cognome (opz.)</Text>
-                <TextInput style={[styles.input, dynamicStyles.input]} value={surname} onChangeText={setSurname} placeholder="Es. Rossi" placeholderTextColor={isDarkMode ? "#8E8E93" : "#C7C7CC"} />
-              </View>
-            </View>
-
-            <View style={styles.inputGroup}>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                <Text style={[styles.label, dynamicStyles.text, { marginBottom: 0 }]}>Data di Nascita</Text>
-                <TouchableOpacity onPress={() => setIsManualDob(!isManualDob)} style={{ padding: 4 }}>
-                  <Ionicons name={isManualDob ? "calendar-outline" : "pencil-outline"} size={18} color="#007AFF" />
-                </TouchableOpacity>
-              </View>
-              <View style={styles.ageContainer}>
-                {isManualDob ? (
-                  <TextInput
-                    style={[styles.input, dynamicStyles.input, { flex: 1, marginRight: 12 }]}
-                    value={manualDobText}
-                    onChangeText={handleManualDobChange}
-                    placeholder="GG/MM/AAAA"
-                    placeholderTextColor={isDarkMode ? "#8E8E93" : "#C7C7CC"}
-                    keyboardType="numeric"
-                    maxLength={10}
-                  />
-                ) : (
-                  <TouchableOpacity style={[styles.input, dynamicStyles.input, styles.datePickerButton]} onPress={() => setShowDatePicker(true)}>
-                    <Ionicons name="calendar-outline" size={20} color="#007AFF" style={{ marginRight: 10 }} />
-                    <Text style={[styles.dateText, dynamicStyles.text]}>{dob.toLocaleDateString('it-IT')}</Text>
-                  </TouchableOpacity>
-                )}
-                <View style={[styles.ageBox, dynamicStyles.card, { borderColor: isDarkMode ? '#3A3A3C' : '#E5E5EA' }]}>
-                  <Text style={styles.ageNumber}>{calculateAgeDisplay(dob)}</Text>
-                  <Text style={[styles.ageLabel, dynamicStyles.subText]}>ANNI</Text>
-                </View>
-              </View>
-              {showDatePicker && (
-                <DateTimePicker value={dob} mode="date" display={Platform.OS === 'ios' ? 'spinner' : 'default'} onChange={onDateChange} maximumDate={new Date()} themeVariant={isDarkMode ? 'dark' : 'light'} />
-              )}
-            </View>
-
-            <View style={styles.inputGroup}>
-              <Text style={[styles.label, dynamicStyles.text]}>Ruolo</Text>
-              <View style={styles.roleGrid}>
-                {ROLES.map((r) => (
-                  <TouchableOpacity key={r} style={[styles.roleOption, dynamicStyles.card, {borderColor: isDarkMode ? '#3A3A3C' : '#E5E5EA'}, role === r && { backgroundColor: ROLE_COLORS[r], borderColor: ROLE_COLORS[r] }]} onPress={() => setRole(r)}>
-                    <Text style={[styles.roleOptionText, dynamicStyles.text, role === r && { color: '#FFFFFF' }]}>{r}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </View>
-
-            <View style={styles.inputGroup}>
-              <Text style={[styles.label, dynamicStyles.text]}>Livello di Forza</Text>
-              <TouchableOpacity
-                style={[styles.strengthPreviewBox, dynamicStyles.card, {borderColor: isDarkMode ? '#3A3A3C' : '#E5E5EA'}]}
-                onPress={() => {
-                  setStrengthInput(String(strength).replace('.', ','));
-                  setShowStrengthModal(true);
-                }}
-              >
-                <View style={[styles.strengthDisplay, {backgroundColor: isDarkMode ? '#3A3A3C' : '#F2F2F7'}]}>
-                   <Text style={[styles.strengthNumber, dynamicStyles.text]}>{strength}</Text>
-                   <Text style={[styles.strengthSubText, dynamicStyles.subText]}>VALORE</Text>
-                </View>
-                <Ionicons name="chevron-down" size={24} color="#8E8E93" />
-              </TouchableOpacity>
-            </View>
-
-            <TouchableOpacity style={styles.saveButton} onPress={handleSave} disabled={saving}>
-              {saving ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.saveButtonText}>Salva Giocatore</Text>}
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={styles.header}>
+            <TouchableOpacity onPress={() => router.back()} style={styles.closeBtn}>
+              <Ionicons name="close" size={28} color={isDarkMode ? "#FFF" : "#1C1C1E"} />
             </TouchableOpacity>
-          </ScrollView>
-        </TouchableWithoutFeedback>
+            <Text style={[styles.headerTitle, dynamicStyles.text]}>Nuovo Giocatore</Text>
+            <View style={{ width: 44 }} />
+          </View>
+
+          <View style={styles.inputGroup}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Text style={[styles.label, dynamicStyles.text]}>Nickname</Text>
+              <Text style={[styles.charCount, dynamicStyles.subText]}>{nickname.length}/8</Text>
+            </View>
+            <TextInput style={[styles.input, dynamicStyles.input]} value={nickname} onChangeText={setNickname} placeholder="Nickname" placeholderTextColor={isDarkMode ? "#8E8E93" : "#C7C7CC"} maxLength={8} />
+          </View>
+
+          <View style={{ flexDirection: 'row', gap: 12, marginBottom: 12 }}>
+            <View style={[styles.inputGroup, { flex: 1, marginBottom: 0 }]}>
+              <Text style={[styles.label, dynamicStyles.text]}>Nome (opz.)</Text>
+              <TextInput style={[styles.input, dynamicStyles.input]} value={name} onChangeText={setName} placeholder="Es. Mario" placeholderTextColor={isDarkMode ? "#8E8E93" : "#C7C7CC"} />
+            </View>
+            <View style={[styles.inputGroup, { flex: 1, marginBottom: 0 }]}>
+              <Text style={[styles.label, dynamicStyles.text]}>Cognome (opz.)</Text>
+              <TextInput style={[styles.input, dynamicStyles.input]} value={surname} onChangeText={setSurname} placeholder="Es. Rossi" placeholderTextColor={isDarkMode ? "#8E8E93" : "#C7C7CC"} />
+            </View>
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={[styles.label, dynamicStyles.text]}>Telefono (opz.)</Text>
+            <TextInput
+              style={[styles.input, dynamicStyles.input]}
+              value={phone}
+              onChangeText={setPhone}
+              placeholder="Es. 333 1234567"
+              placeholderTextColor={isDarkMode ? "#8E8E93" : "#C7C7CC"}
+              keyboardType="phone-pad"
+            />
+          </View>
+
+          <View style={styles.inputGroup}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+              <Text style={[styles.label, dynamicStyles.text, { marginBottom: 0 }]}>Data di Nascita</Text>
+              <TouchableOpacity onPress={() => setIsManualDob(!isManualDob)} style={{ padding: 4 }}>
+                <Ionicons name={isManualDob ? "calendar-outline" : "pencil-outline"} size={18} color="#007AFF" />
+              </TouchableOpacity>
+            </View>
+            <View style={styles.ageContainer}>
+              {isManualDob ? (
+                <TextInput
+                  style={[styles.input, dynamicStyles.input, { flex: 1, marginRight: 12 }]}
+                  value={manualDobText}
+                  onChangeText={handleManualDobChange}
+                  placeholder="GG/MM/AAAA"
+                  placeholderTextColor={isDarkMode ? "#8E8E93" : "#C7C7CC"}
+                  keyboardType="numeric"
+                  maxLength={10}
+                />
+              ) : (
+                <TouchableOpacity style={[styles.input, dynamicStyles.input, styles.datePickerButton]} onPress={() => setShowDatePicker(true)}>
+                  <Ionicons name="calendar-outline" size={20} color="#007AFF" style={{ marginRight: 10 }} />
+                  <Text style={[styles.dateText, dynamicStyles.text]}>{dob.toLocaleDateString('it-IT')}</Text>
+                </TouchableOpacity>
+              )}
+              <View style={[styles.ageBox, dynamicStyles.card, { borderColor: isDarkMode ? '#3A3A3C' : '#E5E5EA' }]}>
+                <Text style={styles.ageNumber}>{calculateAgeDisplay(dob)}</Text>
+                <Text style={[styles.ageLabel, dynamicStyles.subText]}>ANNI</Text>
+              </View>
+            </View>
+            {showDatePicker && (
+              <DateTimePicker value={dob} mode="date" display={Platform.OS === 'ios' ? 'spinner' : 'default'} onChange={onDateChange} maximumDate={new Date()} themeVariant={isDarkMode ? 'dark' : 'light'} />
+            )}
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={[styles.label, dynamicStyles.text]}>Ruolo</Text>
+            <View style={styles.roleGrid}>
+              {ROLES.map((r) => (
+                <TouchableOpacity key={r} style={[styles.roleOption, dynamicStyles.card, {borderColor: isDarkMode ? '#3A3A3C' : '#E5E5EA'}, role === r && { backgroundColor: ROLE_COLORS[r], borderColor: ROLE_COLORS[r] }]} onPress={() => setRole(r)}>
+                  <Text style={[styles.roleOptionText, dynamicStyles.text, role === r && { color: '#FFFFFF' }]}>{r}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={[styles.label, dynamicStyles.text]}>Livello di Forza</Text>
+            <TouchableOpacity style={[styles.strengthPreviewBox, dynamicStyles.card, {borderColor: isDarkMode ? '#3A3A3C' : '#E5E5EA'}]} onPress={() => setShowStrengthModal(true)}>
+              <View style={[styles.strengthDisplay, {backgroundColor: isDarkMode ? '#3A3A3C' : '#F2F2F7'}]}>
+                 <Text style={[styles.strengthNumber, dynamicStyles.text]}>{strength}</Text>
+                 <Text style={[styles.strengthSubText, dynamicStyles.subText]}>VALORE</Text>
+              </View>
+              <Ionicons name="chevron-down" size={24} color="#8E8E93" />
+            </TouchableOpacity>
+          </View>
+
+          <TouchableOpacity style={styles.saveButton} onPress={handleSave} disabled={saving}>
+            {saving ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.saveButtonText}>Salva Giocatore</Text>}
+          </TouchableOpacity>
+        </ScrollView>
       </KeyboardAvoidingView>
 
       <Modal visible={showStrengthModal} transparent={true} animationType="slide">
@@ -251,67 +240,48 @@ export default function AddPlayerScreen() {
             </View>
 
             <View style={{ padding: 30, alignItems: 'center' }}>
-              <View style={{ width: '100%', flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 25 }}>
                 <TouchableOpacity
-                  onPress={() => {
-                    const currentVal = typeof strength === 'number' && !isNaN(strength) ? strength : (parseFloat(String(strengthInput).replace(',', '.')) || 1);
-                    const nextVal = Math.max(0.5, Math.round((currentVal - 0.5) * 10) / 10);
-                    setStrength(nextVal);
-                    setStrengthInput(String(nextVal).replace('.', ','));
-                  }}
-                  style={[styles.adjustBtn, { backgroundColor: isDarkMode ? '#3A3A3C' : '#E5E5EA' }]}
-                  activeOpacity={0.7}
+                  onPress={() => setStrength(prev => Math.max(1, prev - 0.5))}
+                  style={[styles.adjustBtn, { backgroundColor: isDarkMode ? '#3A3A3C' : '#F2F2F7' }]}
                 >
-                  <Text style={{ fontSize: 32, fontWeight: '700', color: '#007AFF', lineHeight: 32, textAlign: 'center' }}>-</Text>
+                  <Ionicons name="remove" size={32} color="#007AFF" />
                 </TouchableOpacity>
 
-                <View style={{ alignItems: 'center', width: 110, marginHorizontal: 15 }}>
+                <View style={{ alignItems: 'center', minWidth: 100 }}>
                   <TextInput
                     style={[styles.strengthLargeInput, dynamicStyles.text]}
                     keyboardType="decimal-pad"
-                    value={strengthInput}
+                    value={String(strength)}
                     selectTextOnFocus
                     onChangeText={(v) => {
-                      setStrengthInput(v);
                       const sanitized = v.replace(',', '.');
-                      if (sanitized.trim() === '') {
-                        setStrength(1);
+                      if (sanitized === '') {
+                        setStrength(0);
                       } else {
-                        const parsed = parseFloat(sanitized);
-                        if (!isNaN(parsed)) setStrength(parsed);
+                        const val = parseFloat(sanitized);
+                        if (!isNaN(val)) setStrength(val);
                       }
                     }}
                     onBlur={() => {
-                      const currentVal = typeof strength === 'number' && !isNaN(strength) ? strength : (parseFloat(String(strengthInput).replace(',', '.')) || 1);
-                      const clamped = Math.max(0.5, Math.min(10, currentVal));
-                      setStrength(clamped);
-                      setStrengthInput(String(clamped).replace('.', ','));
+                      setStrength(Math.max(1, Math.min(10, strength)));
                     }}
                   />
                   <Text style={[dynamicStyles.subText, { fontSize: 10, fontWeight: '800', marginTop: -5, letterSpacing: 1 }]}>VALORE ATTUALE</Text>
                 </View>
 
                 <TouchableOpacity
-                  onPress={() => {
-                    const currentVal = typeof strength === 'number' && !isNaN(strength) ? strength : (parseFloat(String(strengthInput).replace(',', '.')) || 1);
-                    const nextVal = Math.min(10, Math.round((currentVal + 0.5) * 10) / 10);
-                    setStrength(nextVal);
-                    setStrengthInput(String(nextVal).replace('.', ','));
-                  }}
-                  style={[styles.adjustBtn, { backgroundColor: isDarkMode ? '#3A3A3C' : '#E5E5EA' }]}
-                  activeOpacity={0.7}
+                  onPress={() => setStrength(prev => Math.min(10, prev + 0.5))}
+                  style={[styles.adjustBtn, { backgroundColor: isDarkMode ? '#3A3A3C' : '#F2F2F7' }]}
                 >
-                  <Text style={{ fontSize: 32, fontWeight: '700', color: '#007AFF', lineHeight: 32, textAlign: 'center' }}>+</Text>
+                  <Ionicons name="add" size={32} color="#007AFF" />
                 </TouchableOpacity>
               </View>
 
               <TouchableOpacity
                 style={[styles.saveButton, { width: '100%', marginTop: 40, height: 54 }]}
                 onPress={() => {
-                  const currentVal = typeof strength === 'number' && !isNaN(strength) ? strength : (parseFloat(String(strengthInput).replace(',', '.')) || 1);
-                  const clamped = Math.max(0.5, Math.min(10, currentVal));
-                  setStrength(clamped);
-                  setStrengthInput(String(clamped).replace('.', ','));
+                  setStrength(Math.max(1, Math.min(10, strength)));
                   setShowStrengthModal(false);
                 }}
               >
@@ -348,13 +318,13 @@ const styles = StyleSheet.create({
   strengthDisplay: { alignItems: 'center', justifyContent: 'center', width: 54, height: 54, borderRadius: 12 },
   strengthNumber: { fontSize: 22, fontWeight: '800' },
   strengthSubText: { fontSize: 9, fontWeight: '700', marginTop: -2 },
-  adjustBtn: { width: 60, height: 60, borderRadius: 30, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  adjustBtn: { width: 60, height: 60, borderRadius: 30, alignItems: 'center', justifyContent: 'center' },
   strengthLargeInput: { fontSize: 48, fontWeight: '900', textAlign: 'center', minWidth: 80, padding: 0, margin: 0 },
   saveButton: { backgroundColor: '#007AFF', borderRadius: 14, paddingVertical: 16, alignItems: 'center', justifyContent: 'center', marginTop: 12 },
   saveButtonText: { color: '#FFFFFF', fontSize: 17, fontWeight: '700' },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
   modalContent: { borderTopLeftRadius: 20, borderTopRightRadius: 20, height: '50%', paddingBottom: 40 },
-  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, borderBottomWidth: 1 },
+  modalHeader: { padding: 20, borderBottomWidth: 1 },
   modalTitle: { fontSize: 17, fontWeight: '700' },
   strengthGrid: { flexDirection: 'row', flexWrap: 'wrap', padding: 10, justifyContent: 'center' },
   strengthOption: { width: '22%', aspectRatio: 1, margin: '1%', borderRadius: 12, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
