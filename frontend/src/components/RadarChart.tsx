@@ -264,7 +264,7 @@ const RadarChart: React.FC<RadarChartProps> = ({ stats, comparisonStats, isDarkM
                       <TSpan fill="#34C759">{val2}</TSpan>
                     </>
                   ) : (
-                    <TSpan fill={singleColor}>({val1})</TSpan>
+                    <TSpan fill={singleColor}>{val1}</TSpan>
                   )}
                 </SvgText>
               </G>
