@@ -134,6 +134,7 @@ export default function GroupDetailScreen() {
   const [tempRole, setTempRole] = useState('');
   const [tempStrength, setTempStrength] = useState(5);
   const [tempStrengthText, setTempStrengthText] = useState('5');
+  const [minMatchesFilter, setMinMatchesFilter] = useState<number>(0);
   const [tempTeamName, setTempTeamName] = useState('');
   const [tempJerseyColor, setTempJerseyColor] = useState('');
   const [importing, setImporting] = useState(false);
@@ -2625,7 +2626,17 @@ export default function GroupDetailScreen() {
     const activeSortId = group?.group_type === 'tournament' && sortBy === 'points' ? 'goals' : sortBy;
     const finalSort = sortOptions.find(o => o.id === activeSortId) || sortOptions[0];
 
-    const sorted = [...standings].sort((a, b) => {
+    // Applicazione del filtro Presenze Minime (Opzione B)
+    let filteredStandings = [...standings];
+    if (minMatchesFilter > 0) {
+      filteredStandings = filteredStandings.filter(s => (s.played || 0) >= minMatchesFilter);
+    } else if (minMatchesFilter === -1) {
+      const maxMatches = Math.max(1, ...standings.map(s => s.played || 0));
+      const minThreshold = Math.max(1, Math.ceil(maxMatches / 3));
+      filteredStandings = filteredStandings.filter(s => (s.played || 0) >= minThreshold);
+    }
+
+    const sorted = filteredStandings.sort((a, b) => {
       const key = finalSort.key as keyof PlayerStats;
       let valA = a[key] as number;
       let valB = b[key] as number;
@@ -2882,6 +2893,46 @@ export default function GroupDetailScreen() {
                   </Text>
                 </TouchableOpacity>
               ))}
+            </View>
+          </ScrollView>
+
+          {/* Filtro Presenze Minime (Opzione B) */}
+          <Text style={[dynamicStyles.subText, { fontSize: 9, fontWeight: '800', textTransform: 'uppercase', marginTop: 4, marginBottom: 4, marginLeft: 4 }]}>Filtra Presenze:</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            <View style={{ flexDirection: 'row', borderRadius: 10, overflow: 'hidden', borderWidth: 1, borderColor: isDarkMode ? '#3A3A3C' : '#E5E5EA' }}>
+              {(() => {
+                const maxMatchesInGroup = Math.max(1, ...standings.map(s => s.played || 0));
+                const qualThreshold = Math.max(1, Math.ceil(maxMatchesInGroup / 3));
+
+                return [
+                  { id: 0, label: 'TUTTI (MIN 1)' },
+                  { id: 3, label: 'MIN 3 PG' },
+                  { id: 5, label: 'MIN 5 PG' },
+                  { id: -1, label: `QUALIFICATI (≥${qualThreshold})` },
+                ].map((fOpt, i) => (
+                  <TouchableOpacity
+                    key={fOpt.id}
+                    onPress={() => setMinMatchesFilter(fOpt.id)}
+                    style={{
+                      paddingHorizontal: 10,
+                      height: 26,
+                      backgroundColor: (minMatchesFilter === fOpt.id) ? '#007AFF' : (isDarkMode ? '#2C2C2E' : '#FFFFFF'),
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      borderLeftWidth: i === 0 ? 0 : 1,
+                      borderLeftColor: isDarkMode ? '#3A3A3C' : '#E5E5EA',
+                    }}
+                  >
+                    <Text style={{
+                      fontSize: 8.5,
+                      fontWeight: '900',
+                      color: (minMatchesFilter === fOpt.id) ? '#FFFFFF' : (isDarkMode ? '#AEAEB2' : '#8E8E93')
+                    }}>
+                      {fOpt.label}
+                    </Text>
+                  </TouchableOpacity>
+                ));
+              })()}
             </View>
           </ScrollView>
         </View>
