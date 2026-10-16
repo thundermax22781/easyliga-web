@@ -80,12 +80,26 @@ export default function PlayerDetailScreen() {
   const maxStats = useMemo(() => {
     if (groupStats.length === 0) return { personalBonus: 1, defenseBonus: 1, incisivity: 1, goals: 1, assists: 1 };
 
+    // Troviamo il numero massimo di partite giocate nel gruppo
+    const maxMatches = Math.max(1, ...groupStats.map(s => s.played || 0));
+    // Soglia minima: 1/3 delle partite del giocatore più attivo (es. 35 -> 12)
+    const minMatchesThreshold = Math.max(1, Math.ceil(maxMatches / 3));
+
+    // Consideriamo i giocatori qualificati che hanno giocato almeno 1/3 delle partite massime
+    const qualifiedStats = groupStats.filter(s => (s.played || 0) >= minMatchesThreshold);
+    // Fallback se nessun giocatore supera la soglia
+    const benchmarkStats = qualifiedStats.length > 0 ? qualifiedStats : groupStats;
+
+    const maxInc = Math.max(0.1, ...benchmarkStats.map(s => s.incisivity || 0));
+    const maxGPM = Math.max(0.1, ...benchmarkStats.map(s => (s.individual_goals || 0) / (s.played || 1)));
+    const maxAPM = Math.max(0.1, ...benchmarkStats.map(s => (s.individual_assists || 0) / (s.played || 1)));
+
     return {
-      personalBonus: Math.max(1, ...groupStats.map(s => s.personal_bonus_count)),
-      defenseBonus: Math.max(1, ...groupStats.map(s => s.defense_bonus_count)),
-      incisivity: Math.max(0.1, ...groupStats.map(s => s.incisivity)),
-      goals: Math.max(1, ...groupStats.map(s => s.individual_goals)),
-      assists: Math.max(1, ...groupStats.map(s => s.individual_assists)),
+      personalBonus: Math.max(1, ...groupStats.map(s => s.personal_bonus_count || 0)),
+      defenseBonus: Math.max(1, ...groupStats.map(s => s.defense_bonus_count || 0)),
+      incisivity: maxInc,
+      goals: maxGPM,   // Media gol a partita di riferimento
+      assists: maxAPM, // Media assist a partita di riferimento
     };
   }, [groupStats]);
 

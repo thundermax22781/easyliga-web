@@ -37,6 +37,8 @@ const RadarChart: React.FC<RadarChartProps> = ({ stats, comparisonStats, isDarkM
 
   const normalizeData = (s: PlayerStats) => {
     const matches = s.matches || 1;
+    const goalsPerMatch = s.goals / matches;
+    const assistsPerMatch = s.assists / matches;
 
     // Per i bonus usiamo la normalizzazione relativa se maxStats è fornito, altrimenti fallback
     const pBonusScore = maxStats?.personalBonus
@@ -53,12 +55,12 @@ const RadarChart: React.FC<RadarChartProps> = ({ stats, comparisonStats, isDarkM
       : Math.min(100, (s.incisivity || 0) * 40);
 
     const attackScore = maxStats?.goals
-      ? (s.goals / matches) / (maxStats.goals / matches || 1) * 100
-      : Math.min(100, (s.goals / matches) * 50);
+      ? goalsPerMatch / maxStats.goals * 100
+      : Math.min(100, goalsPerMatch * 50);
 
     const playmakingScore = maxStats?.assists
-      ? (s.assists / matches) / (maxStats.assists / matches || 1) * 100
-      : Math.min(100, (s.assists / matches) * 60);
+      ? assistsPerMatch / maxStats.assists * 100
+      : Math.min(100, assistsPerMatch * 60);
 
     return [
       { label: 'Incisività', value: Math.min(100, incisivityScore) },
