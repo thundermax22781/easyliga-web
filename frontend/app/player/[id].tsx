@@ -101,6 +101,11 @@ export default function PlayerDetailScreen() {
     const maxDBonus = Math.max(1, ...roleBenchmark.map(s => s.defense_bonus_count || 0));
     const maxWinRate = Math.max(1, ...roleBenchmark.map(s => ((s.won || 0) / (s.played || 1)) * 100));
 
+    const maxCS = Math.max(1, ...roleBenchmark.map(s => s.clean_sheets || 0));
+    const maxTotG = Math.max(1, ...roleBenchmark.map(s => s.individual_goals || 0));
+    const maxTotA = Math.max(1, ...roleBenchmark.map(s => s.individual_assists || 0));
+    const maxPts = Math.max(1, ...roleBenchmark.map(s => s.points || 0));
+
     // Miglior media gol subiti (più bassa è meglio è) tra i giocatori dello stesso ruolo
     const validGCPM = roleBenchmark
       .map(s => (s.goals_suffered || 0) / (s.played || 1))
@@ -115,6 +120,11 @@ export default function PlayerDetailScreen() {
       assists: maxAPM,
       winRate: maxWinRate,
       minGoalsConcededPM: minGCPM,
+      cleanSheets: maxCS,
+      totalGoals: maxTotG,
+      totalAssists: maxTotA,
+      points: maxPts,
+      played: maxMatches,
     };
   }, [groupStats, player]);
 
@@ -864,6 +874,7 @@ export default function PlayerDetailScreen() {
                     matchType={group?.match_type || 5}
                     stats={formatStatsForChart(stats)}
                     maxStats={maxStats}
+                    radarConfig={group?.radar_config}
                   />
                </View>
 
@@ -976,6 +987,7 @@ export default function PlayerDetailScreen() {
                     stats={formatStatsForChart(stats)}
                     comparisonStats={formatStatsForChart(comparisonStats)}
                     maxStats={maxStats}
+                    radarConfig={group?.radar_config}
                   />
                   <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 15, marginTop: -10, paddingBottom: 10 }}>
                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}><View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#007AFF' }} /><Text style={[dynamicStyles.subText, { fontSize: 9, fontWeight: '800' }]}>{player.nickname.toUpperCase()}</Text></View>
@@ -1090,6 +1102,7 @@ export default function PlayerDetailScreen() {
                 stats={formatStatsForChart(stats)}
                 comparisonStats={formatStatsForChart(comparisonStats)}
                 maxStats={maxStats}
+                radarConfig={group?.radar_config}
               />
               <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 20, marginTop: 5 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}><View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: '#007AFF' }} /><Text style={[dynamicStyles.subText, { fontSize: 11, fontWeight: '700' }]}>{player!.nickname.toUpperCase()}</Text></View>
@@ -1316,6 +1329,7 @@ export default function PlayerDetailScreen() {
                  matchType={group?.match_type || 5}
                  stats={formatStatsForChart(stats)}
                  maxStats={maxStats}
+                 radarConfig={group?.radar_config}
                />
             </View>
           )}

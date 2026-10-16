@@ -135,6 +135,8 @@ export default function GroupDetailScreen() {
   const [tempStrength, setTempStrength] = useState(5);
   const [tempStrengthText, setTempStrengthText] = useState('5');
   const [minMatchesFilter, setMinMatchesFilter] = useState<number>(0);
+  const [showRadarConfigModal, setShowRadarConfigModal] = useState(false);
+  const [selectedConfigRole, setSelectedConfigRole] = useState<'Attaccante' | 'Centrocampista' | 'Difensore' | 'Portiere'>('Attaccante');
   const [tempTeamName, setTempTeamName] = useState('');
   const [tempJerseyColor, setTempJerseyColor] = useState('');
   const [importing, setImporting] = useState(false);
@@ -4334,6 +4336,127 @@ export default function GroupDetailScreen() {
   };
 
 
+  const renderRadarConfigModal = () => {
+    if (!showRadarConfigModal) return null;
+
+    const currentRoleConfig = group?.radar_config?.[selectedConfigRole] || (
+      selectedConfigRole === 'Difensore' ? ['solidity', 'ma', 'defense_bonus', 'mg', 'win_rate'] :
+      selectedConfigRole === 'Portiere' ? ['solidity', 'clean_sheets', 'defense_bonus', 'win_rate', 'ma'] :
+      ['incisivity', 'ma', 'personal_bonus', 'defense_bonus', 'mg']
+    );
+
+    const handleSelectMetricForPosition = (posIndex: number, metricId: string) => {
+      const newRoleConfig = [...currentRoleConfig];
+      newRoleConfig[posIndex] = metricId;
+      const updatedRadarConfig = {
+        ...(group?.radar_config || {}),
+        [selectedConfigRole]: newRoleConfig,
+      };
+      handleUpdateGroupSettings({ radar_config: updatedRadarConfig });
+    };
+
+    return (
+      <Modal visible={showRadarConfigModal} animationType="slide" transparent={true} onRequestClose={() => setShowRadarConfigModal(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, dynamicStyles.modalContent, { height: '85%' }]}>
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, dynamicStyles.text]}>Grafico Prestazioni</Text>
+              <TouchableOpacity onPress={() => setShowRadarConfigModal(false)}>
+                <Ionicons name="close" size={24} color={dynamicStyles.text.color} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView contentContainerStyle={{ padding: 15, paddingBottom: 40 }}>
+              <Text style={[dynamicStyles.subText, { fontSize: 12, marginBottom: 15 }]}>
+                Scegli quali 5 metriche mostrare nel grafico Spider per ciascun ruolo.
+              </Text>
+
+              {/* Selettore Ruolo */}
+              <View style={{ flexDirection: 'row', borderRadius: 12, overflow: 'hidden', borderWidth: 1, borderColor: isDarkMode ? '#3A3A3C' : '#E5E5EA', marginBottom: 20 }}>
+                {['Attaccante', 'Centrocampista', 'Difensore', 'Portiere'].map((r, i) => (
+                  <TouchableOpacity
+                    key={r}
+                    onPress={() => setSelectedConfigRole(r as any)}
+                    style={{
+                      flex: 1,
+                      paddingVertical: 10,
+                      backgroundColor: selectedConfigRole === r ? (ROLE_COLORS as any)[r] : (isDarkMode ? '#2C2C2E' : '#FFFFFF'),
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      borderLeftWidth: i === 0 ? 0 : 1,
+                      borderLeftColor: isDarkMode ? '#3A3A3C' : '#E5E5EA',
+                    }}
+                  >
+                    <Text style={{ fontSize: 9.5, fontWeight: '900', color: selectedConfigRole === r ? '#FFF' : (isDarkMode ? '#AEAEB2' : '#8E8E93'), textAlign: 'center' }}>
+                      {r.toUpperCase()}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              {/* Posizioni 1..5 */}
+              {[0, 1, 2, 3, 4].map(posIdx => {
+                const currentSelected = currentRoleConfig[posIdx] || 'incisivity';
+                return (
+                  <View key={`pos-${posIdx}`} style={{ marginBottom: 16, backgroundColor: isDarkMode ? '#2C2C2E' : '#F8F9FF', padding: 12, borderRadius: 12, borderWidth: 1, borderColor: isDarkMode ? '#3A3A3C' : '#E5E5EA' }}>
+                    <Text style={[dynamicStyles.text, { fontSize: 12, fontWeight: '800', marginBottom: 8 }]}>
+                      Punto {posIdx + 1} del Grafico Spider:
+                    </Text>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                      <View style={{ flexDirection: 'row', gap: 6 }}>
+                        {[
+                          { id: 'incisivity', label: '⚡ Incisività' },
+                          { id: 'mg', label: '⚽ Media Gol' },
+                          { id: 'ma', label: '🎯 Media Assist' },
+                          { id: 'solidity', label: '🛡️ Solidità' },
+                          { id: 'win_rate', label: '🏆 Vittorie %' },
+                          { id: 'defense_bonus', label: '🧱 Bonus Difesa' },
+                          { id: 'personal_bonus', label: '🌟 Bonus Personale' },
+                          { id: 'clean_sheets', label: '🧼 Clean Sheet' },
+                          { id: 'goals', label: '⚽ Gol Totali' },
+                          { id: 'assists', label: '🎯 Assist Totali' },
+                          { id: 'points', label: '📈 Punti' },
+                          { id: 'played', label: '📊 Presenze' },
+                        ].map(mOpt => {
+                          const isSelected = currentSelected === mOpt.id;
+                          return (
+                            <TouchableOpacity
+                              key={mOpt.id}
+                              onPress={() => handleSelectMetricForPosition(posIdx, mOpt.id)}
+                              style={{
+                                paddingHorizontal: 10,
+                                paddingVertical: 6,
+                                borderRadius: 8,
+                                backgroundColor: isSelected ? '#007AFF' : (isDarkMode ? '#1C1C1E' : '#FFFFFF'),
+                                borderWidth: 1,
+                                borderColor: isSelected ? '#007AFF' : (isDarkMode ? '#3A3A3C' : '#E5E5EA')
+                              }}
+                            >
+                              <Text style={{ fontSize: 11, fontWeight: '800', color: isSelected ? '#FFF' : (isDarkMode ? '#AEAEB2' : '#8E8E93') }}>
+                                {mOpt.label}
+                              </Text>
+                            </TouchableOpacity>
+                          );
+                        })}
+                      </View>
+                    </ScrollView>
+                  </View>
+                );
+              })}
+
+              <TouchableOpacity
+                style={[styles.saveButton, { marginTop: 10 }]}
+                onPress={() => setShowRadarConfigModal(false)}
+              >
+                <Text style={styles.saveButtonText}>Conferma Configurazione</Text>
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+    );
+  };
+
   const renderCareerSettingsModal = () => {
     return (
       <Modal visible={showCareerSettings} transparent animationType="slide">
@@ -5684,7 +5807,7 @@ export default function GroupDetailScreen() {
                                 borderWidth: 1,
                                 borderColor: '#5856D640',
                                 marginTop: 10,
-                                marginBottom: 15
+                                marginBottom: 10
                               }}
                             >
                               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 15 }}>
@@ -5699,6 +5822,34 @@ export default function GroupDetailScreen() {
                                 </View>
                               </View>
                               <Ionicons name="chevron-forward" size={22} color="#5856D6" />
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                              onPress={() => setShowRadarConfigModal(true)}
+                              style={{
+                                backgroundColor: isDarkMode ? '#2C2C2E' : '#F8F9FF',
+                                borderRadius: 16,
+                                padding: 18,
+                                flexDirection: 'row',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                borderWidth: 1,
+                                borderColor: '#007AFF40',
+                                marginBottom: 15
+                              }}
+                            >
+                              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 15 }}>
+                                <View style={{ width: 44, height: 44, borderRadius: 12, backgroundColor: '#007AFF15', alignItems: 'center', justifyContent: 'center' }}>
+                                  <Ionicons name="pie-chart" size={24} color="#007AFF" />
+                                </View>
+                                <View style={{ flex: 1 }}>
+                                  <Text style={[dynamicStyles.text, { fontSize: 16, fontWeight: '800' }]}>Grafico Prestazioni</Text>
+                                  <Text style={[dynamicStyles.subText, { fontSize: 11, marginTop: 1 }]} numberOfLines={2}>
+                                    Scegli le metriche dello Spider Chart per ruolo
+                                  </Text>
+                                </View>
+                              </View>
+                              <Ionicons name="chevron-forward" size={22} color="#007AFF" />
                             </TouchableOpacity>
                             <View style={[styles.detailDivider, dynamicStyles.divider, { marginHorizontal: 0, opacity: 0.3 }]} />
                             <View>
@@ -6490,6 +6641,7 @@ export default function GroupDetailScreen() {
         {renderLinkModal()}
         {renderTieBreakerSelectorModal()}
         {renderCareerSettingsModal()}
+        {renderRadarConfigModal()}
         {renderMatchSharePreview()}
         {renderStandingsSharePreview()}
         {renderTournamentStandingsSharePreview()}
