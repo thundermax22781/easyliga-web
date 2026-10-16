@@ -13,6 +13,7 @@ interface PlayerStats {
   personalBonus?: number;
   defenseBonus?: number;
   incisivity?: number; // Valore già calcolato (G+A)/P
+  role?: string;
 }
 
 interface RadarChartProps {
@@ -26,6 +27,8 @@ interface RadarChartProps {
     incisivity: number;
     goals: number;
     assists: number;
+    winRate?: number;
+    minGoalsConcededPM?: number;
   };
 }
 
@@ -39,6 +42,8 @@ const RadarChart: React.FC<RadarChartProps> = ({ stats, comparisonStats, isDarkM
     const matches = s.matches || 1;
     const goalsPerMatch = s.goals / matches;
     const assistsPerMatch = s.assists / matches;
+    const goalsConcededPerMatch = s.goalsConceded / matches;
+    const winRate = (s.wins / matches) * 100;
 
     // Per i bonus usiamo la normalizzazione relativa se maxStats è fornito, altrimenti fallback
     const pBonusScore = maxStats?.personalBonus
@@ -49,7 +54,6 @@ const RadarChart: React.FC<RadarChartProps> = ({ stats, comparisonStats, isDarkM
       ? (s.defenseBonus || 0) / maxStats.defenseBonus * 100
       : Math.min(100, (s.defenseBonus || 0) * 15);
 
-    // Per Incisività, Attacco e Regia usiamo pure la normalizzazione relativa se disponibile
     const incisivityScore = maxStats?.incisivity
       ? (s.incisivity || 0) / maxStats.incisivity * 100
       : Math.min(100, (s.incisivity || 0) * 40);
@@ -62,12 +66,43 @@ const RadarChart: React.FC<RadarChartProps> = ({ stats, comparisonStats, isDarkM
       ? assistsPerMatch / maxStats.assists * 100
       : Math.min(100, assistsPerMatch * 60);
 
+    const winRateScore = maxStats?.winRate
+      ? winRate / maxStats.winRate * 100
+      : Math.min(100, winRate);
+
+    const bestGCPM = maxStats?.minGoalsConcededPM || 2.0;
+    const solidityScore = goalsConcededPerMatch > 0
+      ? Math.min(100, (bestGCPM / goalsConcededPerMatch) * 100)
+      : 100;
+
+    const role = s.role || 'Attaccante';
+
+    if (role === 'Difensore') {
+      return [
+        { label: 'Solidità', value: Math.min(100, Math.round(solidityScore)) },
+        { label: 'Regia', value: Math.min(100, Math.round(playmakingScore)) },
+        { label: 'Bonus Difesa', value: Math.min(100, Math.round(dBonusScore)) },
+        { label: 'Attacco', value: Math.min(100, Math.round(attackScore)) },
+        { label: 'Vittorie', value: Math.min(100, Math.round(winRateScore)) },
+      ];
+    }
+
+    if (role === 'Portiere') {
+      return [
+        { label: 'Solidità', value: Math.min(100, Math.round(solidityScore)) },
+        { label: 'Clean Sheet', value: Math.min(100, Math.round(dBonusScore)) },
+        { label: 'Bonus Difesa', value: Math.min(100, Math.round(dBonusScore)) },
+        { label: 'Vittorie', value: Math.min(100, Math.round(winRateScore)) },
+        { label: 'Regia', value: Math.min(100, Math.round(playmakingScore)) },
+      ];
+    }
+
     return [
-      { label: 'Incisività', value: Math.min(100, incisivityScore) },
-      { label: 'Regia', value: Math.min(100, playmakingScore) },
-      { label: 'Bonus Personale', value: Math.min(100, pBonusScore) },
-      { label: 'Bonus Difesa', value: Math.min(100, dBonusScore) },
-      { label: 'Attacco', value: Math.min(100, attackScore) },
+      { label: 'Incisività', value: Math.min(100, Math.round(incisivityScore)) },
+      { label: 'Regia', value: Math.min(100, Math.round(playmakingScore)) },
+      { label: 'Bonus Personale', value: Math.min(100, Math.round(pBonusScore)) },
+      { label: 'Bonus Difesa', value: Math.min(100, Math.round(dBonusScore)) },
+      { label: 'Attacco', value: Math.min(100, Math.round(attackScore)) },
     ];
   };
 

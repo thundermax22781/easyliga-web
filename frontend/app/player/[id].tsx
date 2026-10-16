@@ -78,7 +78,7 @@ export default function PlayerDetailScreen() {
   const [strengthText, setStrengthText] = useState('5');
 
   const maxStats = useMemo(() => {
-    if (groupStats.length === 0) return { personalBonus: 1, defenseBonus: 1, incisivity: 1, goals: 1, assists: 1 };
+    if (groupStats.length === 0) return { personalBonus: 1, defenseBonus: 1, incisivity: 1, goals: 1, assists: 1, winRate: 100, minGoalsConcededPM: 2.0 };
 
     // Troviamo il numero massimo di partite giocate nel gruppo
     const maxMatches = Math.max(1, ...groupStats.map(s => s.played || 0));
@@ -87,21 +87,36 @@ export default function PlayerDetailScreen() {
 
     // Consideriamo i giocatori qualificati che hanno giocato almeno 1/3 delle partite massime
     const qualifiedStats = groupStats.filter(s => (s.played || 0) >= minMatchesThreshold);
-    // Fallback se nessun giocatore supera la soglia
     const benchmarkStats = qualifiedStats.length > 0 ? qualifiedStats : groupStats;
 
-    const maxInc = Math.max(0.1, ...benchmarkStats.map(s => s.incisivity || 0));
-    const maxGPM = Math.max(0.1, ...benchmarkStats.map(s => (s.individual_goals || 0) / (s.career_divisor || s.played || 1)));
-    const maxAPM = Math.max(0.1, ...benchmarkStats.map(s => (s.individual_assists || 0) / (s.career_divisor || s.played || 1)));
+    // Normalizzazione relativa al ruolo del giocatore corrente
+    const playerRole = player?.role || 'Attaccante';
+    const sameRoleStats = benchmarkStats.filter(s => s.role === playerRole);
+    const roleBenchmark = sameRoleStats.length > 0 ? sameRoleStats : benchmarkStats;
+
+    const maxInc = Math.max(0.1, ...roleBenchmark.map(s => s.incisivity || 0));
+    const maxGPM = Math.max(0.1, ...roleBenchmark.map(s => (s.individual_goals || 0) / (s.career_divisor || s.played || 1)));
+    const maxAPM = Math.max(0.1, ...roleBenchmark.map(s => (s.individual_assists || 0) / (s.career_divisor || s.played || 1)));
+    const maxPBonus = Math.max(1, ...roleBenchmark.map(s => s.personal_bonus_count || 0));
+    const maxDBonus = Math.max(1, ...roleBenchmark.map(s => s.defense_bonus_count || 0));
+    const maxWinRate = Math.max(1, ...roleBenchmark.map(s => ((s.won || 0) / (s.played || 1)) * 100));
+
+    // Miglior media gol subiti (più bassa è meglio è) tra i giocatori dello stesso ruolo
+    const validGCPM = roleBenchmark
+      .map(s => (s.goals_suffered || 0) / (s.played || 1))
+      .filter(g => g > 0);
+    const minGCPM = validGCPM.length > 0 ? Math.min(...validGCPM) : 2.0;
 
     return {
-      personalBonus: Math.max(1, ...groupStats.map(s => s.personal_bonus_count || 0)),
-      defenseBonus: Math.max(1, ...groupStats.map(s => s.defense_bonus_count || 0)),
+      personalBonus: maxPBonus,
+      defenseBonus: maxDBonus,
       incisivity: maxInc,
-      goals: maxGPM,   // Media gol a partita di riferimento
-      assists: maxAPM, // Media assist a partita di riferimento
+      goals: maxGPM,
+      assists: maxAPM,
+      winRate: maxWinRate,
+      minGoalsConcededPM: minGCPM,
     };
-  }, [groupStats]);
+  }, [groupStats, player]);
 
   const getRoleColor = (r: string) => ROLE_COLORS[r] || '#8E8E93';
 
@@ -116,6 +131,7 @@ export default function PlayerDetailScreen() {
     personalBonus: s.personal_bonus_count,
     defenseBonus: s.defense_bonus_count,
     incisivity: s.incisivity,
+    role: s.role,
   });
 
   const getInitials = (nick: string) => (nick || '??').substring(0, 2).toUpperCase();
