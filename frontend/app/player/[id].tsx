@@ -91,8 +91,8 @@ export default function PlayerDetailScreen() {
     const benchmarkStats = qualifiedStats.length > 0 ? qualifiedStats : groupStats;
 
     const maxInc = Math.max(0.1, ...benchmarkStats.map(s => s.incisivity || 0));
-    const maxGPM = Math.max(0.1, ...benchmarkStats.map(s => (s.individual_goals || 0) / (s.played || 1)));
-    const maxAPM = Math.max(0.1, ...benchmarkStats.map(s => (s.individual_assists || 0) / (s.played || 1)));
+    const maxGPM = Math.max(0.1, ...benchmarkStats.map(s => (s.individual_goals || 0) / (s.career_divisor || s.played || 1)));
+    const maxAPM = Math.max(0.1, ...benchmarkStats.map(s => (s.individual_assists || 0) / (s.career_divisor || s.played || 1)));
 
     return {
       personalBonus: Math.max(1, ...groupStats.map(s => s.personal_bonus_count || 0)),
