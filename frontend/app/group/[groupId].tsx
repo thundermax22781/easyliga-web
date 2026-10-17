@@ -2700,6 +2700,80 @@ export default function GroupDetailScreen() {
     return sorted.filter(p => p.played > 0);
   };
 
+  const spiderScoresMap = React.useMemo(() => {
+    const map: Record<string, number> = {};
+    if (standings.length === 0) return map;
+
+    const maxMatches = Math.max(1, ...standings.map(s => s.played || 0));
+    const minMatchesThreshold = Math.max(1, Math.ceil(maxMatches / 3));
+    const qualifiedStats = standings.filter(s => (s.played || 0) >= minMatchesThreshold);
+    const benchmarkStats = qualifiedStats.length > 0 ? qualifiedStats : standings;
+
+    const calculatePlayerSpiderScore = (s: PlayerStats) => {
+      const playerRole = s.role || 'Attaccante';
+      const sameRoleStats = benchmarkStats.filter(st => st.role === playerRole);
+      const roleBenchmark = sameRoleStats.length > 0 ? sameRoleStats : benchmarkStats;
+
+      const maxInc = Math.max(0.1, ...roleBenchmark.map(st => st.incisivity || 0));
+      const maxGPM = Math.max(0.1, ...roleBenchmark.map(st => (st.individual_goals || 0) / (st.career_divisor || st.played || 1)));
+      const maxAPM = Math.max(0.1, ...roleBenchmark.map(st => (st.individual_assists || 0) / (st.career_divisor || st.played || 1)));
+      const maxPBonus = Math.max(1, ...roleBenchmark.map(st => st.personal_bonus_count || 0));
+      const maxDBonus = Math.max(1, ...roleBenchmark.map(st => st.defense_bonus_count || 0));
+      const maxWinRate = Math.max(1, ...roleBenchmark.map(st => ((st.won || 0) / (st.played || 1)) * 100));
+      const maxCS = Math.max(1, ...roleBenchmark.map(st => st.clean_sheets || 0));
+      const maxTotG = Math.max(1, ...roleBenchmark.map(st => st.individual_goals || 0));
+      const maxTotA = Math.max(1, ...roleBenchmark.map(st => st.individual_assists || 0));
+      const maxPts = Math.max(1, ...roleBenchmark.map(st => st.points || 0));
+      const validGCPM = roleBenchmark.map(st => (st.goals_suffered || 0) / (st.played || 1)).filter(g => g > 0);
+      const minGCPM = validGCPM.length > 0 ? Math.min(...validGCPM) : 2.0;
+
+      const matches = s.career_divisor || s.played || 1;
+      const goalsPerMatch = (s.individual_goals || 0) / matches;
+      const assistsPerMatch = (s.individual_assists || 0) / matches;
+      const goalsConcededPerMatch = (s.goals_suffered || 0) / matches;
+      const winRate = ((s.won || 0) / matches) * 100;
+
+      const getMetricScore = (mId: string) => {
+        switch (mId) {
+          case 'incisivity': return Math.min(100, Math.round(((s.incisivity || 0) / maxInc) * 100));
+          case 'mg': return Math.min(100, Math.round((goalsPerMatch / maxGPM) * 100));
+          case 'ma': return Math.min(100, Math.round((assistsPerMatch / maxAPM) * 100));
+          case 'solidity': return goalsConcededPerMatch > 0 ? Math.min(100, Math.round((minGCPM / goalsConcededPerMatch) * 100)) : 100;
+          case 'win_rate': return Math.min(100, Math.round((winRate / maxWinRate) * 100));
+          case 'personal_bonus': return Math.min(100, Math.round(((s.personal_bonus_count || 0) / maxPBonus) * 100));
+          case 'defense_bonus': return Math.min(100, Math.round(((s.defense_bonus_count || 0) / maxDBonus) * 100));
+          case 'clean_sheets': return Math.min(100, Math.round(((s.clean_sheets || 0) / maxCS) * 100));
+          case 'goals': return Math.min(100, Math.round(((s.individual_goals || 0) / maxTotG) * 100));
+          case 'assists': return Math.min(100, Math.round(((s.individual_assists || 0) / maxTotA) * 100));
+          case 'points': return Math.min(100, Math.round(((s.points || 0) / maxPts) * 100));
+          case 'played': return Math.min(100, Math.round(((s.played || 0) / maxMatches) * 100));
+          default: return 50;
+        }
+      };
+
+      const configuredMetrics = group?.radar_config?.[playerRole] || (
+        playerRole === 'Difensore' ? ['solidity', 'ma', 'defense_bonus', 'mg', 'win_rate'] :
+        playerRole === 'Portiere' ? ['solidity', 'clean_sheets', 'defense_bonus', 'win_rate', 'ma'] :
+        ['incisivity', 'ma', 'personal_bonus', 'defense_bonus', 'mg']
+      );
+
+      const scores = configuredMetrics.map(mId => getMetricScore(mId));
+      return Math.round(scores.reduce((a, b) => a + b, 0) / scores.length);
+    };
+
+    standings.forEach(s => {
+      map[s.player_id] = calculatePlayerSpiderScore(s);
+    });
+
+    return map;
+  }, [standings, group]);
+
+  const getScoreColor = (score: number) => {
+    if (score >= 75) return '#34C759';
+    if (score >= 60) return '#FFCC00';
+    return '#FF3B30';
+  };
+
   const handleResetTournament = async () => {
     Alert.alert(
       'Reset Torneo',
@@ -3448,16 +3522,17 @@ export default function GroupDetailScreen() {
                           </TouchableOpacity>
 
                           <View style={styles.tpRight}>
-                            {showIndividualStrength && isAdminOrOwner && (
+                            {showIndividualStrength && (
                               <View style={[styles.pStrBadge, { backgroundColor: isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)', flexDirection: 'row', gap: sharing ? 6 : 8, paddingHorizontal: sharing ? 6 : 8, paddingVertical: sharing ? 2 : 4, borderRadius: 10 }]}>
                                 <View style={{alignItems: 'center'}}><Text style={[styles.tpAge, dynamicStyles.subText, {fontSize: sharing ? 11 : 12, fontWeight: '700'}]}>{p.age}</Text><Text style={[styles.pStrLabel, {fontSize: 6}]}>ANNI</Text></View>
                                 <View style={[styles.pDivider, dynamicStyles.divider, { height: 12 }]} />
-                                <View style={{alignItems: 'center'}}><Text style={[styles.tpStrength, dynamicStyles.text, { fontSize: sharing ? 14 : 16 }]}>{p.strength}</Text><Text style={[styles.pStrLabel, {fontSize: 6}]}>FRZ</Text></View>
-                              </View>
-                            )}
-                            {showIndividualStrength && !isAdminOrOwner && (
-                              <View style={[styles.pStrBadge, { backgroundColor: isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)', paddingHorizontal: sharing ? 6 : 8, paddingVertical: sharing ? 2 : 4, borderRadius: 10 }]}>
-                                <View style={{alignItems: 'center'}}><Text style={[styles.tpAge, dynamicStyles.subText, {fontSize: sharing ? 11 : 12, fontWeight: '700'}]}>{p.age}</Text><Text style={[styles.pStrLabel, {fontSize: 6}]}>ANNI</Text></View>
+                                <View style={{alignItems: 'center'}}><Text style={[styles.pStrNum, { fontSize: sharing ? 12 : 14, fontWeight: '900', color: getScoreColor(spiderScoresMap[p.id] || 50) }]}>{spiderScoresMap[p.id] !== undefined ? spiderScoresMap[p.id] : '--'}</Text><Text style={[styles.pStrLabel, {fontSize: 6, color: getScoreColor(spiderScoresMap[p.id] || 50), fontWeight: '800'}]}>SPD</Text></View>
+                                {isAdminOrOwner && (
+                                  <>
+                                    <View style={[styles.pDivider, dynamicStyles.divider, { height: 12 }]} />
+                                    <View style={{alignItems: 'center'}}><Text style={[styles.tpStrength, dynamicStyles.text, { fontSize: sharing ? 14 : 16 }]}>{p.strength}</Text><Text style={[styles.pStrLabel, {fontSize: 6}]}>FRZ</Text></View>
+                                  </>
+                                )}
                               </View>
                             )}
                             {!sharing && (
@@ -6315,14 +6390,21 @@ export default function GroupDetailScreen() {
                         <Text style={[styles.pNickname, dynamicStyles.text, { fontSize: 15 }]}>{item.nickname}</Text>
                         <Text style={[styles.pRoleText, { color: ROLE_COLORS[item.role], fontSize: 10 }]}>{item.role}</Text>
                       </View>
-                      <View style={[styles.pStrBadge, { backgroundColor: isDarkMode ? '#3A3A3C' : '#F2F2F7', flexDirection: 'row', width: isAdminOrOwner ? 100 : 70, gap: 6, paddingVertical: 3, borderRadius: 8, justifyContent: 'center' }]}>
+                      <View style={[styles.pStrBadge, { backgroundColor: isDarkMode ? '#3A3A3C' : '#F2F2F7', flexDirection: 'row', gap: 6, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8, alignItems: 'center', justifyContent: 'center' }]}>
                         <TouchableOpacity
                           onPress={(e) => { e.stopPropagation(); toggleFavorite(item.id); }}
-                          style={{ paddingHorizontal: 4 }}
+                          style={{ paddingHorizontal: 2 }}
                         >
                           <Ionicons name={favoriteIds.has(item.id) ? "heart" : "heart-outline"} size={16} color={favoriteIds.has(item.id) ? "#FF2D55" : "#8E8E93"} />
                         </TouchableOpacity>
                         <View style={{alignItems: 'center'}}><Text style={[styles.pAge, dynamicStyles.subText, {fontSize: 11, fontWeight: '700'}]}>{item.age}</Text><Text style={styles.pStrLabel}>ANNI</Text></View>
+                        <View style={[styles.pDivider, dynamicStyles.divider, { height: 12 }]} />
+                        <View style={{alignItems: 'center'}}>
+                          <Text style={[styles.pStrNum, { fontSize: 13, fontWeight: '900', color: getScoreColor(spiderScoresMap[item.id] || 50) }]}>
+                            {spiderScoresMap[item.id] !== undefined ? spiderScoresMap[item.id] : '--'}
+                          </Text>
+                          <Text style={[styles.pStrLabel, { color: getScoreColor(spiderScoresMap[item.id] || 50), fontWeight: '800' }]}>SPD</Text>
+                        </View>
                         {isAdminOrOwner && (
                           <>
                             <View style={[styles.pDivider, dynamicStyles.divider, { height: 12 }]} />
@@ -6387,14 +6469,21 @@ export default function GroupDetailScreen() {
                      <TouchableOpacity style={[styles.selCard, dynamicStyles.card, isSel && styles.selCardActive]} onPress={() => togglePlayer(item.id)}>
                        <View style={[styles.chk, isSel && styles.chkActive]}>{isSel && <Ionicons name="checkmark" size={14} color="#FFF" />}</View>
                        <View style={styles.selPlayerInfo}><Text style={[styles.selNick, dynamicStyles.text, { fontSize: 15 }]}>{item.nickname}</Text><Text style={[styles.selRole, { color: ROLE_COLORS[item.role], fontSize: 10 }]}>{item.role}</Text></View>
-                       <View style={[styles.pStrBadge, { backgroundColor: isDarkMode ? '#3A3A3C' : '#F2F2F7', flexDirection: 'row', width: isAdminOrOwner ? 100 : 70, gap: 6, paddingVertical: 3, borderRadius: 8, justifyContent: 'center', marginLeft: 10 }]}>
+                       <View style={[styles.pStrBadge, { backgroundColor: isDarkMode ? '#3A3A3C' : '#F2F2F7', flexDirection: 'row', gap: 6, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8, alignItems: 'center', justifyContent: 'center', marginLeft: 10 }]}>
                          <TouchableOpacity
                            onPress={(e) => { e.stopPropagation(); toggleFavorite(item.id); }}
-                           style={{ paddingHorizontal: 4 }}
+                           style={{ paddingHorizontal: 2 }}
                          >
                            <Ionicons name={favoriteIds.has(item.id) ? "heart" : "heart-outline"} size={16} color={favoriteIds.has(item.id) ? "#FF2D55" : "#8E8E93"} />
                          </TouchableOpacity>
                          <View style={{alignItems: 'center'}}><Text style={[styles.pAge, dynamicStyles.subText, {fontSize: 11, fontWeight: '700'}]}>{item.age}</Text><Text style={styles.pStrLabel}>ANNI</Text></View>
+                         <View style={[styles.pDivider, dynamicStyles.divider, { height: 12 }]} />
+                         <View style={{alignItems: 'center'}}>
+                           <Text style={[styles.pStrNum, { fontSize: 13, fontWeight: '900', color: getScoreColor(spiderScoresMap[item.id] || 50) }]}>
+                             {spiderScoresMap[item.id] !== undefined ? spiderScoresMap[item.id] : '--'}
+                           </Text>
+                           <Text style={[styles.pStrLabel, { color: getScoreColor(spiderScoresMap[item.id] || 50), fontWeight: '800' }]}>SPD</Text>
+                         </View>
                          {isAdminOrOwner && (
                            <>
                              <View style={[styles.pDivider, dynamicStyles.divider, { height: 12 }]} />
