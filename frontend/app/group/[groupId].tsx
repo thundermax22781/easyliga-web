@@ -136,7 +136,7 @@ export default function GroupDetailScreen() {
   const [tempStrengthText, setTempStrengthText] = useState('5');
   const [minMatchesFilter, setMinMatchesFilter] = useState<number>(0);
   const [showRadarConfigModal, setShowRadarConfigModal] = useState(false);
-  const [selectedConfigRole, setSelectedConfigRole] = useState<'Attaccante' | 'Centrocampista' | 'Difensore' | 'Portiere'>('Attaccante');
+  const [selectedConfigRole, setSelectedConfigRole] = useState<'Portiere' | 'Difensore' | 'Mediana' | 'Attaccante'>('Portiere');
   const [tempTeamName, setTempTeamName] = useState('');
   const [tempJerseyColor, setTempJerseyColor] = useState('');
   const [importing, setImporting] = useState(false);
@@ -4447,27 +4447,29 @@ export default function GroupDetailScreen() {
               </Text>
 
               {/* Selettore Ruolo */}
-              <View style={{ flexDirection: 'row', borderRadius: 12, overflow: 'hidden', borderWidth: 1, borderColor: isDarkMode ? '#3A3A3C' : '#E5E5EA', marginBottom: 20 }}>
-                {['Attaccante', 'Centrocampista', 'Difensore', 'Portiere'].map((r, i) => (
-                  <TouchableOpacity
-                    key={r}
-                    onPress={() => setSelectedConfigRole(r as any)}
-                    style={{
-                      flex: 1,
-                      paddingVertical: 10,
-                      backgroundColor: selectedConfigRole === r ? (ROLE_COLORS as any)[r] : (isDarkMode ? '#2C2C2E' : '#FFFFFF'),
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      borderLeftWidth: i === 0 ? 0 : 1,
-                      borderLeftColor: isDarkMode ? '#3A3A3C' : '#E5E5EA',
-                    }}
-                  >
-                    <Text style={{ fontSize: 9.5, fontWeight: '900', color: selectedConfigRole === r ? '#FFF' : (isDarkMode ? '#AEAEB2' : '#8E8E93'), textAlign: 'center' }}>
-                      {r.toUpperCase()}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 20 }}>
+                <View style={{ flexDirection: 'row', borderRadius: 12, overflow: 'hidden', borderWidth: 1, borderColor: isDarkMode ? '#3A3A3C' : '#E5E5EA' }}>
+                  {['Portiere', 'Difensore', 'Mediana', 'Attaccante'].map((r, i) => (
+                    <TouchableOpacity
+                      key={r}
+                      onPress={() => setSelectedConfigRole(r as any)}
+                      style={{
+                        paddingHorizontal: 16,
+                        height: 38,
+                        backgroundColor: selectedConfigRole === r ? (ROLE_COLORS as any)[r] : (isDarkMode ? '#2C2C2E' : '#FFFFFF'),
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        borderLeftWidth: i === 0 ? 0 : 1,
+                        borderLeftColor: isDarkMode ? '#3A3A3C' : '#E5E5EA',
+                      }}
+                    >
+                      <Text style={{ fontSize: 11, fontWeight: '900', color: selectedConfigRole === r ? '#FFF' : (isDarkMode ? '#AEAEB2' : '#8E8E93') }}>
+                        {r.toUpperCase()}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </ScrollView>
 
               {/* Posizioni 1..5 */}
               {[0, 1, 2, 3, 4].map(posIdx => {
