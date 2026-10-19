@@ -4522,10 +4522,10 @@ export default function GroupDetailScreen() {
               })}
 
               <TouchableOpacity
-                style={[styles.saveButton, { marginTop: 10 }]}
+                style={[styles.saveBtn, { marginTop: 20, marginBottom: 10 }]}
                 onPress={() => setShowRadarConfigModal(false)}
               >
-                <Text style={styles.saveButtonText}>Conferma Configurazione</Text>
+                <Text style={styles.saveBtnText}>Salva Modifiche</Text>
               </TouchableOpacity>
             </ScrollView>
           </View>
