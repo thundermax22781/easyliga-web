@@ -281,6 +281,15 @@ const RadarChart: React.FC<RadarChartProps> = ({ stats, comparisonStats, isDarkM
     { x: 48, yLabel: 98, yScore: 111, anchor: 'end' },               // 4: Attacco (Top Left)
   ];
 
+  // Hit-Box giganti per garantire un tocco facile e immediato su Android, iOS e Web
+  const touchRects = [
+    { x: centerX - 60, y: 2, width: 120, height: 48 },               // 0: Top (Incisività / Solidità)
+    { x: 155, y: 75, width: 100, height: 55 },                       // 1: Top Right (Regia)
+    { x: 135, y: 185, width: 120, height: 60 },                      // 2: Bottom Right (Bonus Personale)
+    { x: 5, y: 185, width: 120, height: 60 },                        // 3: Bottom Left (Bonus Difesa)
+    { x: 5, y: 75, width: 100, height: 55 },                         // 4: Top Left (Attacco / Vittorie)
+  ];
+
   return (
     <View style={[styles.container, { width: '100%', aspectRatio: 1 }]}>
       <Svg width="100%" height="100%" viewBox={`0 0 ${size} ${size}`}>
@@ -329,9 +338,10 @@ const RadarChart: React.FC<RadarChartProps> = ({ stats, comparisonStats, isDarkM
             return <Circle key={`dot2-${i}`} cx={x} cy={y} r="3.5" fill="#34C759" />;
           })}
 
-          {/* Badge Centrale con Media Complessiva (Cliccabile) */}
+          {/* Badge Centrale con Media Complessiva (Cliccabile con area di tocco grande) */}
           {data2 !== null && avg2 !== null ? (
             <G x={centerX} y={centerY} onPress={() => handleShowMetricInfo('avg', avg1, avg2)}>
+              <Circle r="30" fill="rgba(0,0,0,0.001)" />
               <Rect
                 x="-38"
                 y="-18"
@@ -356,6 +366,7 @@ const RadarChart: React.FC<RadarChartProps> = ({ stats, comparisonStats, isDarkM
             </G>
           ) : (
             <G x={centerX} y={centerY} onPress={() => handleShowMetricInfo('avg', avg1)}>
+              <Circle r="30" fill="rgba(0,0,0,0.001)" />
               <Circle
                 r="21"
                 fill={isDarkMode ? '#1C1C1E' : '#FFFFFF'}
@@ -385,15 +396,25 @@ const RadarChart: React.FC<RadarChartProps> = ({ stats, comparisonStats, isDarkM
             </G>
           )}
 
-          {/* Etichette e Valori dei Vertici (Cliccabili per Info) */}
+          {/* Etichette e Valori dei Vertici (Cliccabili con Hit-Box giganti) */}
           {data1.map((d, i) => {
             const pos = labelPositions[i];
+            const tRect = touchRects[i];
             const val1 = Math.round(d.value);
             const val2 = data2 ? Math.round(data2[i].value) : null;
             const singleColor = getScoreColor(val1);
 
             return (
               <G key={`label-group-${i}`} onPress={() => handleShowMetricInfo(d.mId, val1, val2)}>
+                {/* Area di tocco trasparente estesa per catturare qualsiasi tocco nell'area */}
+                <Rect
+                  x={tRect.x}
+                  y={tRect.y}
+                  width={tRect.width}
+                  height={tRect.height}
+                  fill="rgba(0,0,0,0.001)"
+                />
+
                 <SvgText
                   x={pos.x}
                   y={pos.yLabel}
