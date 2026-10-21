@@ -510,8 +510,20 @@ export default function GroupDetailScreen() {
 
     const requiredPlayers = group?.group_type === 'tournament' ? matchType * numTeams : matchType * 2;
 
-    if (selectedIds.size !== requiredPlayers) {
-      return Alert.alert('Errore', `Seleziona esattamente ${requiredPlayers} giocatori.`);
+    if (selectedIds.size < requiredPlayers) {
+      const missing = requiredPlayers - selectedIds.size;
+      return Alert.alert(
+        'Giocatori Mancanti',
+        `Hai selezionato ${selectedIds.size} giocatori su ${requiredPlayers}.\nSeleziona altri ${missing} ${missing === 1 ? 'giocatore' : 'giocatori'} per poter bilanciare le squadre.`
+      );
+    }
+
+    if (selectedIds.size > requiredPlayers) {
+      const extra = selectedIds.size - requiredPlayers;
+      return Alert.alert(
+        'Troppi Giocatori',
+        `Hai selezionato ${selectedIds.size} giocatori invece di ${requiredPlayers}.\nDeseleziona ${extra} ${extra === 1 ? 'giocatore' : 'giocatori'} per continuare.`
+      );
     }
     setGenerating(true);
     try {
@@ -6517,9 +6529,9 @@ export default function GroupDetailScreen() {
                        </TouchableOpacity>
 
                        <TouchableOpacity
-                         style={[styles.genBtn, { flex: 1.5 }, selectedIds.size !== (group?.group_type === 'tournament' ? matchType * numTeams : matchType * 2) && styles.genBtnDisabled]}
+                         style={[styles.genBtn, { flex: 1.5 }, selectedIds.size !== (group?.group_type === 'tournament' ? matchType * numTeams : matchType * 2) && { opacity: 0.85 }]}
                          onPress={() => handleGenerate(false)}
-                         disabled={generating || selectedIds.size !== (group?.group_type === 'tournament' ? matchType * numTeams : matchType * 2)}
+                         disabled={generating}
                        >
                          <Ionicons name="flash" size={20} color="#FFF" style={{ marginRight: 8 }} />
                          <Text style={styles.genText}>Bilanciata</Text>
