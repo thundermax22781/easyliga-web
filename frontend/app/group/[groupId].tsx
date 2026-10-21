@@ -2923,7 +2923,7 @@ export default function GroupDetailScreen() {
       <TouchableOpacity key={item.player_id} style={[styles.pCard, dynamicStyles.card, { height: 38, paddingVertical: 0, borderRightWidth: 1, borderRightColor: isDarkMode ? '#3A3A3C' : '#E5E5EA', justifyContent: 'center' }]} onPress={() => router.push(`/player/${item.player_id}?groupId=${groupId}`)}>
         <View style={{ width: 135, flexDirection: 'row', alignItems: 'center' }}>
           <View style={[styles.standingRank, { width: 25 }]}>
-            {index < 3 && sortBy === 'points' ? (
+            {index < 3 ? (
               <View style={{ alignItems: 'center', justifyContent: 'center' }}>
                 <Ionicons name="ribbon" size={20} color={index === 0 ? '#FFD60A' : index === 1 ? '#C0C0C0' : '#CD7F32'} />
                 <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, justifyContent: 'center', alignItems: 'center' }}>
@@ -3740,7 +3740,7 @@ export default function GroupDetailScreen() {
                   <View key={item.player_id} style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 3, paddingHorizontal: 8, borderBottomWidth: 1, borderBottomColor: 'rgba(0,0,0,0.05)' }}>
                     <View style={{ width: 115, flexDirection: 'row', alignItems: 'center' }}>
                       <View style={{ width: 22, alignItems: 'center' }}>
-                        {index < 3 && activeSortId === 'points' && !isTournament ? (
+                        {index < 3 && !isTournament ? (
                           <View style={{ alignItems: 'center', justifyContent: 'center' }}>
                             <Ionicons name="ribbon" size={16} color={index === 0 ? '#FFD60A' : index === 1 ? '#C0C0C0' : '#CD7F32'} />
                             <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, justifyContent: 'center', alignItems: 'center' }}>
