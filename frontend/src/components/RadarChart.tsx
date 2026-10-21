@@ -1,6 +1,7 @@
-import React from 'react';
-import { View, StyleSheet } from 'react-native';
+import React, { useState } from 'react';
+import { View, StyleSheet, Text, Modal, TouchableOpacity, TouchableWithoutFeedback } from 'react-native';
 import Svg, { Polygon, Line, Circle, G, Text as SvgText, TSpan, Rect } from 'react-native-svg';
+import { Ionicons } from '@expo/vector-icons';
 
 interface PlayerStats {
   goals: number;
@@ -38,11 +39,112 @@ interface RadarChartProps {
   };
 }
 
+const METRIC_DESCRIPTIONS: Record<string, { label: string; icon: string; desc: string; formula: string }> = {
+  incisivity: {
+    label: 'Incisività',
+    icon: '⚡',
+    desc: 'Valuta la capacità del giocatore di incidere direttamente sui gol della squadra. Si basa sulla somma dei gol e degli assist prodotti a partita.',
+    formula: 'Formula: (Gol Fatti + Assist Fatti) / Partite Giocate',
+  },
+  mg: {
+    label: 'Attacco (Media Gol)',
+    icon: '⚽',
+    desc: 'Indica la pericolosità offensiva e la frequenza di realizzazione del giocatore in partita.',
+    formula: 'Formula: Gol Fatti / Partite Giocate',
+  },
+  ma: {
+    label: 'Regia (Media Assist)',
+    icon: '🎯',
+    desc: 'Misura la visione di gioco e la capacità di servire passaggi vincenti ai compagni di squadra.',
+    formula: 'Formula: Assist Fatti / Partite Giocate',
+  },
+  solidity: {
+    label: 'Solidità Difensiva',
+    icon: '🛡️',
+    desc: 'Misura la tenuta difensiva della squadra quando il giocatore è in campo. Più la media dei gol subiti è bassa rispetto alla lega, più il punteggio è vicino a 100.',
+    formula: 'Formula: Confronto relativo della Media Gol Subiti',
+  },
+  win_rate: {
+    label: 'Percentuale Vittorie',
+    icon: '🏆',
+    desc: 'Indica la percentuale di partite vinte dal giocatore sul totale dei match disputati.',
+    formula: 'Formula: (Partite Vinte / Partite Giocate) × 100',
+  },
+  personal_bonus: {
+    label: 'Bonus Personale',
+    icon: '🌟',
+    desc: 'Premia le prestazioni individuali straordinarie, sbloccati quando si realizza una combo di Gol e Assist nella stessa partita.',
+    formula: 'Formula: Conteggio totale dei Bonus Personali ottenuti',
+  },
+  defense_bonus: {
+    label: 'Bonus Difesa',
+    icon: '🧱',
+    desc: 'Premia l’efficacia difensiva nelle partite in cui la propria squadra subisce pochissimi gol.',
+    formula: 'Formula: Conteggio totale dei Bonus Difesa ottenuti',
+  },
+  clean_sheets: {
+    label: 'Clean Sheet',
+    icon: '🧼',
+    desc: 'Indica il numero di partite concluse senza subire alcun gol da parte della propria squadra.',
+    formula: 'Formula: Conteggio totale partite con 0 gol subiti',
+  },
+  goals: {
+    label: 'Gol Totali',
+    icon: '⚽',
+    desc: 'Il numero complessivo di reti realizzate dal giocatore nel campionato.',
+    formula: 'Formula: Somma totale dei Gol fatti',
+  },
+  assists: {
+    label: 'Assist Totali',
+    icon: '🎯',
+    desc: 'Il numero complessivo di assist vincenti serviti dal giocatore.',
+    formula: 'Formula: Somma totale degli Assist fatti',
+  },
+  points: {
+    label: 'Punti Totali',
+    icon: '📈',
+    desc: 'I punti complessivi conquistati dal giocatore in classifica.',
+    formula: 'Formula: Somma Punti Vittoria + Pareggi + Bonus',
+  },
+  played: {
+    label: 'Presenze',
+    icon: '📊',
+    desc: 'Il numero totale di partite disputate dal giocatore.',
+    formula: 'Formula: Totale partite giocate',
+  },
+  avg: {
+    label: 'Rating Complessivo (AVG)',
+    icon: '⭐',
+    desc: 'È il punteggio medio da 0 a 100 calcolato sulle 5 metriche selezionate per il ruolo del giocatore.',
+    formula: 'Formula: Media aritmetica delle 5 metriche dello Spider Chart',
+  },
+};
+
 const RadarChart: React.FC<RadarChartProps> = ({ stats, comparisonStats, isDarkMode, matchType, radarConfig, maxStats }) => {
   const size = 260;
   const centerX = size / 2;
   const centerY = size / 2;
   const radius = 65;
+
+  const [selectedMetricInfo, setSelectedMetricInfo] = useState<{ label: string; icon: string; value1: number; value2?: number | null; desc: string; formula: string } | null>(null);
+
+  const handleShowMetricInfo = (mId: string, val1: number, val2?: number | null) => {
+    const info = METRIC_DESCRIPTIONS[mId] || {
+      label: 'Statistica',
+      icon: '📊',
+      desc: 'Valore calcolato in base alle prestazioni del giocatore.',
+      formula: 'Formula di normalizzazione su scala 0-100',
+    };
+
+    setSelectedMetricInfo({
+      label: info.label,
+      icon: info.icon,
+      value1: val1,
+      value2: val2,
+      desc: info.desc,
+      formula: info.formula,
+    });
+  };
 
   const getSingleMetricScoreAndLabel = (mId: string, s: PlayerStats) => {
     const matches = s.matches || 1;
@@ -54,55 +156,55 @@ const RadarChart: React.FC<RadarChartProps> = ({ stats, comparisonStats, isDarkM
     switch (mId) {
       case 'incisivity': {
         const score = maxStats?.incisivity ? (s.incisivity || 0) / maxStats.incisivity * 100 : Math.min(100, (s.incisivity || 0) * 40);
-        return { label: 'Incisività', value: Math.min(100, Math.round(score)) };
+        return { mId, label: 'Incisività', value: Math.min(100, Math.round(score)) };
       }
       case 'mg': {
         const score = maxStats?.goals ? goalsPerMatch / maxStats.goals * 100 : Math.min(100, goalsPerMatch * 50);
-        return { label: 'Attacco', value: Math.min(100, Math.round(score)) };
+        return { mId, label: 'Attacco', value: Math.min(100, Math.round(score)) };
       }
       case 'ma': {
         const score = maxStats?.assists ? assistsPerMatch / maxStats.assists * 100 : Math.min(100, assistsPerMatch * 60);
-        return { label: 'Regia', value: Math.min(100, Math.round(score)) };
+        return { mId, label: 'Regia', value: Math.min(100, Math.round(score)) };
       }
       case 'solidity': {
         const bestGCPM = maxStats?.minGoalsConcededPM || 2.0;
         const score = goalsConcededPerMatch > 0 ? Math.min(100, (bestGCPM / goalsConcededPerMatch) * 100) : 100;
-        return { label: 'Solidità', value: Math.min(100, Math.round(score)) };
+        return { mId, label: 'Solidità', value: Math.min(100, Math.round(score)) };
       }
       case 'win_rate': {
         const score = maxStats?.winRate ? winRate / maxStats.winRate * 100 : Math.min(100, winRate);
-        return { label: 'Vittorie', value: Math.min(100, Math.round(score)) };
+        return { mId, label: 'Vittorie', value: Math.min(100, Math.round(score)) };
       }
       case 'personal_bonus': {
         const score = maxStats?.personalBonus ? (s.personalBonus || 0) / maxStats.personalBonus * 100 : Math.min(100, (s.personalBonus || 0) * 15);
-        return { label: 'Bonus Personale', value: Math.min(100, Math.round(score)) };
+        return { mId, label: 'Bonus Personale', value: Math.min(100, Math.round(score)) };
       }
       case 'defense_bonus': {
         const score = maxStats?.defenseBonus ? (s.defenseBonus || 0) / maxStats.defenseBonus * 100 : Math.min(100, (s.defenseBonus || 0) * 15);
-        return { label: 'Bonus Difesa', value: Math.min(100, Math.round(score)) };
+        return { mId, label: 'Bonus Difesa', value: Math.min(100, Math.round(score)) };
       }
       case 'clean_sheets': {
         const score = maxStats?.cleanSheets ? (s.cleanSheets || 0) / maxStats.cleanSheets * 100 : Math.min(100, (s.cleanSheets || 0) * 20);
-        return { label: 'Clean Sheet', value: Math.min(100, Math.round(score)) };
+        return { mId, label: 'Clean Sheet', value: Math.min(100, Math.round(score)) };
       }
       case 'goals': {
         const score = maxStats?.totalGoals ? (s.goals || 0) / maxStats.totalGoals * 100 : Math.min(100, (s.goals || 0) * 5);
-        return { label: 'Gol Totali', value: Math.min(100, Math.round(score)) };
+        return { mId, label: 'Gol Totali', value: Math.min(100, Math.round(score)) };
       }
       case 'assists': {
         const score = maxStats?.totalAssists ? (s.assists || 0) / maxStats.totalAssists * 100 : Math.min(100, (s.assists || 0) * 5);
-        return { label: 'Assist Totali', value: Math.min(100, Math.round(score)) };
+        return { mId, label: 'Assist Totali', value: Math.min(100, Math.round(score)) };
       }
       case 'points': {
         const score = maxStats?.points ? (s.points || 0) / maxStats.points * 100 : Math.min(100, (s.points || 0) * 3);
-        return { label: 'Punti Totali', value: Math.min(100, Math.round(score)) };
+        return { mId, label: 'Punti Totali', value: Math.min(100, Math.round(score)) };
       }
       case 'played': {
         const score = maxStats?.played ? (s.matches || 0) / maxStats.played * 100 : Math.min(100, (s.matches || 0) * 5);
-        return { label: 'Presenze', value: Math.min(100, Math.round(score)) };
+        return { mId, label: 'Presenze', value: Math.min(100, Math.round(score)) };
       }
       default:
-        return { label: 'Incisività', value: 50 };
+        return { mId, label: 'Incisività', value: 50 };
     }
   };
 
@@ -227,9 +329,9 @@ const RadarChart: React.FC<RadarChartProps> = ({ stats, comparisonStats, isDarkM
             return <Circle key={`dot2-${i}`} cx={x} cy={y} r="3.5" fill="#34C759" />;
           })}
 
-          {/* Badge Centrale con Media Complessiva */}
+          {/* Badge Centrale con Media Complessiva (Cliccabile) */}
           {data2 !== null && avg2 !== null ? (
-            <G x={centerX} y={centerY}>
+            <G x={centerX} y={centerY} onPress={() => handleShowMetricInfo('avg', avg1, avg2)}>
               <Rect
                 x="-38"
                 y="-18"
@@ -253,7 +355,7 @@ const RadarChart: React.FC<RadarChartProps> = ({ stats, comparisonStats, isDarkM
               </SvgText>
             </G>
           ) : (
-            <G x={centerX} y={centerY}>
+            <G x={centerX} y={centerY} onPress={() => handleShowMetricInfo('avg', avg1)}>
               <Circle
                 r="21"
                 fill={isDarkMode ? '#1C1C1E' : '#FFFFFF'}
@@ -283,7 +385,7 @@ const RadarChart: React.FC<RadarChartProps> = ({ stats, comparisonStats, isDarkM
             </G>
           )}
 
-          {/* Etichette e Valori dei Vertici */}
+          {/* Etichette e Valori dei Vertici (Cliccabili per Info) */}
           {data1.map((d, i) => {
             const pos = labelPositions[i];
             const val1 = Math.round(d.value);
@@ -291,7 +393,7 @@ const RadarChart: React.FC<RadarChartProps> = ({ stats, comparisonStats, isDarkM
             const singleColor = getScoreColor(val1);
 
             return (
-              <G key={`label-group-${i}`}>
+              <G key={`label-group-${i}`} onPress={() => handleShowMetricInfo(d.mId, val1, val2)}>
                 <SvgText
                   x={pos.x}
                   y={pos.yLabel}
@@ -327,6 +429,56 @@ const RadarChart: React.FC<RadarChartProps> = ({ stats, comparisonStats, isDarkM
           })}
         </G>
       </Svg>
+
+      {/* Modal Popup Info Statistica */}
+      <Modal visible={!!selectedMetricInfo} transparent animationType="fade" onRequestClose={() => setSelectedMetricInfo(null)}>
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center', padding: 20 }}>
+          <TouchableWithoutFeedback onPress={() => setSelectedMetricInfo(null)}>
+            <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
+          </TouchableWithoutFeedback>
+          <View style={{ width: '100%', maxWidth: 360, backgroundColor: isDarkMode ? '#2C2C2E' : '#FFFFFF', borderRadius: 20, padding: 22, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 10, elevation: 5 }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Text style={{ fontSize: 24 }}>{selectedMetricInfo?.icon}</Text>
+                <Text style={{ fontSize: 18, fontWeight: '900', color: isDarkMode ? '#FFFFFF' : '#1C1C1E' }}>{selectedMetricInfo?.label}</Text>
+              </View>
+              <TouchableOpacity onPress={() => setSelectedMetricInfo(null)} style={{ padding: 4 }}>
+                <Ionicons name="close" size={24} color={isDarkMode ? '#AEAEB2' : '#8E8E93'} />
+              </TouchableOpacity>
+            </View>
+
+            {/* Score Badge */}
+            <View style={{ backgroundColor: isDarkMode ? '#1C1C1E' : '#F2F2F7', padding: 12, borderRadius: 12, alignItems: 'center', marginBottom: 15, flexDirection: 'row', justifyContent: 'center', gap: 8 }}>
+              <Text style={{ fontSize: 13, fontWeight: '700', color: isDarkMode ? '#AEAEB2' : '#8E8E93' }}>Punteggio:</Text>
+              <Text style={{ fontSize: 22, fontWeight: '900', color: getScoreColor(selectedMetricInfo?.value1 || 0) }}>
+                {selectedMetricInfo?.value1} / 100
+              </Text>
+              {selectedMetricInfo?.value2 !== undefined && selectedMetricInfo?.value2 !== null && (
+                <Text style={{ fontSize: 22, fontWeight: '900', color: '#34C759' }}>
+                  vs {selectedMetricInfo.value2} / 100
+                </Text>
+              )}
+            </View>
+
+            <Text style={{ fontSize: 13, color: isDarkMode ? '#E5E5EA' : '#3A3A3C', lineHeight: 18, marginBottom: 12, fontWeight: '500' }}>
+              {selectedMetricInfo?.desc}
+            </Text>
+
+            <View style={{ backgroundColor: isDarkMode ? 'rgba(0,122,255,0.15)' : '#007AFF10', padding: 10, borderRadius: 10, marginBottom: 18 }}>
+              <Text style={{ fontSize: 11, fontWeight: '700', color: '#007AFF', fontStyle: 'italic' }}>
+                {selectedMetricInfo?.formula}
+              </Text>
+            </View>
+
+            <TouchableOpacity
+              style={{ backgroundColor: '#007AFF', borderRadius: 12, height: 44, alignItems: 'center', justifyContent: 'center' }}
+              onPress={() => setSelectedMetricInfo(null)}
+            >
+              <Text style={{ color: '#FFFFFF', fontSize: 15, fontWeight: '700' }}>Chiudi</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
