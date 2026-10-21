@@ -2635,6 +2635,7 @@ export default function GroupDetailScreen() {
       { id: 'won', key: 'won' },
       { id: 'lost', key: 'lost' },
       { id: 'drawn', key: 'drawn' },
+      { id: 'spider', key: 'spider' },
     ];
 
     const activeSortId = group?.group_type === 'tournament' && sortBy === 'points' ? 'goals' : sortBy;
@@ -2655,10 +2656,11 @@ export default function GroupDetailScreen() {
       let valA = a[key] as number;
       let valB = b[key] as number;
 
-      // Logica speciale per medie (MG, MA, MS)
+      // Logica speciale per medie (MG, MA, MS) e Valore Spider
       if (activeSortId === 'mg') { valA = a.individual_goals / (a.career_divisor || 1); valB = b.individual_goals / (b.career_divisor || 1); }
       if (activeSortId === 'ma') { valA = a.individual_assists / (a.career_divisor || 1); valB = b.individual_assists / (b.career_divisor || 1); }
       if (activeSortId === 'ms') { valA = a.goals_suffered / (a.career_divisor || 1); valB = b.goals_suffered / (b.career_divisor || 1); }
+      if (activeSortId === 'spider') { valA = spiderScoresMap[a.player_id] || 0; valB = spiderScoresMap[b.player_id] || 0; }
 
       // Ordinamento Crescente per Sconfitte (P) e Media Subiti (MS)
       if (activeSortId === 'lost' || activeSortId === 'ms') {
@@ -2858,6 +2860,7 @@ export default function GroupDetailScreen() {
       { id: 'won', label: 'Vinte', key: 'won', short: 'V', color: '#34C759' },
       { id: 'lost', label: 'Perse', key: 'lost', short: 'P', color: '#FF3B30' },
       { id: 'drawn', label: 'Pari', key: 'drawn', short: 'X', color: '#FF9500' },
+      { id: 'spider', label: 'Valore Spider', key: 'spider', short: 'SPD', color: '#007AFF' },
     ];
 
     if (group?.group_type === 'tournament') {
@@ -2888,6 +2891,7 @@ export default function GroupDetailScreen() {
       { id: 'won', short: 'V', color: '#34C759', getValue: (i: any) => i.won, bold: false },
       { id: 'lost', short: 'P', color: '#FF3B30', getValue: (i: any) => i.lost, bold: false },
       { id: 'drawn', short: 'X', color: '#FF9500', getValue: (i: any) => i.drawn, bold: false },
+      { id: 'spider', short: 'SPD', color: '#007AFF', getValue: (i: any) => spiderScoresMap[i.player_id] !== undefined ? spiderScoresMap[i.player_id] : '--', bold: true },
     ];
 
     if (group?.group_type === 'tournament') {
@@ -3682,6 +3686,7 @@ export default function GroupDetailScreen() {
       { id: 'ms', short: 'MS', color: isDarkMode ? '#FFF' : '#1C1C1E', getValue: (i: any) => (i.goals_suffered / (i.career_divisor || 1)).toFixed(1), bold: false },
       { id: 'played', short: 'PG', color: '#8E8E93', getValue: (i: any) => i.played, bold: false },
       { id: 'tournament_count', short: 'TG', color: '#5856D6', getValue: (i: any) => i.tournament_count, bold: false },
+      { id: 'spider', short: 'SPD', color: '#007AFF', getValue: (i: any) => spiderScoresMap[i.player_id] !== undefined ? spiderScoresMap[i.player_id] : '--', bold: true },
     ];
 
     if (isTournament) {
