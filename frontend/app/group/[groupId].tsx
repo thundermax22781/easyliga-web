@@ -3534,19 +3534,17 @@ export default function GroupDetailScreen() {
                           </TouchableOpacity>
 
                           <View style={styles.tpRight}>
-                            {showIndividualStrength && (
-                              <View style={[styles.pStrBadge, { backgroundColor: isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)', flexDirection: 'row', gap: sharing ? 6 : 8, paddingHorizontal: sharing ? 6 : 8, paddingVertical: sharing ? 2 : 4, borderRadius: 10 }]}>
-                                <View style={{alignItems: 'center'}}><Text style={[styles.tpAge, dynamicStyles.subText, {fontSize: sharing ? 11 : 12, fontWeight: '700'}]}>{p.age}</Text><Text style={[styles.pStrLabel, {fontSize: 6}]}>ANNI</Text></View>
-                                <View style={[styles.pDivider, dynamicStyles.divider, { height: 12 }]} />
-                                <View style={{alignItems: 'center'}}><Text style={[styles.pStrNum, { fontSize: sharing ? 12 : 14, fontWeight: '900', color: getScoreColor(spiderScoresMap[p.id] || 50) }]}>{spiderScoresMap[p.id] !== undefined ? spiderScoresMap[p.id] : '--'}</Text><Text style={[styles.pStrLabel, {fontSize: 6, color: getScoreColor(spiderScoresMap[p.id] || 50), fontWeight: '800'}]}>SPD</Text></View>
-                                {isAdminOrOwner && (
-                                  <>
-                                    <View style={[styles.pDivider, dynamicStyles.divider, { height: 12 }]} />
-                                    <View style={{alignItems: 'center'}}><Text style={[styles.tpStrength, dynamicStyles.text, { fontSize: sharing ? 14 : 16 }]}>{p.strength}</Text><Text style={[styles.pStrLabel, {fontSize: 6}]}>FRZ</Text></View>
-                                  </>
-                                )}
-                              </View>
-                            )}
+                            <View style={[styles.pStrBadge, { backgroundColor: isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)', flexDirection: 'row', gap: sharing ? 6 : 8, paddingHorizontal: sharing ? 6 : 8, paddingVertical: sharing ? 2 : 4, borderRadius: 10 }]}>
+                              <View style={{alignItems: 'center'}}><Text style={[styles.tpAge, dynamicStyles.subText, {fontSize: sharing ? 11 : 12, fontWeight: '700'}]}>{p.age}</Text><Text style={[styles.pStrLabel, {fontSize: 6}]}>ANNI</Text></View>
+                              <View style={[styles.pDivider, dynamicStyles.divider, { height: 12 }]} />
+                              <View style={{alignItems: 'center'}}><Text style={[styles.pStrNum, { fontSize: sharing ? 12 : 14, fontWeight: '900', color: getScoreColor(spiderScoresMap[p.id] || 50) }]}>{spiderScoresMap[p.id] !== undefined ? spiderScoresMap[p.id] : '--'}</Text><Text style={[styles.pStrLabel, {fontSize: 6, color: getScoreColor(spiderScoresMap[p.id] || 50), fontWeight: '800'}]}>SPD</Text></View>
+                              {showIndividualStrength && isAdminOrOwner && (
+                                <>
+                                  <View style={[styles.pDivider, dynamicStyles.divider, { height: 12 }]} />
+                                  <View style={{alignItems: 'center'}}><Text style={[styles.tpStrength, dynamicStyles.text, { fontSize: sharing ? 14 : 16 }]}>{p.strength}</Text><Text style={[styles.pStrLabel, {fontSize: 6}]}>FRZ</Text></View>
+                                </>
+                              )}
+                            </View>
                             {!sharing && (
                               <View style={{ flexDirection: 'row', gap: 4, alignItems: 'center' }}>
                                 <TouchableOpacity
