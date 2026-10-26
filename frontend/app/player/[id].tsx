@@ -1520,7 +1520,7 @@ export default function PlayerDetailScreen() {
 
           )}
 
-          {stats && (
+          {stats && group?.show_spider_rating !== false && stats.played > 0 && (
             <View style={[styles.chartCard, dynamicStyles.card]}>
                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, width: '100%' }}>
                  <Text style={[styles.chartTitle, dynamicStyles.text, { marginBottom: 0 }]}>Analisi Prestazioni</Text>

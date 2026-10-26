@@ -45,6 +45,7 @@ export interface Group {
   tournament_3rd_team_name?: string;
   tournament_4th_team_name?: string;
   radar_config?: Record<string, string[]>; // Configurazione metrica Radar Chart per ruolo
+  show_spider_rating?: boolean; // Se mostrare il valore Spider (SPD) nelle schede
 }
 
 export interface Player {
@@ -332,7 +333,7 @@ export const syncCloudData = async (groupId?: string): Promise<Group | null> => 
         'tournament_win_bonus', 'tournament_2nd_bonus', 'tournament_3rd_bonus',
         'tournament_4th_bonus', 'tournament_group_winner_bonus',
         'tournament_top_scorer_bonus', 'tournament_top_assistant_bonus',
-        'tournament_3rd_team_name', 'tournament_4th_team_name', 'radar_config'
+        'tournament_3rd_team_name', 'tournament_4th_team_name', 'radar_config', 'show_spider_rating'
       ];
 
       for (const g of mapped) {
@@ -495,7 +496,7 @@ export const updateGroup = async (groupId: string, updates: Partial<Group> | str
           'tournament_win_bonus', 'tournament_2nd_bonus', 'tournament_3rd_bonus',
           'tournament_4th_bonus', 'tournament_group_winner_bonus',
           'tournament_top_scorer_bonus', 'tournament_top_assistant_bonus',
-          'tournament_3rd_team_name', 'tournament_4th_team_name', 'radar_config'
+          'tournament_3rd_team_name', 'tournament_4th_team_name', 'radar_config', 'show_spider_rating'
         ];
 
         for (const field of careerFields) {
@@ -513,7 +514,7 @@ export const updateGroup = async (groupId: string, updates: Partial<Group> | str
         'tournament_win_bonus', 'tournament_2nd_bonus', 'tournament_3rd_bonus',
         'tournament_4th_bonus', 'tournament_group_winner_bonus',
         'tournament_top_scorer_bonus', 'tournament_top_assistant_bonus',
-        'tournament_3rd_team_name', 'tournament_4th_team_name', 'radar_config'
+        'tournament_3rd_team_name', 'tournament_4th_team_name', 'radar_config', 'show_spider_rating'
       ];
       for (const field of careerFields) {
         await AsyncStorage.removeItem(`override_${field}_${groupId}`);

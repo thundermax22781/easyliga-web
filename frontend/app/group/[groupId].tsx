@@ -3540,8 +3540,12 @@ export default function GroupDetailScreen() {
                           <View style={styles.tpRight}>
                             <View style={[styles.pStrBadge, { backgroundColor: isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)', flexDirection: 'row', gap: sharing ? 6 : 8, paddingHorizontal: sharing ? 6 : 8, paddingVertical: sharing ? 2 : 4, borderRadius: 10 }]}>
                               <View style={{alignItems: 'center'}}><Text style={[styles.tpAge, dynamicStyles.subText, {fontSize: sharing ? 11 : 12, fontWeight: '700'}]}>{p.age}</Text><Text style={[styles.pStrLabel, {fontSize: 6}]}>ANNI</Text></View>
-                              <View style={[styles.pDivider, dynamicStyles.divider, { height: 12 }]} />
-                              <View style={{alignItems: 'center'}}><Text style={[styles.pStrNum, { fontSize: sharing ? 12 : 14, fontWeight: '900', color: getScoreColor(spiderScoresMap[p.id] || 50) }]}>{spiderScoresMap[p.id] !== undefined ? spiderScoresMap[p.id] : '--'}</Text><Text style={[styles.pStrLabel, {fontSize: 6, color: getScoreColor(spiderScoresMap[p.id] || 50), fontWeight: '800'}]}>SPD</Text></View>
+                              {group?.show_spider_rating !== false && spiderScoresMap[p.id] !== undefined && spiderScoresMap[p.id] > 0 && (
+                                <>
+                                  <View style={[styles.pDivider, dynamicStyles.divider, { height: 12 }]} />
+                                  <View style={{alignItems: 'center'}}><Text style={[styles.pStrNum, { fontSize: sharing ? 12 : 14, fontWeight: '900', color: getScoreColor(spiderScoresMap[p.id]) }]}>{spiderScoresMap[p.id]}</Text><Text style={[styles.pStrLabel, {fontSize: 6, color: getScoreColor(spiderScoresMap[p.id]), fontWeight: '800'}]}>SPD</Text></View>
+                                </>
+                              )}
                               {showIndividualStrength && isAdminOrOwner && (
                                 <>
                                   <View style={[styles.pDivider, dynamicStyles.divider, { height: 12 }]} />
@@ -6054,6 +6058,22 @@ export default function GroupDetailScreen() {
                               <Switch style={{ transform: [{ scale: 1.1 }] }} trackColor={{ false: '#767577', true: '#34C759' }} thumbColor="#FFF" value={group?.use_clean_sheet_bonus} onValueChange={(v) => handleUpdateGroupSettings({ use_clean_sheet_bonus: v })} />
                             </View>
 
+                            <View style={[styles.detailDivider, dynamicStyles.divider, { marginHorizontal: 0, opacity: 0.3, marginVertical: 8 }]} />
+
+                            <View style={styles.bonusRow}>
+                              <View style={{ flex: 1, paddingRight: 10 }}>
+                                <Text style={[dynamicStyles.text, { fontSize: 14, fontWeight: '600' }]}>Mostra Valore Spider (SPD)</Text>
+                                <Text style={[dynamicStyles.subText, { fontSize: 10, marginTop: 1 }]}>Mostra il rating del grafico spider sulle schede giocatori</Text>
+                              </View>
+                              <Switch
+                                style={{ transform: [{ scale: 1.1 }] }}
+                                trackColor={{ false: '#767577', true: '#007AFF' }}
+                                thumbColor="#FFF"
+                                value={group?.show_spider_rating !== false}
+                                onValueChange={(v) => handleUpdateGroupSettings({ show_spider_rating: v })}
+                              />
+                            </View>
+
 
 
 
@@ -6415,13 +6435,17 @@ export default function GroupDetailScreen() {
                           <Ionicons name={favoriteIds.has(item.id) ? "heart" : "heart-outline"} size={16} color={favoriteIds.has(item.id) ? "#FF2D55" : "#8E8E93"} />
                         </TouchableOpacity>
                         <View style={{alignItems: 'center'}}><Text style={[styles.pAge, dynamicStyles.subText, {fontSize: 11, fontWeight: '700'}]}>{item.age}</Text><Text style={styles.pStrLabel}>ANNI</Text></View>
-                        <View style={[styles.pDivider, dynamicStyles.divider, { height: 12 }]} />
-                        <View style={{alignItems: 'center'}}>
-                          <Text style={[styles.pStrNum, { fontSize: 13, fontWeight: '900', color: getScoreColor(spiderScoresMap[item.id] || 50) }]}>
-                            {spiderScoresMap[item.id] !== undefined ? spiderScoresMap[item.id] : '--'}
-                          </Text>
-                          <Text style={[styles.pStrLabel, { color: getScoreColor(spiderScoresMap[item.id] || 50), fontWeight: '800' }]}>SPD</Text>
-                        </View>
+                        {group?.show_spider_rating !== false && spiderScoresMap[item.id] !== undefined && spiderScoresMap[item.id] > 0 && (
+                          <>
+                            <View style={[styles.pDivider, dynamicStyles.divider, { height: 12 }]} />
+                            <View style={{alignItems: 'center'}}>
+                              <Text style={[styles.pStrNum, { fontSize: 13, fontWeight: '900', color: getScoreColor(spiderScoresMap[item.id]) }]}>
+                                {spiderScoresMap[item.id]}
+                              </Text>
+                              <Text style={[styles.pStrLabel, { color: getScoreColor(spiderScoresMap[item.id]), fontWeight: '800' }]}>SPD</Text>
+                            </View>
+                          </>
+                        )}
                         {isAdminOrOwner && (
                           <>
                             <View style={[styles.pDivider, dynamicStyles.divider, { height: 12 }]} />
@@ -6494,13 +6518,17 @@ export default function GroupDetailScreen() {
                            <Ionicons name={favoriteIds.has(item.id) ? "heart" : "heart-outline"} size={16} color={favoriteIds.has(item.id) ? "#FF2D55" : "#8E8E93"} />
                          </TouchableOpacity>
                          <View style={{alignItems: 'center'}}><Text style={[styles.pAge, dynamicStyles.subText, {fontSize: 11, fontWeight: '700'}]}>{item.age}</Text><Text style={styles.pStrLabel}>ANNI</Text></View>
-                         <View style={[styles.pDivider, dynamicStyles.divider, { height: 12 }]} />
-                         <View style={{alignItems: 'center'}}>
-                           <Text style={[styles.pStrNum, { fontSize: 13, fontWeight: '900', color: getScoreColor(spiderScoresMap[item.id] || 50) }]}>
-                             {spiderScoresMap[item.id] !== undefined ? spiderScoresMap[item.id] : '--'}
-                           </Text>
-                           <Text style={[styles.pStrLabel, { color: getScoreColor(spiderScoresMap[item.id] || 50), fontWeight: '800' }]}>SPD</Text>
-                         </View>
+                         {group?.show_spider_rating !== false && spiderScoresMap[item.id] !== undefined && spiderScoresMap[item.id] > 0 && (
+                           <>
+                             <View style={[styles.pDivider, dynamicStyles.divider, { height: 12 }]} />
+                             <View style={{alignItems: 'center'}}>
+                               <Text style={[styles.pStrNum, { fontSize: 13, fontWeight: '900', color: getScoreColor(spiderScoresMap[item.id]) }]}>
+                                 {spiderScoresMap[item.id]}
+                               </Text>
+                               <Text style={[styles.pStrLabel, { color: getScoreColor(spiderScoresMap[item.id]), fontWeight: '800' }]}>SPD</Text>
+                             </View>
+                           </>
+                         )}
                          {isAdminOrOwner && (
                            <>
                              <View style={[styles.pDivider, dynamicStyles.divider, { height: 12 }]} />
