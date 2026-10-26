@@ -2724,6 +2724,8 @@ export default function GroupDetailScreen() {
     const benchmarkStats = qualifiedStats.length > 0 ? qualifiedStats : standings;
 
     const calculatePlayerSpiderScore = (s: PlayerStats) => {
+      if ((s.played || 0) === 0) return 0; // Se 0 partite giocate, lo score Spider è 0 (nascondi badge)
+
       const playerRole = s.role || 'Attaccante';
       const sameRoleStats = benchmarkStats.filter(st => st.role === playerRole);
       const roleBenchmark = sameRoleStats.length > 0 ? sameRoleStats : benchmarkStats;
