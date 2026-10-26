@@ -59,6 +59,7 @@ export default function PlayerDetailScreen() {
   const [visibleMatchesCount, setVisibleMatchesCount] = useState(5);
   const [showBonusBreakdown, setShowBonusBreakdown] = useState(false);
   const [showTournamentBreakdown, setShowTournamentBreakdown] = useState(false);
+  const [showSpiderInfoModal, setShowSpiderInfoModal] = useState(false);
 
   const championshipMatches = useMemo(() => {
     return playerMatches.filter(m => !(m as any)._isLinked);
@@ -798,6 +799,198 @@ export default function PlayerDetailScreen() {
     );
   };
 
+  const SPIDER_METRIC_INFO: Record<string, { label: string; icon: string; desc: string; formula: string }> = {
+    incisivity: {
+      label: 'Incisività',
+      icon: '⚡',
+      desc: 'Valuta la capacità del giocatore di incidere direttamente sui gol della squadra. Si basa sulla somma dei gol e degli assist prodotti a partita.',
+      formula: 'Formula: (Gol Fatti + Assist Fatti) / Partite Giocate',
+    },
+    mg: {
+      label: 'Attacco (Media Gol)',
+      icon: '⚽',
+      desc: 'Indica la pericolosità offensiva e la frequenza di realizzazione del giocatore in partita.',
+      formula: 'Formula: Gol Fatti / Partite Giocate',
+    },
+    ma: {
+      label: 'Regia (Media Assist)',
+      icon: '🎯',
+      desc: 'Misura la visione di gioco e la capacità di servire passaggi vincenti ai compagni di squadra.',
+      formula: 'Formula: Assist Fatti / Partite Giocate',
+    },
+    solidity: {
+      label: 'Solidità Difensiva',
+      icon: '🛡️',
+      desc: 'Misura la tenuta difensiva della squadra quando il giocatore è in campo. Più la media dei gol subiti è bassa rispetto alla lega, più il punteggio è vicino a 100.',
+      formula: 'Formula: Confronto relativo della Media Gol Subiti',
+    },
+    win_rate: {
+      label: 'Percentuale Vittorie',
+      icon: '🏆',
+      desc: 'Indica la percentuale di partite vinte dal giocatore sul totale dei match disputati.',
+      formula: 'Formula: (Partite Vinte / Partite Giocate) × 100',
+    },
+    personal_bonus: {
+      label: 'Bonus Personale',
+      icon: '🌟',
+      desc: 'Premia le prestazioni individuali straordinarie, sbloccati quando si realizza una combo di Gol e Assist nella stessa partita.',
+      formula: 'Formula: Conteggio totale dei Bonus Personali ottenuti',
+    },
+    defense_bonus: {
+      label: 'Bonus Difesa',
+      icon: '🧱',
+      desc: 'Premia l’efficacia difensiva nelle partite in cui la propria squadra subisce pochissimi gol.',
+      formula: 'Formula: Conteggio totale dei Bonus Difesa ottenuti',
+    },
+    clean_sheets: {
+      label: 'Clean Sheet',
+      icon: '🧼',
+      desc: 'Indica il numero di partite concluse senza subire alcun gol da parte della propria squadra.',
+      formula: 'Formula: Conteggio totale partite con 0 gol subiti',
+    },
+    goals: {
+      label: 'Gol Totali',
+      icon: '⚽',
+      desc: 'Il numero complessivo di reti realizzate dal giocatore nel campionato.',
+      formula: 'Formula: Somma totale dei Gol fatti',
+    },
+    assists: {
+      label: 'Assist Totali',
+      icon: '🎯',
+      desc: 'Il numero complessivo di assist vincenti serviti dal giocatore.',
+      formula: 'Formula: Somma totale degli Assist fatti',
+    },
+    points: {
+      label: 'Punti Totali',
+      icon: '📈',
+      desc: 'I punti complessivi conquistati dal giocatore in classifica.',
+      formula: 'Formula: Somma Punti Vittoria + Pareggi + Bonus',
+    },
+    played: {
+      label: 'Presenze',
+      icon: '📊',
+      desc: 'Il numero totale di partite disputate dal giocatore.',
+      formula: 'Formula: Totale partite giocate',
+    },
+  };
+
+  const renderSpiderInfoModal = () => {
+    if (!showSpiderInfoModal || !stats) return null;
+
+    const playerRole = player?.role || 'Attaccante';
+    const configuredMetrics = group?.radar_config?.[playerRole] || (
+      playerRole === 'Difensore' ? ['solidity', 'ma', 'defense_bonus', 'mg', 'win_rate'] :
+      playerRole === 'Portiere' ? ['solidity', 'clean_sheets', 'defense_bonus', 'win_rate', 'ma'] :
+      ['incisivity', 'ma', 'personal_bonus', 'defense_bonus', 'mg']
+    );
+
+    const matches = stats.career_divisor || stats.played || 1;
+    const goalsPerMatch = (stats.individual_goals || 0) / matches;
+    const assistsPerMatch = (stats.individual_assists || 0) / matches;
+    const goalsConcededPerMatch = (stats.goals_suffered || 0) / matches;
+    const winRate = ((stats.won || 0) / matches) * 100;
+
+    const getMetricScore = (mId: string) => {
+      switch (mId) {
+        case 'incisivity': return Math.min(100, Math.round(((stats.incisivity || 0) / (maxStats.incisivity || 1)) * 100));
+        case 'mg': return Math.min(100, Math.round((goalsPerMatch / (maxStats.goals || 1)) * 100));
+        case 'ma': return Math.min(100, Math.round((assistsPerMatch / (maxStats.assists || 1)) * 100));
+        case 'solidity': return goalsConcededPerMatch > 0 ? Math.min(100, Math.round(((maxStats.minGoalsConcededPM || 2.0) / goalsConcededPerMatch) * 100)) : 100;
+        case 'win_rate': return Math.min(100, Math.round((winRate / (maxStats.winRate || 100)) * 100));
+        case 'personal_bonus': return Math.min(100, Math.round(((stats.personal_bonus_count || 0) / (maxStats.personalBonus || 1)) * 100));
+        case 'defense_bonus': return Math.min(100, Math.round(((stats.defense_bonus_count || 0) / (maxStats.defenseBonus || 1)) * 100));
+        case 'clean_sheets': return Math.min(100, Math.round(((stats.clean_sheets || 0) / (maxStats.cleanSheets || 1)) * 100));
+        case 'goals': return Math.min(100, Math.round(((stats.individual_goals || 0) / (maxStats.totalGoals || 1)) * 100));
+        case 'assists': return Math.min(100, Math.round(((stats.individual_assists || 0) / (maxStats.totalAssists || 1)) * 100));
+        case 'points': return Math.min(100, Math.round(((stats.points || 0) / (maxStats.points || 1)) * 100));
+        case 'played': return Math.min(100, Math.round(((stats.played || 0) / (maxStats.played || 1)) * 100));
+        default: return 50;
+      }
+    };
+
+    const metricItems = configuredMetrics.map(mId => {
+      const info = SPIDER_METRIC_INFO[mId] || { label: 'Statistica', icon: '📊', desc: 'Valore calcolato in base alle prestazioni.', formula: '' };
+      const score = getMetricScore(mId);
+      return { ...info, score };
+    });
+
+    const avgScore = Math.round(metricItems.reduce((sum, item) => sum + item.score, 0) / metricItems.length);
+
+    return (
+      <Modal visible={showSpiderInfoModal} transparent animationType="slide" onRequestClose={() => setShowSpiderInfoModal(false)}>
+        <View style={styles.modalOverlay}>
+          <TouchableWithoutFeedback onPress={() => setShowSpiderInfoModal(false)}>
+            <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
+          </TouchableWithoutFeedback>
+          <View style={[styles.modalContent, dynamicStyles.modalContent, { height: '85%', maxWidth: 420 }]}>
+            <View style={styles.modalHeader}>
+              <View>
+                <Text style={[styles.modalTitle, dynamicStyles.text]}>Guida Analisi Prestazioni</Text>
+                <Text style={[dynamicStyles.subText, { fontSize: 11 }]}>Ruolo: {playerRole.toUpperCase()}</Text>
+              </View>
+              <TouchableOpacity onPress={() => setShowSpiderInfoModal(false)}>
+                <Ionicons name="close-circle" size={26} color={isDarkMode ? "#AAA" : "#8E8E93"} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView contentContainerStyle={{ padding: 15, paddingBottom: 30 }}>
+              {/* Rating Complessivo AVG */}
+              <View style={{ backgroundColor: isDarkMode ? '#1C1C1E' : '#F8F9FF', padding: 15, borderRadius: 16, borderLeftWidth: 4, borderLeftColor: getRoleColor(playerRole), marginBottom: 18, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                <View style={{ flex: 1, paddingRight: 10 }}>
+                  <Text style={[dynamicStyles.text, { fontSize: 15, fontWeight: '900' }]}>⭐ Rating Complessivo (AVG)</Text>
+                  <Text style={[dynamicStyles.subText, { fontSize: 11, marginTop: 2 }]}>
+                    Media aritmetica dei 5 parametri del grafico.
+                  </Text>
+                </View>
+                <View style={{ backgroundColor: isDarkMode ? '#2C2C2E' : '#FFFFFF', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12, borderWidth: 2, borderColor: getScoreColor(avgScore), alignItems: 'center' }}>
+                  <Text style={{ fontSize: 18, fontWeight: '900', color: getScoreColor(avgScore) }}>{avgScore}</Text>
+                  <Text style={{ fontSize: 7.5, fontWeight: '800', color: getScoreColor(avgScore) }}>OVERALL</Text>
+                </View>
+              </View>
+
+              <Text style={[dynamicStyles.subText, { fontSize: 11, fontWeight: '800', textTransform: 'uppercase', marginBottom: 10, marginLeft: 2 }]}>
+                Dettaglio delle 5 Metrike nel Grafico:
+              </Text>
+
+              {metricItems.map((item, i) => (
+                <View key={i} style={{ backgroundColor: isDarkMode ? '#2C2C2E' : '#FFFFFF', borderRadius: 14, padding: 14, marginBottom: 12, borderWidth: 1, borderColor: isDarkMode ? '#3A3A3C' : '#E5E5EA' }}>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                      <Text style={{ fontSize: 18 }}>{item.icon}</Text>
+                      <Text style={[dynamicStyles.text, { fontSize: 14, fontWeight: '800' }]}>{item.label}</Text>
+                    </View>
+                    <View style={{ backgroundColor: isDarkMode ? '#1C1C1E' : '#F2F2F7', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 }}>
+                      <Text style={{ fontSize: 13, fontWeight: '900', color: getScoreColor(item.score) }}>
+                        {item.score} <Text style={{ fontSize: 10, fontWeight: '700', color: isDarkMode ? '#AEAEB2' : '#8E8E93' }}>/ 100</Text>
+                      </Text>
+                    </View>
+                  </View>
+
+                  <Text style={[dynamicStyles.text, { fontSize: 12, lineHeight: 17, marginBottom: 8, opacity: 0.85 }]}>
+                    {item.desc}
+                  </Text>
+
+                  <View style={{ backgroundColor: isDarkMode ? 'rgba(0,122,255,0.12)' : '#007AFF10', padding: 8, borderRadius: 8 }}>
+                    <Text style={{ fontSize: 10.5, fontWeight: '700', color: '#007AFF', fontStyle: 'italic' }}>
+                      {item.formula}
+                    </Text>
+                  </View>
+                </View>
+              ))}
+
+              <TouchableOpacity
+                style={[styles.saveButton, { marginTop: 10, height: 48 }]}
+                onPress={() => setShowSpiderInfoModal(false)}
+              >
+                <Text style={styles.saveButtonText}>Chiudi</Text>
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+    );
+  };
+
   const renderProfileSharePreview = () => {
     if (!isSharingProfile || !player || !stats) return null;
     return (
@@ -1323,7 +1516,12 @@ export default function PlayerDetailScreen() {
 
           {stats && (
             <View style={[styles.chartCard, dynamicStyles.card]}>
-               <Text style={[styles.chartTitle, dynamicStyles.text]}>Analisi Prestazioni</Text>
+               <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, width: '100%' }}>
+                 <Text style={[styles.chartTitle, dynamicStyles.text, { marginBottom: 0 }]}>Analisi Prestazioni</Text>
+                 <TouchableOpacity onPress={() => setShowSpiderInfoModal(true)} style={{ padding: 4 }}>
+                   <Ionicons name="information-circle-outline" size={24} color="#007AFF" />
+                 </TouchableOpacity>
+               </View>
                <RadarChart
                  isDarkMode={isDarkMode}
                  matchType={group?.match_type || 5}
@@ -1466,6 +1664,7 @@ export default function PlayerDetailScreen() {
             </View>
           </View>
         </Modal>
+        {renderSpiderInfoModal()}
       </SafeAreaView>
     );
   }
