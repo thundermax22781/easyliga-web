@@ -130,6 +130,12 @@ export default function PlayerDetailScreen() {
   }, [groupStats, player]);
 
   const getRoleColor = (r: string) => ROLE_COLORS[r] || '#8E8E93';
+  const getScoreColor = (score: number) => {
+    if (isNaN(score)) return '#8E8E93';
+    if (score >= 75) return '#34C759';
+    if (score >= 60) return '#FFCC00';
+    return '#FF3B30';
+  };
 
   const formatStatsForChart = (s: PlayerStats) => ({
     goals: s.individual_goals,
