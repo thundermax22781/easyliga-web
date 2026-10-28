@@ -82,13 +82,13 @@ const METRIC_DESCRIPTIONS: Record<string, { label: string; icon: string; desc: s
     label: 'Bonus Difesa',
     icon: '🧱',
     desc: 'Premia l’efficacia difensiva nelle partite in cui la propria squadra subisce pochissimi gol.',
-    formula: 'Formula: Conteggio totale dei Bonus Difesa ottenuti',
+    formula: 'Formula: Media Bonus Difesa a partita (Bonus Difesa / Partite)',
   },
   clean_sheets: {
     label: 'Clean Sheet',
     icon: '🧼',
-    desc: 'Indica il numero di partite concluse senza subire alcun gol da parte della propria squadra.',
-    formula: 'Formula: Conteggio totale partite con 0 gol subiti',
+    desc: 'Indica la frequenza di partite concluse senza subire alcun gol da parte della propria squadra.',
+    formula: 'Formula: Media Clean Sheet a partita (Clean Sheet / Partite)',
   },
   goals: {
     label: 'Gol Totali',
@@ -161,6 +161,8 @@ const RadarChart: React.FC<RadarChartProps> = ({ stats, comparisonStats, isDarkM
     const goalsConcededPerMatch = s.goalsConceded / matches;
     const teamGoalsScoredPerMatch = (s.goalsDone || 0) / matches;
     const winRate = (s.wins / matches) * 100;
+    const cleanSheetsPerMatch = (s.cleanSheets || 0) / matches;
+    const defenseBonusPerMatch = (s.defenseBonus || 0) / matches;
 
     switch (mId) {
       case 'incisivity': {
@@ -193,11 +195,11 @@ const RadarChart: React.FC<RadarChartProps> = ({ stats, comparisonStats, isDarkM
         return { mId, label: 'Bonus Personale', value: Math.min(10, Number(score.toFixed(1))) };
       }
       case 'defense_bonus': {
-        const score = maxStats?.defenseBonus ? (s.defenseBonus || 0) / maxStats.defenseBonus * 10 : Math.min(10, (s.defenseBonus || 0) * 1.5);
+        const score = maxStats?.defenseBonus ? (defenseBonusPerMatch / maxStats.defenseBonus) * 10 : Math.min(10, defenseBonusPerMatch * 10);
         return { mId, label: 'Bonus Difesa', value: Math.min(10, Number(score.toFixed(1))) };
       }
       case 'clean_sheets': {
-        const score = maxStats?.cleanSheets ? (s.cleanSheets || 0) / maxStats.cleanSheets * 10 : Math.min(10, (s.cleanSheets || 0) * 2);
+        const score = maxStats?.cleanSheets ? (cleanSheetsPerMatch / maxStats.cleanSheets) * 10 : Math.min(10, cleanSheetsPerMatch * 10);
         return { mId, label: 'Clean Sheet', value: Math.min(10, Number(score.toFixed(1))) };
       }
       case 'goals': {

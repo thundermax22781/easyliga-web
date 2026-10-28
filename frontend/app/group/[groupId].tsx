@@ -2734,9 +2734,9 @@ export default function GroupDetailScreen() {
       const maxGPM = Math.max(0.1, ...roleBenchmark.map(st => (st.individual_goals || 0) / (st.career_divisor || st.played || 1)));
       const maxAPM = Math.max(0.1, ...roleBenchmark.map(st => (st.individual_assists || 0) / (st.career_divisor || st.played || 1)));
       const maxPBonus = Math.max(1, ...roleBenchmark.map(st => st.personal_bonus_count || 0));
-      const maxDBonus = Math.max(1, ...roleBenchmark.map(st => st.defense_bonus_count || 0));
+      const maxDBonusPM = Math.max(0.1, ...roleBenchmark.map(st => (st.defense_bonus_count || 0) / (st.career_divisor || st.played || 1)));
       const maxWinRate = Math.max(1, ...roleBenchmark.map(st => ((st.won || 0) / (st.played || 1)) * 100));
-      const maxCS = Math.max(1, ...roleBenchmark.map(st => st.clean_sheets || 0));
+      const maxCSPM = Math.max(0.1, ...roleBenchmark.map(st => (st.clean_sheets || 0) / (st.career_divisor || st.played || 1)));
       const maxTotG = Math.max(1, ...roleBenchmark.map(st => st.individual_goals || 0));
       const maxTotA = Math.max(1, ...roleBenchmark.map(st => st.individual_assists || 0));
       const maxPts = Math.max(1, ...roleBenchmark.map(st => st.points || 0));
@@ -2750,6 +2750,8 @@ export default function GroupDetailScreen() {
       const goalsConcededPerMatch = (s.goals_suffered || 0) / matches;
       const teamGoalsScoredPerMatch = (s.goals_done || 0) / matches;
       const winRate = ((s.won || 0) / matches) * 100;
+      const cleanSheetsPerMatch = (s.clean_sheets || 0) / matches;
+      const defenseBonusPerMatch = (s.defense_bonus_count || 0) / matches;
 
       const getMetricScore = (mId: string) => {
         switch (mId) {
@@ -2760,8 +2762,8 @@ export default function GroupDetailScreen() {
           case 'team_goals_scored': return Math.min(100, Math.round((teamGoalsScoredPerMatch / maxTGPM) * 100));
           case 'win_rate': return Math.min(100, Math.round((winRate / maxWinRate) * 100));
           case 'personal_bonus': return Math.min(100, Math.round(((s.personal_bonus_count || 0) / maxPBonus) * 100));
-          case 'defense_bonus': return Math.min(100, Math.round(((s.defense_bonus_count || 0) / maxDBonus) * 100));
-          case 'clean_sheets': return Math.min(100, Math.round(((s.clean_sheets || 0) / maxCS) * 100));
+          case 'defense_bonus': return Math.min(100, Math.round((defenseBonusPerMatch / maxDBonusPM) * 100));
+          case 'clean_sheets': return Math.min(100, Math.round((cleanSheetsPerMatch / maxCSPM) * 100));
           case 'goals': return Math.min(100, Math.round(((s.individual_goals || 0) / maxTotG) * 100));
           case 'assists': return Math.min(100, Math.round(((s.individual_assists || 0) / maxTotA) * 100));
           case 'points': return Math.min(100, Math.round(((s.points || 0) / maxPts) * 100));

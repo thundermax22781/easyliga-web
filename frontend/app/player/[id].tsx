@@ -99,10 +99,10 @@ export default function PlayerDetailScreen() {
     const maxGPM = Math.max(0.1, ...roleBenchmark.map(s => (s.individual_goals || 0) / (s.career_divisor || s.played || 1)));
     const maxAPM = Math.max(0.1, ...roleBenchmark.map(s => (s.individual_assists || 0) / (s.career_divisor || s.played || 1)));
     const maxPBonus = Math.max(1, ...roleBenchmark.map(s => s.personal_bonus_count || 0));
-    const maxDBonus = Math.max(1, ...roleBenchmark.map(s => s.defense_bonus_count || 0));
+    const maxDBonusPM = Math.max(0.1, ...roleBenchmark.map(s => (s.defense_bonus_count || 0) / (s.career_divisor || s.played || 1)));
     const maxWinRate = Math.max(1, ...roleBenchmark.map(s => ((s.won || 0) / (s.played || 1)) * 100));
 
-    const maxCS = Math.max(1, ...roleBenchmark.map(s => s.clean_sheets || 0));
+    const maxCSPM = Math.max(0.1, ...roleBenchmark.map(s => (s.clean_sheets || 0) / (s.career_divisor || s.played || 1)));
     const maxTotG = Math.max(1, ...roleBenchmark.map(s => s.individual_goals || 0));
     const maxTotA = Math.max(1, ...roleBenchmark.map(s => s.individual_assists || 0));
     const maxPts = Math.max(1, ...roleBenchmark.map(s => s.points || 0));
@@ -116,14 +116,14 @@ export default function PlayerDetailScreen() {
 
     return {
       personalBonus: maxPBonus,
-      defenseBonus: maxDBonus,
+      defenseBonus: maxDBonusPM,
       incisivity: maxInc,
       goals: maxGPM,
       assists: maxAPM,
       winRate: maxWinRate,
       minGoalsConcededPM: minGCPM,
       teamGoalsScoredPM: maxTGPM,
-      cleanSheets: maxCS,
+      cleanSheets: maxCSPM,
       totalGoals: maxTotG,
       totalAssists: maxTotA,
       points: maxPts,
@@ -875,13 +875,13 @@ export default function PlayerDetailScreen() {
       label: 'Bonus Difesa',
       icon: '🧱',
       desc: 'Premia l’efficacia difensiva nelle partite in cui la propria squadra subisce pochissimi gol.',
-      formula: 'Formula: Conteggio totale dei Bonus Difesa ottenuti',
+      formula: 'Formula: Media Bonus Difesa a partita (Bonus Difesa / Partite)',
     },
     clean_sheets: {
       label: 'Clean Sheet',
       icon: '🧼',
-      desc: 'Indica il numero di partite concluse senza subire alcun gol da parte della propria squadra.',
-      formula: 'Formula: Conteggio totale partite con 0 gol subiti',
+      desc: 'Indica la frequenza di partite concluse senza subire alcun gol da parte della propria squadra.',
+      formula: 'Formula: Media Clean Sheet a partita (Clean Sheet / Partite)',
     },
     goals: {
       label: 'Gol Totali',
@@ -925,6 +925,8 @@ export default function PlayerDetailScreen() {
     const goalsConcededPerMatch = (stats.goals_suffered || 0) / matches;
     const teamGoalsScoredPerMatch = (stats.goals_done || 0) / matches;
     const winRate = ((stats.won || 0) / matches) * 100;
+    const cleanSheetsPerMatch = (stats.clean_sheets || 0) / matches;
+    const defenseBonusPerMatch = (stats.defense_bonus_count || 0) / matches;
 
     const getMetricScore = (mId: string) => {
       switch (mId) {
@@ -935,8 +937,8 @@ export default function PlayerDetailScreen() {
         case 'team_goals_scored': return Math.min(10, Number(((teamGoalsScoredPerMatch / (maxStats.teamGoalsScoredPM || 1)) * 10).toFixed(1)));
         case 'win_rate': return Math.min(10, Number(((winRate / (maxStats.winRate || 100)) * 10).toFixed(1)));
         case 'personal_bonus': return Math.min(10, Number((((stats.personal_bonus_count || 0) / (maxStats.personalBonus || 1)) * 10).toFixed(1)));
-        case 'defense_bonus': return Math.min(10, Number((((stats.defense_bonus_count || 0) / (maxStats.defenseBonus || 1)) * 10).toFixed(1)));
-        case 'clean_sheets': return Math.min(10, Number((((stats.clean_sheets || 0) / (maxStats.cleanSheets || 1)) * 10).toFixed(1)));
+        case 'defense_bonus': return Math.min(10, Number(((defenseBonusPerMatch / (maxStats.defenseBonus || 0.1)) * 10).toFixed(1)));
+        case 'clean_sheets': return Math.min(10, Number(((cleanSheetsPerMatch / (maxStats.cleanSheets || 0.1)) * 10).toFixed(1)));
         case 'goals': return Math.min(10, Number((((stats.individual_goals || 0) / (maxStats.totalGoals || 1)) * 10).toFixed(1)));
         case 'assists': return Math.min(10, Number((((stats.individual_assists || 0) / (maxStats.totalAssists || 1)) * 10).toFixed(1)));
         case 'points': return Math.min(10, Number((((stats.points || 0) / (maxStats.points || 1)) * 10).toFixed(1)));
