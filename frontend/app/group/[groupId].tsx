@@ -4467,7 +4467,6 @@ export default function GroupDetailScreen() {
           />
           <View
             style={[styles.modalContent, dynamicStyles.modalContent, { height: '85%', maxHeight: '85%', maxWidth: 420, paddingBottom: 0, overflow: 'hidden', flexDirection: 'column' }]}
-            onStartShouldSetResponder={() => true}
           >
             <View style={styles.modalHeader}>
               <Text style={[styles.modalTitle, dynamicStyles.text]}>Grafico Prestazioni</Text>

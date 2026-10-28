@@ -977,7 +977,6 @@ export default function PlayerDetailScreen() {
                 flexDirection: 'column',
               },
             ]}
-            onStartShouldSetResponder={() => true}
           >
             <View style={styles.modalHeader}>
               <View style={{ flex: 1 }}>
