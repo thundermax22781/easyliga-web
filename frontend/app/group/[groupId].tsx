@@ -2742,11 +2742,13 @@ export default function GroupDetailScreen() {
       const maxPts = Math.max(1, ...roleBenchmark.map(st => st.points || 0));
       const validGCPM = roleBenchmark.map(st => (st.goals_suffered || 0) / (st.played || 1)).filter(g => g > 0);
       const minGCPM = validGCPM.length > 0 ? Math.min(...validGCPM) : 2.0;
+      const maxTGPM = Math.max(0.1, ...roleBenchmark.map(st => (st.goals_done || 0) / (st.career_divisor || st.played || 1)));
 
       const matches = s.career_divisor || s.played || 1;
       const goalsPerMatch = (s.individual_goals || 0) / matches;
       const assistsPerMatch = (s.individual_assists || 0) / matches;
       const goalsConcededPerMatch = (s.goals_suffered || 0) / matches;
+      const teamGoalsScoredPerMatch = (s.goals_done || 0) / matches;
       const winRate = ((s.won || 0) / matches) * 100;
 
       const getMetricScore = (mId: string) => {
@@ -2755,6 +2757,7 @@ export default function GroupDetailScreen() {
           case 'mg': return Math.min(100, Math.round((goalsPerMatch / maxGPM) * 100));
           case 'ma': return Math.min(100, Math.round((assistsPerMatch / maxAPM) * 100));
           case 'solidity': return goalsConcededPerMatch > 0 ? Math.min(100, Math.round((minGCPM / goalsConcededPerMatch) * 100)) : 100;
+          case 'team_goals_scored': return Math.min(100, Math.round((teamGoalsScoredPerMatch / maxTGPM) * 100));
           case 'win_rate': return Math.min(100, Math.round((winRate / maxWinRate) * 100));
           case 'personal_bonus': return Math.min(100, Math.round(((s.personal_bonus_count || 0) / maxPBonus) * 100));
           case 'defense_bonus': return Math.min(100, Math.round(((s.defense_bonus_count || 0) / maxDBonus) * 100));
@@ -2774,7 +2777,8 @@ export default function GroupDetailScreen() {
       );
 
       const scores = configuredMetrics.map(mId => getMetricScore(mId));
-      return Math.round(scores.reduce((a, b) => a + b, 0) / scores.length);
+      const avgScore = scores.reduce((a, b) => a + b, 0) / scores.length / 10;
+      return Number(Math.min(10, avgScore).toFixed(1));
     };
 
     standings.forEach(s => {
@@ -2785,8 +2789,8 @@ export default function GroupDetailScreen() {
   }, [standings, group]);
 
   const getScoreColor = (score: number) => {
-    if (score >= 75) return '#34C759';
-    if (score >= 60) return '#FFCC00';
+    if (score >= 7.5) return '#34C759';
+    if (score >= 6.0) return '#FFCC00';
     return '#FF3B30';
   };
 
@@ -2862,7 +2866,7 @@ export default function GroupDetailScreen() {
       { id: 'won', label: 'Vinte', key: 'won', short: 'V', color: '#34C759' },
       { id: 'lost', label: 'Perse', key: 'lost', short: 'P', color: '#FF3B30' },
       { id: 'drawn', label: 'Pari', key: 'drawn', short: 'X', color: '#FF9500' },
-      { id: 'spider', label: 'Valore Spider', key: 'spider', short: 'SPD', color: '#007AFF' },
+      { id: 'spider', label: 'Spider', key: 'spider', short: 'SPD', color: '#007AFF' },
     ];
 
     if (group?.group_type === 'tournament') {
@@ -4506,6 +4510,7 @@ export default function GroupDetailScreen() {
                           { id: 'incisivity', label: '⚡ Incisività' },
                           { id: 'mg', label: '⚽ Media Gol' },
                           { id: 'ma', label: '🎯 Media Assist' },
+                          { id: 'team_goals_scored', label: '🔥 Potenza (Gol Squadra)' },
                           { id: 'solidity', label: '🛡️ Solidità' },
                           { id: 'win_rate', label: '🏆 Vittorie %' },
                           { id: 'defense_bonus', label: '🧱 Bonus Difesa' },

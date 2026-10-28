@@ -112,6 +112,7 @@ export default function PlayerDetailScreen() {
       .map(s => (s.goals_suffered || 0) / (s.played || 1))
       .filter(g => g > 0);
     const minGCPM = validGCPM.length > 0 ? Math.min(...validGCPM) : 2.0;
+    const maxTGPM = Math.max(0.1, ...roleBenchmark.map(s => (s.goals_done || 0) / (s.career_divisor || s.played || 1)));
 
     return {
       personalBonus: maxPBonus,
@@ -121,6 +122,7 @@ export default function PlayerDetailScreen() {
       assists: maxAPM,
       winRate: maxWinRate,
       minGoalsConcededPM: minGCPM,
+      teamGoalsScoredPM: maxTGPM,
       cleanSheets: maxCS,
       totalGoals: maxTotG,
       totalAssists: maxTotA,
@@ -132,8 +134,8 @@ export default function PlayerDetailScreen() {
   const getRoleColor = (r: string) => ROLE_COLORS[r] || '#8E8E93';
   const getScoreColor = (score: number) => {
     if (isNaN(score)) return '#8E8E93';
-    if (score >= 75) return '#34C759';
-    if (score >= 60) return '#FFCC00';
+    if (score >= 7.5) return '#34C759';
+    if (score >= 6.0) return '#FFCC00';
     return '#FF3B30';
   };
 
@@ -142,6 +144,7 @@ export default function PlayerDetailScreen() {
     assists: s.individual_assists,
     cleanSheets: s.clean_sheets,
     goalsConceded: s.goals_suffered,
+    goalsDone: s.goals_done || 0,
     wins: s.won,
     matches: s.career_divisor || s.played || 1,
     points: s.points,
@@ -432,16 +435,36 @@ export default function PlayerDetailScreen() {
       const p2InB = teamB.includes(p2Id);
 
       if ((p1InA || p1InB) && (p2InA || p2InB)) {
+        const isDraw = m.team_a_score === m.team_b_score;
         if ((p1InA && p2InA) || (p1InB && p2InB)) {
           acc.together++;
           acc.togetherMatches.push(m);
+          const p1TeamWon = p1InA ? m.team_a_score > m.team_b_score : m.team_b_score > m.team_a_score;
+          if (isDraw) acc.togetherDrawn++;
+          else if (p1TeamWon) acc.togetherWon++;
+          else acc.togetherLost++;
         } else {
           acc.against++;
           acc.againstMatches.push(m);
+          const p1Won = p1InA ? m.team_a_score > m.team_b_score : m.team_b_score > m.team_a_score;
+          if (isDraw) acc.againstDrawn++;
+          else if (p1Won) acc.againstP1Won++;
+          else acc.againstP2Won++;
         }
       }
       return acc;
-    }, { together: 0, against: 0, togetherMatches: [] as Match[], againstMatches: [] as Match[] });
+    }, {
+      together: 0,
+      togetherWon: 0,
+      togetherLost: 0,
+      togetherDrawn: 0,
+      togetherMatches: [] as Match[],
+      against: 0,
+      againstP1Won: 0,
+      againstP2Won: 0,
+      againstDrawn: 0,
+      againstMatches: [] as Match[]
+    });
   };
 
   const ComparisonRow = ({ label, val1, val2, betterIsHigher = true }: { label: string, val1: number, val2: number, betterIsHigher?: boolean }) => {
@@ -830,6 +853,12 @@ export default function PlayerDetailScreen() {
       desc: 'Misura la tenuta difensiva della squadra quando il giocatore è in campo. Più la media dei gol subiti è bassa rispetto alla lega, più il punteggio è vicino a 100.',
       formula: 'Formula: Confronto relativo della Media Gol Subiti',
     },
+    team_goals_scored: {
+      label: 'Potenza (Gol Squadra)',
+      icon: '🔥',
+      desc: 'Misura la pericolosità e la forza offensiva complessiva della propria squadra quando il giocatore è in campo.',
+      formula: 'Formula: Confronto relativo della Media Gol Segnati Squadra',
+    },
     win_rate: {
       label: 'Percentuale Vittorie',
       icon: '🏆',
@@ -894,23 +923,25 @@ export default function PlayerDetailScreen() {
     const goalsPerMatch = (stats.individual_goals || 0) / matches;
     const assistsPerMatch = (stats.individual_assists || 0) / matches;
     const goalsConcededPerMatch = (stats.goals_suffered || 0) / matches;
+    const teamGoalsScoredPerMatch = (stats.goals_done || 0) / matches;
     const winRate = ((stats.won || 0) / matches) * 100;
 
     const getMetricScore = (mId: string) => {
       switch (mId) {
-        case 'incisivity': return Math.min(100, Math.round(((stats.incisivity || 0) / (maxStats.incisivity || 1)) * 100));
-        case 'mg': return Math.min(100, Math.round((goalsPerMatch / (maxStats.goals || 1)) * 100));
-        case 'ma': return Math.min(100, Math.round((assistsPerMatch / (maxStats.assists || 1)) * 100));
-        case 'solidity': return goalsConcededPerMatch > 0 ? Math.min(100, Math.round(((maxStats.minGoalsConcededPM || 2.0) / goalsConcededPerMatch) * 100)) : 100;
-        case 'win_rate': return Math.min(100, Math.round((winRate / (maxStats.winRate || 100)) * 100));
-        case 'personal_bonus': return Math.min(100, Math.round(((stats.personal_bonus_count || 0) / (maxStats.personalBonus || 1)) * 100));
-        case 'defense_bonus': return Math.min(100, Math.round(((stats.defense_bonus_count || 0) / (maxStats.defenseBonus || 1)) * 100));
-        case 'clean_sheets': return Math.min(100, Math.round(((stats.clean_sheets || 0) / (maxStats.cleanSheets || 1)) * 100));
-        case 'goals': return Math.min(100, Math.round(((stats.individual_goals || 0) / (maxStats.totalGoals || 1)) * 100));
-        case 'assists': return Math.min(100, Math.round(((stats.individual_assists || 0) / (maxStats.totalAssists || 1)) * 100));
-        case 'points': return Math.min(100, Math.round(((stats.points || 0) / (maxStats.points || 1)) * 100));
-        case 'played': return Math.min(100, Math.round(((stats.played || 0) / (maxStats.played || 1)) * 100));
-        default: return 50;
+        case 'incisivity': return Math.min(10, Number((((stats.incisivity || 0) / (maxStats.incisivity || 1)) * 10).toFixed(1)));
+        case 'mg': return Math.min(10, Number(((goalsPerMatch / (maxStats.goals || 1)) * 10).toFixed(1)));
+        case 'ma': return Math.min(10, Number(((assistsPerMatch / (maxStats.assists || 1)) * 10).toFixed(1)));
+        case 'solidity': return goalsConcededPerMatch > 0 ? Math.min(10, Number((((maxStats.minGoalsConcededPM || 2.0) / goalsConcededPerMatch) * 10).toFixed(1))) : 10;
+        case 'team_goals_scored': return Math.min(10, Number(((teamGoalsScoredPerMatch / (maxStats.teamGoalsScoredPM || 1)) * 10).toFixed(1)));
+        case 'win_rate': return Math.min(10, Number(((winRate / (maxStats.winRate || 100)) * 10).toFixed(1)));
+        case 'personal_bonus': return Math.min(10, Number((((stats.personal_bonus_count || 0) / (maxStats.personalBonus || 1)) * 10).toFixed(1)));
+        case 'defense_bonus': return Math.min(10, Number((((stats.defense_bonus_count || 0) / (maxStats.defenseBonus || 1)) * 10).toFixed(1)));
+        case 'clean_sheets': return Math.min(10, Number((((stats.clean_sheets || 0) / (maxStats.cleanSheets || 1)) * 10).toFixed(1)));
+        case 'goals': return Math.min(10, Number((((stats.individual_goals || 0) / (maxStats.totalGoals || 1)) * 10).toFixed(1)));
+        case 'assists': return Math.min(10, Number((((stats.individual_assists || 0) / (maxStats.totalAssists || 1)) * 10).toFixed(1)));
+        case 'points': return Math.min(10, Number((((stats.points || 0) / (maxStats.points || 1)) * 10).toFixed(1)));
+        case 'played': return Math.min(10, Number((((stats.played || 0) / (maxStats.played || 1)) * 10).toFixed(1)));
+        default: return 5.0;
       }
     };
 
@@ -920,7 +951,7 @@ export default function PlayerDetailScreen() {
       return { ...info, score };
     });
 
-    const avgScore = Math.round(metricItems.reduce((sum, item) => sum + item.score, 0) / metricItems.length);
+    const avgScore = Number((metricItems.reduce((sum, item) => sum + item.score, 0) / metricItems.length).toFixed(1));
 
     return (
       <Modal visible={showSpiderInfoModal} transparent animationType="slide" onRequestClose={() => setShowSpiderInfoModal(false)}>
@@ -928,7 +959,7 @@ export default function PlayerDetailScreen() {
           <TouchableWithoutFeedback onPress={() => setShowSpiderInfoModal(false)}>
             <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
           </TouchableWithoutFeedback>
-          <View style={[styles.modalContent, dynamicStyles.modalContent, { height: '85%', maxWidth: 420 }]}>
+          <View style={[styles.modalContent, dynamicStyles.modalContent, { height: '85%', maxHeight: '85%', maxWidth: 420, paddingBottom: 0 }]}>
             <View style={styles.modalHeader}>
               <View>
                 <Text style={[styles.modalTitle, dynamicStyles.text]}>Guida Analisi Prestazioni</Text>
@@ -939,7 +970,7 @@ export default function PlayerDetailScreen() {
               </TouchableOpacity>
             </View>
 
-            <ScrollView contentContainerStyle={{ padding: 15, paddingBottom: 30 }}>
+            <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 15, paddingBottom: 60 }} showsVerticalScrollIndicator={true}>
               {/* Rating Complessivo AVG */}
               <View style={{ backgroundColor: isDarkMode ? '#1C1C1E' : '#F8F9FF', padding: 15, borderRadius: 16, borderLeftWidth: 4, borderLeftColor: getRoleColor(playerRole), marginBottom: 18, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
                 <View style={{ flex: 1, paddingRight: 10 }}>
@@ -967,7 +998,7 @@ export default function PlayerDetailScreen() {
                     </View>
                     <View style={{ backgroundColor: isDarkMode ? '#1C1C1E' : '#F2F2F7', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 }}>
                       <Text style={{ fontSize: 13, fontWeight: '900', color: getScoreColor(item.score) }}>
-                        {item.score} <Text style={{ fontSize: 10, fontWeight: '700', color: isDarkMode ? '#AEAEB2' : '#8E8E93' }}>/ 100</Text>
+                        {item.score} <Text style={{ fontSize: 10, fontWeight: '700', color: isDarkMode ? '#AEAEB2' : '#8E8E93' }}>/ 10</Text>
                       </Text>
                     </View>
                   </View>
@@ -1064,7 +1095,8 @@ export default function PlayerDetailScreen() {
                   <View style={[styles.detailDivider, dynamicStyles.divider, { marginVertical: 3, marginHorizontal: 0 }]} />
                   <ProfileStatRow label="Media Goal Fatti" value={stats.individual_goals / (stats.career_divisor || 1)} color="#FF3B30" />
                   <ProfileStatRow label="Media Assist Fatti" value={stats.individual_assists / (stats.career_divisor || 1)} color="#34C759" />
-                  <ProfileStatRow label="Media Subiti" value={stats.goals_suffered / (stats.career_divisor || 1)} />
+                  <ProfileStatRow label="Media Goal Segnati Squadra" value={(stats.goals_done || 0) / (stats.career_divisor || 1)} color="#FF9500" />
+                  <ProfileStatRow label="Media Goal Subiti" value={stats.goals_suffered / (stats.career_divisor || 1)} />
                </View>
 
                <View style={[styles.chartCard, dynamicStyles.card, { marginHorizontal: 0, padding: 0, marginTop: 0, alignItems: 'center', justifyContent: 'center' }]}>
@@ -1176,7 +1208,8 @@ export default function PlayerDetailScreen() {
                   <View style={[styles.detailDivider, dynamicStyles.divider, { marginVertical: 3 }]} />
                   <ComparisonRow label="Media Goal Fatti" val1={stats.individual_goals / (stats.career_divisor || 1)} val2={comparisonStats.individual_goals / (comparisonStats.career_divisor || 1)} />
                   <ComparisonRow label="Media Assist Fatti" val1={stats.individual_assists / (stats.career_divisor || 1)} val2={comparisonStats.individual_assists / (comparisonStats.career_divisor || 1)} />
-                  <ComparisonRow label="Media Subiti" val1={stats.goals_suffered / (stats.career_divisor || 1)} val2={comparisonStats.goals_suffered / (comparisonStats.career_divisor || 1)} betterIsHigher={false} />
+                  <ComparisonRow label="Media Goal Segnati Squadra" val1={(stats.goals_done || 0) / (stats.career_divisor || 1)} val2={(comparisonStats.goals_done || 0) / (comparisonStats.career_divisor || 1)} />
+                  <ComparisonRow label="Media Goal Subiti" val1={stats.goals_suffered / (stats.career_divisor || 1)} val2={comparisonStats.goals_suffered / (comparisonStats.career_divisor || 1)} betterIsHigher={false} />
                </View>
 
                <View style={[styles.chartCard, dynamicStyles.card, { marginHorizontal: 0, padding: 0, marginTop: 0, marginBottom: 0 }]}>
@@ -1290,7 +1323,8 @@ export default function PlayerDetailScreen() {
               <View style={[styles.detailDivider, dynamicStyles.divider, { marginVertical: 10 }]} />
               <ComparisonRow label="Media Goal Fatti" val1={stats.individual_goals / (stats.career_divisor || 1)} val2={comparisonStats.individual_goals / (comparisonStats.career_divisor || 1)} />
               <ComparisonRow label="Media Assist Fatti" val1={stats.individual_assists / (stats.career_divisor || 1)} val2={comparisonStats.individual_assists / (comparisonStats.career_divisor || 1)} />
-              <ComparisonRow label="Media Subiti" val1={stats.goals_suffered / (stats.career_divisor || 1)} val2={comparisonStats.goals_suffered / (comparisonStats.career_divisor || 1)} betterIsHigher={false} />
+              <ComparisonRow label="Media Goal Segnati Squadra" val1={(stats.goals_done || 0) / (stats.career_divisor || 1)} val2={(comparisonStats.goals_done || 0) / (comparisonStats.career_divisor || 1)} />
+              <ComparisonRow label="Media Goal Subiti" val1={stats.goals_suffered / (stats.career_divisor || 1)} val2={comparisonStats.goals_suffered / (comparisonStats.career_divisor || 1)} betterIsHigher={false} />
             </View>
 
             <View style={[styles.bibbiaCard, dynamicStyles.card, { marginBottom: 10, paddingVertical: 12 }]}>
@@ -1312,8 +1346,39 @@ export default function PlayerDetailScreen() {
             <View style={[styles.bibbiaCard, dynamicStyles.card]}>
               <Text style={[styles.sectionSubtitle, dynamicStyles.subText]}>Scontro Diretto / Intesa</Text>
               <View style={styles.commonStatsRow}>
-                <View style={styles.commonStat}><Text style={[styles.commonValue, dynamicStyles.text]}>{common?.together}</Text><Text style={[styles.commonLabel, dynamicStyles.subText]}>Insieme</Text></View>
-                <View style={styles.commonStat}><Text style={[styles.commonValue, dynamicStyles.text]}>{common?.against}</Text><Text style={[styles.commonLabel, dynamicStyles.subText]}>Contro</Text></View>
+                <View style={[styles.commonStat, { flex: 1 }]}>
+                  <Text style={[styles.commonValue, dynamicStyles.text]}>{common?.together}</Text>
+                  <Text style={[styles.commonLabel, dynamicStyles.subText, { marginBottom: 6 }]}>Insieme</Text>
+                  {common && common.together > 0 && (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, backgroundColor: isDarkMode ? '#1C1C1E' : '#F2F2F7', paddingVertical: 4, paddingHorizontal: 8, borderRadius: 8, flexWrap: 'wrap' }}>
+                      <Text style={{ fontSize: 11, fontWeight: '800', color: '#34C759' }}>{common.togetherWon}V</Text>
+                      <Text style={{ fontSize: 10, color: '#8E8E93' }}>•</Text>
+                      <Text style={{ fontSize: 11, fontWeight: '800', color: '#FF3B30' }}>{common.togetherLost}P</Text>
+                      <Text style={{ fontSize: 10, color: '#8E8E93' }}>•</Text>
+                      <Text style={{ fontSize: 11, fontWeight: '800', color: '#FF9500' }}>{common.togetherDrawn}N</Text>
+                    </View>
+                  )}
+                </View>
+
+                <View style={{ width: 1, height: '70%', backgroundColor: isDarkMode ? '#333' : '#E5E5EA', alignSelf: 'center', marginHorizontal: 8 }} />
+
+                <View style={[styles.commonStat, { flex: 1 }]}>
+                  <Text style={[styles.commonValue, dynamicStyles.text]}>{common?.against}</Text>
+                  <Text style={[styles.commonLabel, dynamicStyles.subText, { marginBottom: 6 }]}>Contro</Text>
+                  {common && common.against > 0 && (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, backgroundColor: isDarkMode ? '#1C1C1E' : '#F2F2F7', paddingVertical: 4, paddingHorizontal: 8, borderRadius: 8, flexWrap: 'wrap' }}>
+                      <Text style={{ fontSize: 11, fontWeight: '800', color: '#007AFF' }}>{player!.nickname}: {common.againstP1Won}V</Text>
+                      <Text style={{ fontSize: 10, color: '#8E8E93' }}>•</Text>
+                      <Text style={{ fontSize: 11, fontWeight: '800', color: '#34C759' }}>{comparisonPlayer.nickname}: {common.againstP2Won}V</Text>
+                      {common.againstDrawn > 0 && (
+                        <>
+                          <Text style={{ fontSize: 10, color: '#8E8E93' }}>•</Text>
+                          <Text style={{ fontSize: 11, fontWeight: '800', color: '#FF9500' }}>{common.againstDrawn}N</Text>
+                        </>
+                      )}
+                    </View>
+                  )}
+                </View>
               </View>
 
               {(() => {
@@ -1515,7 +1580,8 @@ export default function PlayerDetailScreen() {
               <ProfileStatRow label="Incisività" value={stats.incisivity} color="#FF9500" />
               <ProfileStatRow label="Media Goal Fatti" value={stats.individual_goals / (stats.career_divisor || 1)} color="#FF3B30" />
               <ProfileStatRow label="Media Assist Fatti" value={stats.individual_assists / (stats.career_divisor || 1)} color="#34C759" />
-              <ProfileStatRow label="Media Subiti" value={stats.goals_suffered / (stats.career_divisor || 1)} />
+              <ProfileStatRow label="Media Goal Segnati Squadra" value={(stats.goals_done || 0) / (stats.career_divisor || 1)} color="#FF9500" />
+              <ProfileStatRow label="Media Goal Subiti" value={stats.goals_suffered / (stats.career_divisor || 1)} />
             </View>
 
           )}

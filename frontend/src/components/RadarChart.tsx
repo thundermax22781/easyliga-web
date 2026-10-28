@@ -8,6 +8,7 @@ interface PlayerStats {
   assists: number;
   cleanSheets: number;
   goalsConceded: number;
+  goalsDone?: number;
   wins: number;
   matches: number;
   points: number;
@@ -31,6 +32,7 @@ interface RadarChartProps {
     assists: number;
     winRate?: number;
     minGoalsConcededPM?: number;
+    teamGoalsScoredPM?: number;
     cleanSheets?: number;
     totalGoals?: number;
     totalAssists?: number;
@@ -61,7 +63,7 @@ const METRIC_DESCRIPTIONS: Record<string, { label: string; icon: string; desc: s
   solidity: {
     label: 'Solidità Difensiva',
     icon: '🛡️',
-    desc: 'Misura la tenuta difensiva della squadra quando il giocatore è in campo. Più la media dei gol subiti è bassa rispetto alla lega, più il punteggio è vicino a 100.',
+    desc: 'Misura la tenuta difensiva della squadra quando il giocatore è in campo. Più la media dei gol subiti è bassa rispetto alla lega, più il punteggio è vicino a 10.',
     formula: 'Formula: Confronto relativo della Media Gol Subiti',
   },
   win_rate: {
@@ -112,10 +114,16 @@ const METRIC_DESCRIPTIONS: Record<string, { label: string; icon: string; desc: s
     desc: 'Il numero totale di partite disputate dal giocatore.',
     formula: 'Formula: Totale partite giocate',
   },
+  team_goals_scored: {
+    label: 'Potenza (Gol Squadra)',
+    icon: '🔥',
+    desc: 'Misura la pericolosità e la forza offensiva complessiva della propria squadra quando il giocatore è in campo.',
+    formula: 'Formula: Confronto relativo della Media Gol Segnati Squadra',
+  },
   avg: {
     label: 'Rating Complessivo (AVG)',
     icon: '⭐',
-    desc: 'È il punteggio medio da 0 a 100 calcolato sulle 5 metriche selezionate per il ruolo del giocatore.',
+    desc: 'È il punteggio medio da 0 a 10 calcolato sulle 5 metriche selezionate per il ruolo del giocatore.',
     formula: 'Formula: Media aritmetica delle 5 metriche dello Spider Chart',
   },
 };
@@ -133,7 +141,7 @@ const RadarChart: React.FC<RadarChartProps> = ({ stats, comparisonStats, isDarkM
       label: 'Statistica',
       icon: '📊',
       desc: 'Valore calcolato in base alle prestazioni del giocatore.',
-      formula: 'Formula di normalizzazione su scala 0-100',
+      formula: 'Formula di normalizzazione su scala 0-10',
     };
 
     setSelectedMetricInfo({
@@ -151,60 +159,65 @@ const RadarChart: React.FC<RadarChartProps> = ({ stats, comparisonStats, isDarkM
     const goalsPerMatch = s.goals / matches;
     const assistsPerMatch = s.assists / matches;
     const goalsConcededPerMatch = s.goalsConceded / matches;
+    const teamGoalsScoredPerMatch = (s.goalsDone || 0) / matches;
     const winRate = (s.wins / matches) * 100;
 
     switch (mId) {
       case 'incisivity': {
-        const score = maxStats?.incisivity ? (s.incisivity || 0) / maxStats.incisivity * 100 : Math.min(100, (s.incisivity || 0) * 40);
-        return { mId, label: 'Incisività', value: Math.min(100, Math.round(score)) };
+        const score = maxStats?.incisivity ? (s.incisivity || 0) / maxStats.incisivity * 10 : Math.min(10, (s.incisivity || 0) * 4);
+        return { mId, label: 'Incisività', value: Math.min(10, Number(score.toFixed(1))) };
       }
       case 'mg': {
-        const score = maxStats?.goals ? goalsPerMatch / maxStats.goals * 100 : Math.min(100, goalsPerMatch * 50);
-        return { mId, label: 'Attacco', value: Math.min(100, Math.round(score)) };
+        const score = maxStats?.goals ? goalsPerMatch / maxStats.goals * 10 : Math.min(10, goalsPerMatch * 5);
+        return { mId, label: 'Attacco', value: Math.min(10, Number(score.toFixed(1))) };
       }
       case 'ma': {
-        const score = maxStats?.assists ? assistsPerMatch / maxStats.assists * 100 : Math.min(100, assistsPerMatch * 60);
-        return { mId, label: 'Regia', value: Math.min(100, Math.round(score)) };
+        const score = maxStats?.assists ? assistsPerMatch / maxStats.assists * 10 : Math.min(10, assistsPerMatch * 6);
+        return { mId, label: 'Regia', value: Math.min(10, Number(score.toFixed(1))) };
       }
       case 'solidity': {
         const bestGCPM = maxStats?.minGoalsConcededPM || 2.0;
-        const score = goalsConcededPerMatch > 0 ? Math.min(100, (bestGCPM / goalsConcededPerMatch) * 100) : 100;
-        return { mId, label: 'Solidità', value: Math.min(100, Math.round(score)) };
+        const score = goalsConcededPerMatch > 0 ? Math.min(10, (bestGCPM / goalsConcededPerMatch) * 10) : 10;
+        return { mId, label: 'Solidità', value: Math.min(10, Number(score.toFixed(1))) };
+      }
+      case 'team_goals_scored': {
+        const score = maxStats?.teamGoalsScoredPM ? (teamGoalsScoredPerMatch / maxStats.teamGoalsScoredPM) * 10 : Math.min(10, teamGoalsScoredPerMatch * 2.5);
+        return { mId, label: 'Potenza', value: Math.min(10, Number(score.toFixed(1))) };
       }
       case 'win_rate': {
-        const score = maxStats?.winRate ? winRate / maxStats.winRate * 100 : Math.min(100, winRate);
-        return { mId, label: 'Vittorie', value: Math.min(100, Math.round(score)) };
+        const score = maxStats?.winRate ? (winRate / maxStats.winRate) * 10 : Math.min(10, winRate / 10);
+        return { mId, label: 'Vittorie', value: Math.min(10, Number(score.toFixed(1))) };
       }
       case 'personal_bonus': {
-        const score = maxStats?.personalBonus ? (s.personalBonus || 0) / maxStats.personalBonus * 100 : Math.min(100, (s.personalBonus || 0) * 15);
-        return { mId, label: 'Bonus Personale', value: Math.min(100, Math.round(score)) };
+        const score = maxStats?.personalBonus ? (s.personalBonus || 0) / maxStats.personalBonus * 10 : Math.min(10, (s.personalBonus || 0) * 1.5);
+        return { mId, label: 'Bonus Personale', value: Math.min(10, Number(score.toFixed(1))) };
       }
       case 'defense_bonus': {
-        const score = maxStats?.defenseBonus ? (s.defenseBonus || 0) / maxStats.defenseBonus * 100 : Math.min(100, (s.defenseBonus || 0) * 15);
-        return { mId, label: 'Bonus Difesa', value: Math.min(100, Math.round(score)) };
+        const score = maxStats?.defenseBonus ? (s.defenseBonus || 0) / maxStats.defenseBonus * 10 : Math.min(10, (s.defenseBonus || 0) * 1.5);
+        return { mId, label: 'Bonus Difesa', value: Math.min(10, Number(score.toFixed(1))) };
       }
       case 'clean_sheets': {
-        const score = maxStats?.cleanSheets ? (s.cleanSheets || 0) / maxStats.cleanSheets * 100 : Math.min(100, (s.cleanSheets || 0) * 20);
-        return { mId, label: 'Clean Sheet', value: Math.min(100, Math.round(score)) };
+        const score = maxStats?.cleanSheets ? (s.cleanSheets || 0) / maxStats.cleanSheets * 10 : Math.min(10, (s.cleanSheets || 0) * 2);
+        return { mId, label: 'Clean Sheet', value: Math.min(10, Number(score.toFixed(1))) };
       }
       case 'goals': {
-        const score = maxStats?.totalGoals ? (s.goals || 0) / maxStats.totalGoals * 100 : Math.min(100, (s.goals || 0) * 5);
-        return { mId, label: 'Gol Totali', value: Math.min(100, Math.round(score)) };
+        const score = maxStats?.totalGoals ? (s.goals || 0) / maxStats.totalGoals * 10 : Math.min(10, (s.goals || 0) * 0.5);
+        return { mId, label: 'Gol Totali', value: Math.min(10, Number(score.toFixed(1))) };
       }
       case 'assists': {
-        const score = maxStats?.totalAssists ? (s.assists || 0) / maxStats.totalAssists * 100 : Math.min(100, (s.assists || 0) * 5);
-        return { mId, label: 'Assist Totali', value: Math.min(100, Math.round(score)) };
+        const score = maxStats?.totalAssists ? (s.assists || 0) / maxStats.totalAssists * 10 : Math.min(10, (s.assists || 0) * 0.5);
+        return { mId, label: 'Assist Totali', value: Math.min(10, Number(score.toFixed(1))) };
       }
       case 'points': {
-        const score = maxStats?.points ? (s.points || 0) / maxStats.points * 100 : Math.min(100, (s.points || 0) * 3);
-        return { mId, label: 'Punti Totali', value: Math.min(100, Math.round(score)) };
+        const score = maxStats?.points ? (s.points || 0) / maxStats.points * 10 : Math.min(10, (s.points || 0) * 0.3);
+        return { mId, label: 'Punti Totali', value: Math.min(10, Number(score.toFixed(1))) };
       }
       case 'played': {
-        const score = maxStats?.played ? (s.matches || 0) / maxStats.played * 100 : Math.min(100, (s.matches || 0) * 5);
-        return { mId, label: 'Presenze', value: Math.min(100, Math.round(score)) };
+        const score = maxStats?.played ? (s.matches || 0) / maxStats.played * 10 : Math.min(10, (s.matches || 0) * 0.5);
+        return { mId, label: 'Presenze', value: Math.min(10, Number(score.toFixed(1))) };
       }
       default:
-        return { mId, label: 'Incisività', value: 50 };
+        return { mId, label: 'Incisività', value: 5.0 };
     }
   };
 
@@ -229,12 +242,12 @@ const RadarChart: React.FC<RadarChartProps> = ({ stats, comparisonStats, isDarkM
   const data1 = normalizeData(stats);
   const data2 = comparisonStats ? normalizeData(comparisonStats) : null;
 
-  const avg1 = Math.round(data1.reduce((acc, d) => acc + d.value, 0) / data1.length);
-  const avg2 = data2 ? Math.round(data2.reduce((acc, d) => acc + d.value, 0) / data2.length) : null;
+  const avg1 = Number((data1.reduce((acc, d) => acc + d.value, 0) / data1.length).toFixed(1));
+  const avg2 = data2 ? Number((data2.reduce((acc, d) => acc + d.value, 0) / data2.length).toFixed(1)) : null;
 
   const getScoreColor = (score: number) => {
-    if (score >= 75) return '#34C759'; // Verde per prestazioni alte
-    if (score >= 60) return '#FFCC00'; // Giallo/Oro per medie
+    if (score >= 7.5) return '#34C759'; // Verde per prestazioni alte
+    if (score >= 6.0) return '#FFCC00'; // Giallo/Oro per medie
     return '#FF3B30';                  // Rosso per inferiori
   };
 
@@ -242,7 +255,7 @@ const RadarChart: React.FC<RadarChartProps> = ({ stats, comparisonStats, isDarkM
 
   const getCoordinates = (value: number, index: number, maxRadius: number) => {
     const angle = index * angleStep - Math.PI / 2;
-    const r = (value / 100) * maxRadius;
+    const r = (value / 10) * maxRadius;
     return {
       x: centerX + r * Math.cos(angle),
       y: centerY + r * Math.sin(angle),
@@ -258,7 +271,7 @@ const RadarChart: React.FC<RadarChartProps> = ({ stats, comparisonStats, isDarkM
   const points1 = getPoints(data1);
   const points2 = data2 ? getPoints(data2) : null;
 
-  const gridLevels = [25, 50, 75, 100];
+  const gridLevels = [2.5, 5.0, 7.5, 10.0];
   const gridPolygons = gridLevels.map(level => (
     <Polygon
       key={`grid-${level}`}
@@ -297,7 +310,7 @@ const RadarChart: React.FC<RadarChartProps> = ({ stats, comparisonStats, isDarkM
           {gridPolygons}
 
           {data1.map((_, i) => {
-            const { x, y } = getCoordinates(100, i, radius);
+            const { x, y } = getCoordinates(10, i, radius);
             return (
               <Line
                 key={`axis-${i}`}
@@ -400,8 +413,8 @@ const RadarChart: React.FC<RadarChartProps> = ({ stats, comparisonStats, isDarkM
           {data1.map((d, i) => {
             const pos = labelPositions[i];
             const tRect = touchRects[i];
-            const val1 = Math.round(d.value);
-            const val2 = data2 ? Math.round(data2[i].value) : null;
+            const val1 = Number(d.value.toFixed(1));
+            const val2 = data2 && data2[i] ? Number(data2[i].value.toFixed(1)) : null;
             const singleColor = getScoreColor(val1);
 
             return (
@@ -472,11 +485,11 @@ const RadarChart: React.FC<RadarChartProps> = ({ stats, comparisonStats, isDarkM
             <View style={{ backgroundColor: isDarkMode ? '#1C1C1E' : '#F2F2F7', padding: 12, borderRadius: 12, alignItems: 'center', marginBottom: 15, flexDirection: 'row', justifyContent: 'center', gap: 8 }}>
               <Text style={{ fontSize: 13, fontWeight: '700', color: isDarkMode ? '#AEAEB2' : '#8E8E93' }}>Punteggio:</Text>
               <Text style={{ fontSize: 22, fontWeight: '900', color: getScoreColor(selectedMetricInfo?.value1 || 0) }}>
-                {selectedMetricInfo?.value1} / 100
+                {selectedMetricInfo?.value1} / 10
               </Text>
               {selectedMetricInfo?.value2 !== undefined && selectedMetricInfo?.value2 !== null && (
                 <Text style={{ fontSize: 22, fontWeight: '900', color: '#34C759' }}>
-                  vs {selectedMetricInfo.value2} / 100
+                  vs {selectedMetricInfo.value2} / 10
                 </Text>
               )}
             </View>
