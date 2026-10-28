@@ -4460,7 +4460,15 @@ export default function GroupDetailScreen() {
     return (
       <Modal visible={showRadarConfigModal} animationType="slide" transparent={true} onRequestClose={() => setShowRadarConfigModal(false)}>
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, dynamicStyles.modalContent, { height: '85%' }]}>
+          <TouchableOpacity
+            style={StyleSheet.absoluteFill}
+            activeOpacity={1}
+            onPress={() => setShowRadarConfigModal(false)}
+          />
+          <View
+            style={[styles.modalContent, dynamicStyles.modalContent, { height: '85%', maxHeight: '85%', maxWidth: 420, paddingBottom: 0, overflow: 'hidden', flexDirection: 'column' }]}
+            onStartShouldSetResponder={() => true}
+          >
             <View style={styles.modalHeader}>
               <Text style={[styles.modalTitle, dynamicStyles.text]}>Grafico Prestazioni</Text>
               <TouchableOpacity onPress={() => setShowRadarConfigModal(false)}>
@@ -4468,7 +4476,13 @@ export default function GroupDetailScreen() {
               </TouchableOpacity>
             </View>
 
-            <ScrollView contentContainerStyle={{ padding: 15, paddingBottom: 40 }}>
+            <ScrollView
+              style={{ flex: 1 }}
+              contentContainerStyle={{ padding: 15, paddingBottom: 40 }}
+              showsVerticalScrollIndicator={true}
+              nestedScrollEnabled={true}
+              keyboardShouldPersistTaps="handled"
+            >
               <Text style={[dynamicStyles.subText, { fontSize: 12, marginBottom: 15 }]}>
                 Scegli quali 5 metriche mostrare nel grafico Spider per ciascun ruolo.
               </Text>

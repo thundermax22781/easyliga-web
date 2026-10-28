@@ -958,21 +958,44 @@ export default function PlayerDetailScreen() {
     return (
       <Modal visible={showSpiderInfoModal} transparent animationType="slide" onRequestClose={() => setShowSpiderInfoModal(false)}>
         <View style={styles.modalOverlay}>
-          <TouchableWithoutFeedback onPress={() => setShowSpiderInfoModal(false)}>
-            <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
-          </TouchableWithoutFeedback>
-          <View style={[styles.modalContent, dynamicStyles.modalContent, { height: '85%', maxHeight: '85%', maxWidth: 420, paddingBottom: 0 }]}>
+          <TouchableOpacity
+            style={StyleSheet.absoluteFill}
+            activeOpacity={1}
+            onPress={() => setShowSpiderInfoModal(false)}
+          />
+          <View
+            style={[
+              styles.modalContent,
+              dynamicStyles.modalContent,
+              {
+                height: '85%',
+                maxHeight: '85%',
+                width: '100%',
+                maxWidth: 420,
+                paddingBottom: 0,
+                overflow: 'hidden',
+                flexDirection: 'column',
+              },
+            ]}
+            onStartShouldSetResponder={() => true}
+          >
             <View style={styles.modalHeader}>
-              <View>
+              <View style={{ flex: 1 }}>
                 <Text style={[styles.modalTitle, dynamicStyles.text]}>Guida Analisi Prestazioni</Text>
                 <Text style={[dynamicStyles.subText, { fontSize: 11 }]}>Ruolo: {playerRole.toUpperCase()}</Text>
               </View>
-              <TouchableOpacity onPress={() => setShowSpiderInfoModal(false)}>
+              <TouchableOpacity onPress={() => setShowSpiderInfoModal(false)} style={{ padding: 4 }}>
                 <Ionicons name="close-circle" size={26} color={isDarkMode ? "#AAA" : "#8E8E93"} />
               </TouchableOpacity>
             </View>
 
-            <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 15, paddingBottom: 60 }} showsVerticalScrollIndicator={true}>
+            <ScrollView
+              style={{ flex: 1 }}
+              contentContainerStyle={{ padding: 15, paddingBottom: 25 }}
+              showsVerticalScrollIndicator={true}
+              nestedScrollEnabled={true}
+              keyboardShouldPersistTaps="handled"
+            >
               {/* Rating Complessivo AVG */}
               <View style={{ backgroundColor: isDarkMode ? '#1C1C1E' : '#F8F9FF', padding: 15, borderRadius: 16, borderLeftWidth: 4, borderLeftColor: getRoleColor(playerRole), marginBottom: 18, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
                 <View style={{ flex: 1, paddingRight: 10 }}>
@@ -988,7 +1011,7 @@ export default function PlayerDetailScreen() {
               </View>
 
               <Text style={[dynamicStyles.subText, { fontSize: 11, fontWeight: '800', textTransform: 'uppercase', marginBottom: 10, marginLeft: 2 }]}>
-                Dettaglio delle 5 Metrike nel Grafico:
+                Dettaglio delle 5 Metriche nel Grafico:
               </Text>
 
               {metricItems.map((item, i) => (
@@ -1016,14 +1039,16 @@ export default function PlayerDetailScreen() {
                   </View>
                 </View>
               ))}
+            </ScrollView>
 
+            <View style={{ padding: 12, borderTopWidth: 1, borderTopColor: isDarkMode ? '#2C2C2E' : '#E5E5EA', backgroundColor: isDarkMode ? '#1C1C1E' : '#FFFFFF' }}>
               <TouchableOpacity
-                style={[styles.saveButton, { marginTop: 10, height: 48 }]}
+                style={[styles.saveButton, { marginTop: 0, height: 44, borderRadius: 12 }]}
                 onPress={() => setShowSpiderInfoModal(false)}
               >
                 <Text style={styles.saveButtonText}>Chiudi</Text>
               </TouchableOpacity>
-            </ScrollView>
+            </View>
           </View>
         </View>
       </Modal>
