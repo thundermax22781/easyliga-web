@@ -60,6 +60,7 @@ export default function PlayerDetailScreen() {
   const [showBonusBreakdown, setShowBonusBreakdown] = useState(false);
   const [showTournamentBreakdown, setShowTournamentBreakdown] = useState(false);
   const [showSpiderInfoModal, setShowSpiderInfoModal] = useState(false);
+  const [spiderInfoMetricIndex, setSpiderInfoMetricIndex] = useState(0);
 
   const championshipMatches = useMemo(() => {
     return playerMatches.filter(m => !(m as any)._isLinked);
@@ -954,6 +955,8 @@ export default function PlayerDetailScreen() {
     });
 
     const avgScore = Number((metricItems.reduce((sum, item) => sum + item.score, 0) / metricItems.length).toFixed(1));
+    const activeIndex = Math.min(Math.max(0, spiderInfoMetricIndex), metricItems.length - 1);
+    const activeItem = metricItems[activeIndex];
 
     return (
       <Modal visible={showSpiderInfoModal} transparent animationType="slide" onRequestClose={() => setShowSpiderInfoModal(false)}>
@@ -968,8 +971,8 @@ export default function PlayerDetailScreen() {
               styles.modalContent,
               dynamicStyles.modalContent,
               {
-                height: '85%',
-                maxHeight: '85%',
+                height: 'auto',
+                maxHeight: '92%',
                 width: '100%',
                 maxWidth: 420,
                 paddingBottom: 0,
@@ -978,6 +981,7 @@ export default function PlayerDetailScreen() {
               },
             ]}
           >
+            {/* Header del Modal */}
             <View style={styles.modalHeader}>
               <View style={{ flex: 1 }}>
                 <Text style={[styles.modalTitle, dynamicStyles.text]}>Guida Analisi Prestazioni</Text>
@@ -988,65 +992,141 @@ export default function PlayerDetailScreen() {
               </TouchableOpacity>
             </View>
 
-            <ScrollView
-              style={{ flex: 1 }}
-              contentContainerStyle={{ padding: 15, paddingBottom: 25 }}
-              showsVerticalScrollIndicator={true}
-              nestedScrollEnabled={true}
-              keyboardShouldPersistTaps="handled"
-            >
+            <View style={{ padding: 14 }}>
               {/* Rating Complessivo AVG */}
-              <View style={{ backgroundColor: isDarkMode ? '#1C1C1E' : '#F8F9FF', padding: 15, borderRadius: 16, borderLeftWidth: 4, borderLeftColor: getRoleColor(playerRole), marginBottom: 18, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+              <View style={{ backgroundColor: isDarkMode ? '#1C1C1E' : '#F8F9FF', padding: 12, borderRadius: 14, borderLeftWidth: 4, borderLeftColor: getRoleColor(playerRole), marginBottom: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
                 <View style={{ flex: 1, paddingRight: 10 }}>
-                  <Text style={[dynamicStyles.text, { fontSize: 15, fontWeight: '900' }]}>⭐ Rating Complessivo (AVG)</Text>
-                  <Text style={[dynamicStyles.subText, { fontSize: 11, marginTop: 2 }]}>
+                  <Text style={[dynamicStyles.text, { fontSize: 14, fontWeight: '900' }]}>⭐ Rating Complessivo (AVG)</Text>
+                  <Text style={[dynamicStyles.subText, { fontSize: 10.5, marginTop: 1 }]}>
                     Media aritmetica dei 5 parametri del grafico.
                   </Text>
                 </View>
-                <View style={{ backgroundColor: isDarkMode ? '#2C2C2E' : '#FFFFFF', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12, borderWidth: 2, borderColor: getScoreColor(avgScore), alignItems: 'center' }}>
-                  <Text style={{ fontSize: 18, fontWeight: '900', color: getScoreColor(avgScore) }}>{avgScore}</Text>
-                  <Text style={{ fontSize: 7.5, fontWeight: '800', color: getScoreColor(avgScore) }}>OVERALL</Text>
+                <View style={{ backgroundColor: isDarkMode ? '#2C2C2E' : '#FFFFFF', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10, borderWidth: 2, borderColor: getScoreColor(avgScore), alignItems: 'center' }}>
+                  <Text style={{ fontSize: 16, fontWeight: '900', color: getScoreColor(avgScore) }}>{avgScore}</Text>
+                  <Text style={{ fontSize: 7, fontWeight: '800', color: getScoreColor(avgScore) }}>OVERALL</Text>
                 </View>
               </View>
 
-              <Text style={[dynamicStyles.subText, { fontSize: 11, fontWeight: '800', textTransform: 'uppercase', marginBottom: 10, marginLeft: 2 }]}>
-                Dettaglio delle 5 Metriche nel Grafico:
-              </Text>
+              {/* Selettore a 5 Tasti/Tab per scegliere subito la metrica */}
+              <View style={{ flexDirection: 'row', gap: 4, marginBottom: 12 }}>
+                {metricItems.map((item, idx) => {
+                  const isSelected = idx === activeIndex;
+                  return (
+                    <TouchableOpacity
+                      key={idx}
+                      onPress={() => setSpiderInfoMetricIndex(idx)}
+                      style={{
+                        flex: 1,
+                        paddingVertical: 7,
+                        paddingHorizontal: 2,
+                        borderRadius: 10,
+                        backgroundColor: isSelected ? '#007AFF' : (isDarkMode ? '#2C2C2E' : '#F2F2F7'),
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        borderWidth: 1,
+                        borderColor: isSelected ? '#007AFF' : (isDarkMode ? '#3A3A3C' : '#E5E5EA'),
+                      }}
+                    >
+                      <Text style={{ fontSize: 13, marginBottom: 1 }}>{item.icon}</Text>
+                      <Text
+                        numberOfLines={1}
+                        style={{
+                          fontSize: 8.5,
+                          fontWeight: '800',
+                          color: isSelected ? '#FFFFFF' : (isDarkMode ? '#AEAEB2' : '#636366'),
+                        }}
+                      >
+                        {item.label.split(' ')[0]}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
 
-              {metricItems.map((item, i) => (
-                <View key={i} style={{ backgroundColor: isDarkMode ? '#2C2C2E' : '#FFFFFF', borderRadius: 14, padding: 14, marginBottom: 12, borderWidth: 1, borderColor: isDarkMode ? '#3A3A3C' : '#E5E5EA' }}>
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                      <Text style={{ fontSize: 18 }}>{item.icon}</Text>
-                      <Text style={[dynamicStyles.text, { fontSize: 14, fontWeight: '800' }]}>{item.label}</Text>
+              {/* Card della Metrica Attiva */}
+              {activeItem && (
+                <View style={{ backgroundColor: isDarkMode ? '#2C2C2E' : '#FFFFFF', borderRadius: 14, padding: 14, borderWidth: 1.5, borderColor: '#007AFF40', marginBottom: 6 }}>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 }}>
+                      <Text style={{ fontSize: 22 }}>{activeItem.icon}</Text>
+                      <View style={{ flex: 1 }}>
+                        <Text style={[dynamicStyles.text, { fontSize: 15, fontWeight: '900' }]}>{activeItem.label}</Text>
+                        <Text style={{ fontSize: 10, color: '#007AFF', fontWeight: '800' }}>Metrica {activeIndex + 1} di {metricItems.length}</Text>
+                      </View>
                     </View>
-                    <View style={{ backgroundColor: isDarkMode ? '#1C1C1E' : '#F2F2F7', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 }}>
-                      <Text style={{ fontSize: 13, fontWeight: '900', color: getScoreColor(item.score) }}>
-                        {item.score} <Text style={{ fontSize: 10, fontWeight: '700', color: isDarkMode ? '#AEAEB2' : '#8E8E93' }}>/ 10</Text>
+                    <View style={{ backgroundColor: isDarkMode ? '#1C1C1E' : '#F2F2F7', paddingHorizontal: 12, paddingVertical: 5, borderRadius: 10, borderWidth: 1, borderColor: getScoreColor(activeItem.score) }}>
+                      <Text style={{ fontSize: 15, fontWeight: '900', color: getScoreColor(activeItem.score) }}>
+                        {activeItem.score} <Text style={{ fontSize: 10, fontWeight: '700', color: isDarkMode ? '#AEAEB2' : '#8E8E93' }}>/ 10</Text>
                       </Text>
                     </View>
                   </View>
 
-                  <Text style={[dynamicStyles.text, { fontSize: 12, lineHeight: 17, marginBottom: 8, opacity: 0.85 }]}>
-                    {item.desc}
+                  <Text style={[dynamicStyles.text, { fontSize: 12.5, lineHeight: 18, marginBottom: 12, opacity: 0.9 }]}>
+                    {activeItem.desc}
                   </Text>
 
-                  <View style={{ backgroundColor: isDarkMode ? 'rgba(0,122,255,0.12)' : '#007AFF10', padding: 8, borderRadius: 8 }}>
-                    <Text style={{ fontSize: 10.5, fontWeight: '700', color: '#007AFF', fontStyle: 'italic' }}>
-                      {item.formula}
+                  <View style={{ backgroundColor: isDarkMode ? 'rgba(0,122,255,0.12)' : '#007AFF10', padding: 10, borderRadius: 10 }}>
+                    <Text style={{ fontSize: 11, fontWeight: '700', color: '#007AFF', fontStyle: 'italic' }}>
+                      {activeItem.formula}
                     </Text>
                   </View>
                 </View>
-              ))}
-            </ScrollView>
+              )}
+            </View>
 
-            <View style={{ padding: 12, borderTopWidth: 1, borderTopColor: isDarkMode ? '#2C2C2E' : '#E5E5EA', backgroundColor: isDarkMode ? '#1C1C1E' : '#FFFFFF' }}>
+            {/* Pulsanti di Navigazione Avanti / Indietro / Chiudi */}
+            <View style={{ padding: 12, borderTopWidth: 1, borderTopColor: isDarkMode ? '#2C2C2E' : '#E5E5EA', backgroundColor: isDarkMode ? '#1C1C1E' : '#FFFFFF', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
               <TouchableOpacity
-                style={[styles.saveButton, { marginTop: 0, height: 44, borderRadius: 12 }]}
-                onPress={() => setShowSpiderInfoModal(false)}
+                disabled={activeIndex === 0}
+                onPress={() => setSpiderInfoMetricIndex(prev => Math.max(0, prev - 1))}
+                style={{
+                  flex: 1,
+                  height: 44,
+                  borderRadius: 12,
+                  backgroundColor: activeIndex === 0 ? (isDarkMode ? '#2C2C2E' : '#E5E5EA') : '#007AFF20',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexDirection: 'row',
+                  gap: 4,
+                  opacity: activeIndex === 0 ? 0.5 : 1,
+                }}
               >
-                <Text style={styles.saveButtonText}>Chiudi</Text>
+                <Ionicons name="chevron-back" size={18} color={activeIndex === 0 ? '#8E8E93' : '#007AFF'} />
+                <Text style={{ fontSize: 13, fontWeight: '800', color: activeIndex === 0 ? '#8E8E93' : '#007AFF' }}>Indietro</Text>
               </TouchableOpacity>
+
+              {activeIndex < metricItems.length - 1 ? (
+                <TouchableOpacity
+                  onPress={() => setSpiderInfoMetricIndex(prev => Math.min(metricItems.length - 1, prev + 1))}
+                  style={{
+                    flex: 1,
+                    height: 44,
+                    borderRadius: 12,
+                    backgroundColor: '#007AFF',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexDirection: 'row',
+                    gap: 4,
+                  }}
+                >
+                  <Text style={{ fontSize: 13, fontWeight: '800', color: '#FFFFFF' }}>Successivo</Text>
+                  <Ionicons name="chevron-forward" size={18} color="#FFFFFF" />
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity
+                  onPress={() => setShowSpiderInfoModal(false)}
+                  style={{
+                    flex: 1,
+                    height: 44,
+                    borderRadius: 12,
+                    backgroundColor: '#34C759',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <Text style={{ fontSize: 13, fontWeight: '800', color: '#FFFFFF' }}>Chiudi</Text>
+                </TouchableOpacity>
+              )}
             </View>
           </View>
         </View>
@@ -1616,7 +1696,7 @@ export default function PlayerDetailScreen() {
             <View style={[styles.chartCard, dynamicStyles.card]}>
                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, width: '100%' }}>
                  <Text style={[styles.chartTitle, dynamicStyles.text, { marginBottom: 0 }]}>Analisi Prestazioni</Text>
-                 <TouchableOpacity onPress={() => setShowSpiderInfoModal(true)} style={{ padding: 4 }}>
+                 <TouchableOpacity onPress={() => { setSpiderInfoMetricIndex(0); setShowSpiderInfoModal(true); }} style={{ padding: 4 }}>
                    <Ionicons name="information-circle-outline" size={24} color="#007AFF" />
                  </TouchableOpacity>
                </View>
