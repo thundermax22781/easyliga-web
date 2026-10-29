@@ -6320,7 +6320,7 @@ export default function GroupDetailScreen() {
                                 justifyContent: 'space-between',
                                 borderWidth: 1,
                                 borderColor: '#FF950040',
-                                marginBottom: 15
+                                marginBottom: 10
                               }}
                             >
                               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 15 }}>
@@ -6335,6 +6335,34 @@ export default function GroupDetailScreen() {
                                 </View>
                               </View>
                               <Ionicons name="chevron-forward" size={22} color="#FF9500" />
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                              onPress={() => setShowSharingSettingsModal(true)}
+                              style={{
+                                backgroundColor: isDarkMode ? '#2C2C2E' : '#F8F9FF',
+                                borderRadius: 16,
+                                padding: 18,
+                                flexDirection: 'row',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                borderWidth: 1,
+                                borderColor: '#34C75940',
+                                marginBottom: 15
+                              }}
+                            >
+                              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 15 }}>
+                                <View style={{ width: 44, height: 44, borderRadius: 12, backgroundColor: '#34C75915', alignItems: 'center', justifyContent: 'center' }}>
+                                  <Ionicons name="share-social" size={24} color="#34C759" />
+                                </View>
+                                <View style={{ flex: 1 }}>
+                                  <Text style={[dynamicStyles.text, { fontSize: 16, fontWeight: '800' }]}>Gestione Condivisione</Text>
+                                  <Text style={[dynamicStyles.subText, { fontSize: 11, marginTop: 1 }]} numberOfLines={2}>
+                                    Link Web, Token Accesso, Backup e Import/Export
+                                  </Text>
+                                </View>
+                              </View>
+                              <Ionicons name="chevron-forward" size={22} color="#34C759" />
                             </TouchableOpacity>
 
                             <View style={[styles.detailDivider, dynamicStyles.divider, { marginHorizontal: 0, opacity: 0.3 }]} />
