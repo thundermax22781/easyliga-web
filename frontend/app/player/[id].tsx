@@ -975,7 +975,7 @@ export default function PlayerDetailScreen() {
                 maxHeight: '92%',
                 width: '100%',
                 maxWidth: 420,
-                paddingBottom: 0,
+                paddingBottom: Platform.OS === 'android' ? 24 : 10,
                 overflow: 'hidden',
                 flexDirection: 'column',
               },

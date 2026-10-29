@@ -161,6 +161,7 @@ export default function GroupDetailScreen() {
   const [sharingPlayersList, setSharingPlayersList] = useState(false);
   const [showCareerSettings, setShowCareerSettings] = useState(false);
   const [showBonusSettingsModal, setShowBonusSettingsModal] = useState(false);
+  const [showSharingSettingsModal, setShowSharingSettingsModal] = useState(false);
   const matchViewShotRef = useRef<ViewShot>(null);
   const standingsViewShotRef = useRef<ViewShot>(null);
   const bracketViewShotRef = useRef<ViewShot>(null);
@@ -4467,7 +4468,7 @@ export default function GroupDetailScreen() {
             onPress={() => setShowRadarConfigModal(false)}
           />
           <View
-            style={[styles.modalContent, dynamicStyles.modalContent, { height: '85%', maxHeight: '85%', maxWidth: 420, paddingBottom: 0, overflow: 'hidden', flexDirection: 'column' }]}
+            style={[styles.modalContent, dynamicStyles.modalContent, { height: '85%', maxHeight: '85%', maxWidth: 420, paddingBottom: Platform.OS === 'android' ? 28 : 12, overflow: 'hidden', flexDirection: 'column' }]}
           >
             <View style={styles.modalHeader}>
               <Text style={[styles.modalTitle, dynamicStyles.text]}>Grafico Prestazioni</Text>
@@ -4587,7 +4588,7 @@ export default function GroupDetailScreen() {
             activeOpacity={1}
             onPress={() => setShowBonusSettingsModal(false)}
           />
-          <View style={[styles.modalContent, dynamicStyles.modalContent, { height: '85%', maxHeight: '85%', maxWidth: 420, paddingBottom: 0, overflow: 'hidden', flexDirection: 'column' }]}>
+          <View style={[styles.modalContent, dynamicStyles.modalContent, { height: '85%', maxHeight: '85%', maxWidth: 420, paddingBottom: Platform.OS === 'android' ? 28 : 12, overflow: 'hidden', flexDirection: 'column' }]}>
             <View style={styles.modalHeader}>
               <View style={{ flex: 1 }}>
                 <Text style={[styles.modalTitle, dynamicStyles.text]}>Gestione Bonus</Text>
@@ -4600,7 +4601,7 @@ export default function GroupDetailScreen() {
 
             <ScrollView
               style={{ flex: 1 }}
-              contentContainerStyle={{ padding: 16, paddingBottom: 30, gap: 14 }}
+              contentContainerStyle={{ padding: 16, paddingBottom: 40, gap: 14 }}
               showsVerticalScrollIndicator={true}
               nestedScrollEnabled={true}
               keyboardShouldPersistTaps="handled"
@@ -4756,6 +4757,153 @@ export default function GroupDetailScreen() {
               <TouchableOpacity
                 style={[styles.saveBtn, { marginTop: 0, height: 44, borderRadius: 12 }]}
                 onPress={() => setShowBonusSettingsModal(false)}
+              >
+                <Text style={styles.saveBtnText}>Chiudi</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    );
+  };
+
+  const renderSharingSettingsModal = () => {
+    if (!showSharingSettingsModal) return null;
+
+    return (
+      <Modal visible={showSharingSettingsModal} animationType="slide" transparent={true} onRequestClose={() => setShowSharingSettingsModal(false)}>
+        <View style={styles.modalOverlay}>
+          <TouchableOpacity
+            style={StyleSheet.absoluteFill}
+            activeOpacity={1}
+            onPress={() => setShowSharingSettingsModal(false)}
+          />
+          <View style={[styles.modalContent, dynamicStyles.modalContent, { height: '85%', maxHeight: '85%', maxWidth: 420, paddingBottom: Platform.OS === 'android' ? 28 : 12, overflow: 'hidden', flexDirection: 'column' }]}>
+            <View style={styles.modalHeader}>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.modalTitle, dynamicStyles.text]}>Gestione Condivisione</Text>
+                <Text style={[dynamicStyles.subText, { fontSize: 11 }]}>Link web, token di accesso e backup dati</Text>
+              </View>
+              <TouchableOpacity onPress={() => setShowSharingSettingsModal(false)} style={{ padding: 4 }}>
+                <Ionicons name="close-circle" size={26} color={isDarkMode ? "#AAA" : "#8E8E93"} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView
+              style={{ flex: 1 }}
+              contentContainerStyle={{ padding: 16, paddingBottom: 40, gap: 16 }}
+              showsVerticalScrollIndicator={true}
+              nestedScrollEnabled={true}
+              keyboardShouldPersistTaps="handled"
+            >
+              {/* 1. Link Web (Accesso Diretto) */}
+              <View style={{ backgroundColor: isDarkMode ? '#2C2C2E' : '#F8F9FF', padding: 14, borderRadius: 14, borderWidth: 1, borderColor: isDarkMode ? '#3A3A3C' : '#E5E5EA' }}>
+                <Text style={[dynamicStyles.text, { fontSize: 15, fontWeight: '800', marginBottom: 4 }]}>🌐 Link Web (Accesso Diretto)</Text>
+                <Text style={[dynamicStyles.subText, { fontSize: 11, marginBottom: 12 }]}>
+                  Copia o condividi il link web per accedere direttamente senza inserire il token.
+                </Text>
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                  <TouchableOpacity
+                    style={[styles.saveBtn, { flex: 1, backgroundColor: '#34C759', height: 42, borderRadius: 10, flexDirection: 'row' }]}
+                    onPress={() => handleShareWebLink('viewer')}
+                  >
+                    <Ionicons name="link-outline" size={18} color="#FFF" style={{ marginRight: 6 }} />
+                    <Text style={[styles.saveBtnText, { fontSize: 13, fontWeight: '800' }]}>Link Viewer</Text>
+                  </TouchableOpacity>
+                  {(group?.role === 'owner' || group?.role === 'admin') && (
+                    <TouchableOpacity
+                      style={[styles.saveBtn, { flex: 1, backgroundColor: '#007AFF', height: 42, borderRadius: 10, flexDirection: 'row' }]}
+                      onPress={() => handleShareWebLink('admin')}
+                    >
+                      <Ionicons name="link-outline" size={18} color="#FFF" style={{ marginRight: 6 }} />
+                      <Text style={[styles.saveBtnText, { fontSize: 13, fontWeight: '800' }]}>Link Admin</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              </View>
+
+              {/* 2. Token Accesso (Codice Manuale) */}
+              <View style={{ backgroundColor: isDarkMode ? '#2C2C2E' : '#F8F9FF', padding: 14, borderRadius: 14, borderWidth: 1, borderColor: isDarkMode ? '#3A3A3C' : '#E5E5EA' }}>
+                <Text style={[dynamicStyles.text, { fontSize: 15, fontWeight: '800', marginBottom: 4 }]}>🔑 Token Accesso (Codice Manuale)</Text>
+                <Text style={[dynamicStyles.subText, { fontSize: 11, marginBottom: 12 }]}>
+                  Condividi il codice alfanumerico di accesso per ciascun ruolo.
+                </Text>
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                  {group?.role === 'owner' && (
+                    <TouchableOpacity style={[styles.tokenBtn, { flex: 1, backgroundColor: '#5856D6', height: 38, borderRadius: 8 }]} onPress={() => handleShareToken('owner')}>
+                      <Text style={[styles.tokenBtnText, { fontSize: 12, fontWeight: '800' }]}>Owner</Text>
+                    </TouchableOpacity>
+                  )}
+                  {(group?.role === 'owner' || group?.role === 'admin') && (
+                    <TouchableOpacity style={[styles.tokenBtn, { flex: 1, backgroundColor: '#007AFF', height: 38, borderRadius: 8 }]} onPress={() => handleShareToken('admin')}>
+                      <Text style={[styles.tokenBtnText, { fontSize: 12, fontWeight: '800' }]}>Admin</Text>
+                    </TouchableOpacity>
+                  )}
+                  <TouchableOpacity style={[styles.tokenBtn, { flex: 1, backgroundColor: '#8E8E93', height: 38, borderRadius: 8 }]} onPress={() => handleShareToken('viewer')}>
+                    <Text style={[styles.tokenBtnText, { fontSize: 12, fontWeight: '800' }]}>Viewer</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              {/* 3. Dati e Backup */}
+              <View style={{ backgroundColor: isDarkMode ? '#2C2C2E' : '#F8F9FF', padding: 14, borderRadius: 14, borderWidth: 1, borderColor: isDarkMode ? '#3A3A3C' : '#E5E5EA' }}>
+                <Text style={[dynamicStyles.text, { fontSize: 15, fontWeight: '800', marginBottom: 4 }]}>📦 Dati e Backup</Text>
+                <Text style={[dynamicStyles.subText, { fontSize: 11, marginBottom: 12 }]}>
+                  Esporta/Importa la lista giocatori oppure salvataggi di backup del gruppo.
+                </Text>
+                <View style={{ flexDirection: 'row', gap: 8, marginBottom: 10 }}>
+                  <TouchableOpacity style={[styles.saveBtn, { flex: 1, backgroundColor: '#007AFF', height: 40, borderRadius: 8, flexDirection: 'row' }]} onPress={handleExportPlayers}>
+                    <Ionicons name="download-outline" size={16} color="#FFF" style={{ marginRight: 6 }} />
+                    <Text style={[styles.saveBtnText, { fontSize: 12, fontWeight: '700' }]} numberOfLines={1}>Esporta Giocatori</Text>
+                  </TouchableOpacity>
+                  {isAdminOrOwner && (
+                    <TouchableOpacity style={[styles.saveBtn, { flex: 1, backgroundColor: '#34C759', height: 40, borderRadius: 8, flexDirection: 'row' }]} onPress={handleImportPlayers}>
+                      <Ionicons name="arrow-up-outline" size={16} color="#FFF" style={{ marginRight: 6 }} />
+                      <Text style={[styles.saveBtnText, { fontSize: 12, fontWeight: '700' }]} numberOfLines={1}>Importa Giocatori</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                  <TouchableOpacity style={[styles.saveBtn, { flex: 1, backgroundColor: '#8E8E93', height: 40, borderRadius: 8, flexDirection: 'row' }]} onPress={handleCreateGroupBackup}>
+                    <Ionicons name="copy-outline" size={16} color="#FFF" style={{ marginRight: 6 }} />
+                    <Text style={[styles.saveBtnText, { fontSize: 12, fontWeight: '700' }]} numberOfLines={1}>Crea Backup</Text>
+                  </TouchableOpacity>
+                  {isAdminOrOwner && (
+                    <TouchableOpacity style={[styles.saveBtn, { flex: 1, backgroundColor: '#FF9500', height: 40, borderRadius: 8, flexDirection: 'row' }]} onPress={handleRestoreGroupBackup}>
+                      <Ionicons name="refresh-outline" size={16} color="#FFF" style={{ marginRight: 6 }} />
+                      <Text style={[styles.saveBtnText, { fontSize: 12, fontWeight: '700' }]} numberOfLines={1}>Ripristina Backup</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              </View>
+
+              {/* 4. Azioni Avanzate Torneo (Reset) */}
+              {group?.group_type === 'tournament' && isAdminOrOwner && (
+                <View style={{ backgroundColor: isDarkMode ? '#2C2C2E' : '#F8F9FF', padding: 14, borderRadius: 14, borderWidth: 1, borderColor: isDarkMode ? '#3A3A3C' : '#E5E5EA', gap: 10 }}>
+                  <Text style={[dynamicStyles.text, { fontSize: 15, fontWeight: '800', marginBottom: 2 }]}>⚠️ Reset Torneo</Text>
+                  <TouchableOpacity
+                    style={[styles.saveBtn, { backgroundColor: 'transparent', borderWidth: 1, borderColor: '#007AFF', height: 40, borderRadius: 8, flexDirection: 'row' }]}
+                    onPress={handleResetTournamentResults}
+                  >
+                    <Ionicons name="refresh-circle-outline" size={16} color="#007AFF" style={{ marginRight: 6 }} />
+                    <Text style={[styles.saveBtnText, { fontSize: 12, fontWeight: '700', color: '#007AFF' }]}>RESET RISULTATI TORNEO</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[styles.saveBtn, { backgroundColor: 'transparent', borderWidth: 1, borderColor: '#FF3B30', height: 40, borderRadius: 8, flexDirection: 'row' }]}
+                    onPress={handleResetTournament}
+                  >
+                    <Ionicons name="reload-outline" size={16} color="#FF3B30" style={{ marginRight: 6 }} />
+                    <Text style={[styles.saveBtnText, { fontSize: 12, fontWeight: '700', color: '#FF3B30' }]}>RESET TORNEO</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+            </ScrollView>
+
+            <View style={{ padding: 12, borderTopWidth: 1, borderTopColor: isDarkMode ? '#2C2C2E' : '#E5E5EA', backgroundColor: isDarkMode ? '#1C1C1E' : '#FFFFFF' }}>
+              <TouchableOpacity
+                style={[styles.saveBtn, { marginTop: 0, height: 44, borderRadius: 12 }]}
+                onPress={() => setShowSharingSettingsModal(false)}
               >
                 <Text style={styles.saveBtnText}>Chiudi</Text>
               </TouchableOpacity>
@@ -6391,67 +6539,6 @@ export default function GroupDetailScreen() {
                       </>
                     )}
 
-                    {/* AZIONI COMUNI (Backup, Token, Dati) */}
-
-                    <View style={{ flexDirection: 'row', gap: 8, marginBottom: 8, marginTop: 10 }}>
-                      <TouchableOpacity style={[styles.saveBtn, { flex: 1, backgroundColor: '#007AFF', height: 40, borderRadius: 8, flexDirection: 'row' }]} onPress={handleExportPlayers}><Ionicons name="download-outline" size={16} color="#FFF" style={{marginRight: 6}}/><Text style={[styles.saveBtnText, {fontSize: 12, fontWeight: '700'}]} numberOfLines={1}>Esporta Giocatori</Text></TouchableOpacity>
-                      {isAdminOrOwner && (
-                        <TouchableOpacity style={[styles.saveBtn, { flex: 1, backgroundColor: '#34C759', height: 40, borderRadius: 8, flexDirection: 'row' }]} onPress={handleImportPlayers}><Ionicons name="arrow-up-outline" size={16} color="#FFF" style={{marginRight: 6}}/><Text style={[styles.saveBtnText, {fontSize: 12, fontWeight: '700'}]} numberOfLines={1}>Importa Giocatori</Text></TouchableOpacity>
-                      )}
-                    </View>
-                    <View style={{ flexDirection: 'row', gap: 8, marginBottom: 20 }}>
-                      <TouchableOpacity style={[styles.saveBtn, { flex: 1, backgroundColor: '#8E8E93', height: 40, borderRadius: 8, flexDirection: 'row' }]} onPress={handleCreateGroupBackup}><Ionicons name="copy-outline" size={16} color="#FFF" style={{marginRight: 6}}/><Text style={[styles.saveBtnText, {fontSize: 12, fontWeight: '700'}]} numberOfLines={1}>Crea Backup</Text></TouchableOpacity>
-                      {isAdminOrOwner && (
-                        <TouchableOpacity style={[styles.saveBtn, { flex: 1, backgroundColor: '#FF9500', height: 40, borderRadius: 8, flexDirection: 'row' }]} onPress={handleRestoreGroupBackup}><Ionicons name="refresh-outline" size={16} color="#FFF" style={{marginRight: 6}}/><Text style={[styles.saveBtnText, {fontSize: 12, fontWeight: '700'}]} numberOfLines={1}>Ripristina Backup</Text></TouchableOpacity>
-                      )}
-                    </View>
-
-                    {group?.group_type === 'tournament' && isAdminOrOwner && (
-                      <View style={{ marginBottom: 20, gap: 10 }}>
-                        <TouchableOpacity
-                          style={[styles.saveBtn, { backgroundColor: 'transparent', borderWidth: 1, borderColor: '#007AFF', height: 40, borderRadius: 8, flexDirection: 'row' }]}
-                          onPress={handleResetTournamentResults}
-                        >
-                          <Ionicons name="refresh-circle-outline" size={16} color="#007AFF" style={{ marginRight: 6 }} />
-                          <Text style={[styles.saveBtnText, { fontSize: 13, fontWeight: '700', color: '#007AFF' }]}>RESET RISULTATI TORNEO</Text>
-                        </TouchableOpacity>
-
-                        <TouchableOpacity
-                          style={[styles.saveBtn, { backgroundColor: 'transparent', borderWidth: 1, borderColor: '#FF3B30', height: 40, borderRadius: 8, flexDirection: 'row' }]}
-                          onPress={handleResetTournament}
-                        >
-                          <Ionicons name="reload-outline" size={16} color="#FF3B30" style={{ marginRight: 6 }} />
-                          <Text style={[styles.saveBtnText, { fontSize: 13, fontWeight: '700', color: '#FF3B30' }]}>RESET TORNEO</Text>
-                        </TouchableOpacity>
-                      </View>
-                    )}
-
-                    <Text style={[styles.configSectionTitle, dynamicStyles.text, { fontSize: 14, fontWeight: '700', marginBottom: 10 }]}>Link Web (Accesso Diretto)</Text>
-                    <View style={{ flexDirection: 'row', gap: 8, marginBottom: 20 }}>
-                      <TouchableOpacity
-                        style={[styles.saveBtn, { flex: 1, backgroundColor: '#34C759', height: 40, borderRadius: 8, flexDirection: 'row' }]}
-                        onPress={() => handleShareWebLink('viewer')}
-                      >
-                        <Ionicons name="copy-outline" size={16} color="#FFF" style={{marginRight: 6}}/>
-                        <Text style={[styles.saveBtnText, {fontSize: 13, fontWeight: '700'}]}>Link Viewer</Text>
-                      </TouchableOpacity>
-                      {(group?.role === 'owner' || group?.role === 'admin') && (
-                        <TouchableOpacity
-                          style={[styles.saveBtn, { flex: 1, backgroundColor: '#007AFF', height: 40, borderRadius: 8, flexDirection: 'row' }]}
-                          onPress={() => handleShareWebLink('admin')}
-                        >
-                          <Ionicons name="copy-outline" size={16} color="#FFF" style={{marginRight: 6}}/>
-                          <Text style={[styles.saveBtnText, {fontSize: 13, fontWeight: '700'}]}>Link Admin</Text>
-                        </TouchableOpacity>
-                      )}
-                    </View>
-
-                    <Text style={[styles.configSectionTitle, dynamicStyles.text, { fontSize: 14, fontWeight: '700', marginBottom: 10 }]}>Token Accesso (Codice Manuale)</Text>
-                    <View style={{ flexDirection: 'row', gap: 6 }}>
-                      {group?.role === 'owner' && <TouchableOpacity style={[styles.tokenBtn, { flex: 1, backgroundColor: '#5856D6', height: 35, borderRadius: 6 }]} onPress={() => handleShareToken('owner')}><Text style={[styles.tokenBtnText, {fontSize: 12}]}>Owner</Text></TouchableOpacity>}
-                      {(group?.role === 'owner' || group?.role === 'admin') && <TouchableOpacity style={[styles.tokenBtn, { flex: 1, backgroundColor: '#007AFF', height: 35, borderRadius: 6 }]} onPress={() => handleShareToken('admin')}><Text style={[styles.tokenBtnText, {fontSize: 12}]}>Admin</Text></TouchableOpacity>}
-                      <TouchableOpacity style={[styles.tokenBtn, { flex: 1, backgroundColor: '#8E8E93', height: 35, borderRadius: 6 }]} onPress={() => handleShareToken('viewer')}><Text style={[styles.tokenBtnText, {fontSize: 12}]}>Viewer</Text></TouchableOpacity>
-                    </View>
                   </View>
                 </ScrollView>
               </View>
@@ -6910,6 +6997,7 @@ export default function GroupDetailScreen() {
         {renderCareerSettingsModal()}
         {renderRadarConfigModal()}
         {renderBonusSettingsModal()}
+        {renderSharingSettingsModal()}
         {renderMatchSharePreview()}
         {renderStandingsSharePreview()}
         {renderTournamentStandingsSharePreview()}
