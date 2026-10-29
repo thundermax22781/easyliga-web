@@ -46,6 +46,7 @@ export interface Group {
   tournament_4th_team_name?: string;
   radar_config?: Record<string, string[]>; // Configurazione metrica Radar Chart per ruolo
   show_spider_rating?: boolean; // Se mostrare il valore Spider (SPD) nelle schede
+  show_hidden_players?: boolean; // Se mostrare i giocatori nascosti
 }
 
 export interface Player {
@@ -60,6 +61,7 @@ export interface Player {
   phone?: string;
   group_id: string;
   is_favorite?: boolean;
+  is_hidden?: boolean;
 }
 
 export interface Match {

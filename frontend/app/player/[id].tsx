@@ -15,6 +15,7 @@ import {
   Modal,
   Image,
   Linking,
+  Switch,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -61,6 +62,7 @@ export default function PlayerDetailScreen() {
   const [showTournamentBreakdown, setShowTournamentBreakdown] = useState(false);
   const [showSpiderInfoModal, setShowSpiderInfoModal] = useState(false);
   const [spiderInfoMetricIndex, setSpiderInfoMetricIndex] = useState(0);
+  const [isHidden, setIsHidden] = useState(false);
 
   const championshipMatches = useMemo(() => {
     return playerMatches.filter(m => !(m as any)._isLinked);
@@ -186,6 +188,7 @@ export default function PlayerDetailScreen() {
         setRole(found.role);
         setStrength(found.strength);
         setStrengthText(String(found.strength));
+        setIsHidden(found.is_hidden || false);
 
         const allStats = await calculateStandings(groupId);
         setGroupStats(allStats);
@@ -306,6 +309,7 @@ export default function PlayerDetailScreen() {
         role,
         strength,
         group_id: groupId,
+        is_hidden: isHidden,
       });
       loadPlayer();
       setEditing(false);
@@ -1620,8 +1624,11 @@ export default function PlayerDetailScreen() {
                 </View>
               )}
               <View style={{ marginTop: 8 }}>
-                <View style={{ flexDirection: 'row' }}>
+                <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
                   <View style={[styles.rolePill, { backgroundColor: getRoleColor(player.role) }]}><Text style={styles.rolePillText}>{player.role}</Text></View>
+                  {player.is_hidden && (
+                    <View style={[styles.rolePill, { backgroundColor: '#FF9500' }]}><Text style={styles.rolePillText}>🙈 NASCOSTO</Text></View>
+                  )}
                 </View>
                 <View style={[styles.trendRowCompact, { marginTop: 8, gap: 6 }]}>
                   {championshipMatches.slice(0, 5).reverse().map((m) => {
@@ -1932,6 +1939,20 @@ export default function PlayerDetailScreen() {
           <View style={styles.inputGroup}>
             <Text style={[styles.label, dynamicStyles.text]}>Livello di Forza</Text>
             <TouchableOpacity style={[styles.strengthPreviewBox, dynamicStyles.card, {borderColor: isDarkMode ? '#3A3A3C' : '#E5E5EA'}]} onPress={() => { setStrengthText(String(strength)); setShowStrengthModal(true); }}><View style={[styles.strengthDisplay, {backgroundColor: isDarkMode ? '#3A3A3C' : '#F2F2F7'}]}><Text style={[styles.strengthNumber, dynamicStyles.text]}>{strength}</Text><Text style={[styles.strengthSubText, dynamicStyles.subText]}>VALORE</Text></View><Ionicons name="chevron-down" size={24} color="#8E8E93" /></TouchableOpacity>
+          </View>
+          <View style={[styles.inputGroup, { marginTop: 4 }]}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: isDarkMode ? '#2C2C2E' : '#F8F9FF', padding: 12, borderRadius: 12, borderWidth: 1, borderColor: isDarkMode ? '#3A3A3C' : '#E5E5EA' }}>
+              <View style={{ flex: 1, paddingRight: 10 }}>
+                <Text style={[styles.label, dynamicStyles.text, { marginBottom: 2 }]}>🙈 Nascondi Giocatore</Text>
+                <Text style={[dynamicStyles.subText, { fontSize: 11 }]}>Nasconde il giocatore dalle liste principali senza eliminarlo.</Text>
+              </View>
+              <Switch
+                value={isHidden}
+                onValueChange={setIsHidden}
+                trackColor={{ false: '#767577', true: '#FF9500' }}
+                thumbColor="#FFF"
+              />
+            </View>
           </View>
           <TouchableOpacity style={styles.saveButton} onPress={handleSave} disabled={saving}>{saving ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.saveButtonText}>Salva Modifiche</Text>}</TouchableOpacity>
         </ScrollView>

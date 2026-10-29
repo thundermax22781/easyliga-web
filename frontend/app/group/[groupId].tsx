@@ -1973,9 +1973,11 @@ export default function GroupDetailScreen() {
   const filteredPlayersForTeams = React.useMemo(() => {
     // Escludiamo i giocatori già assegnati a una squadra durante la selezione manuale
     const assignedIds = new Set(manualTeamsData.flat().map(p => p.id));
+    const showHidden = group?.show_hidden_players === true;
 
     return players
       .filter(p => {
+        if (!showHidden && p.is_hidden) return false;
         const matchesRole = teamSelectedRole === 'Preferiti' ? favoriteIds.has(p.id) : (teamSelectedRole ? p.role === teamSelectedRole : true);
         if (!matchesRole) return false;
         if (!assignedIds.has(p.id)) {
@@ -1989,11 +1991,14 @@ export default function GroupDetailScreen() {
         return false;
       })
       .sort((a, b) => a.nickname.localeCompare(b.nickname, 'it', { sensitivity: 'base' }));
-  }, [players, teamSelectedRole, teamSearch, manualTeamsData, favoriteIds]);
+  }, [players, teamSelectedRole, teamSearch, manualTeamsData, favoriteIds, group?.show_hidden_players]);
 
   const filteredPlayersList = React.useMemo(() => {
+    const showHidden = group?.show_hidden_players === true;
+
     return players
       .filter(p => {
+        if (!showHidden && p.is_hidden) return false;
         const matchesRole = selectedRole === 'Preferiti' ? favoriteIds.has(p.id) : (selectedRole ? p.role === selectedRole : true);
         if (!matchesRole) return false;
         if (!search) return true;
@@ -2004,7 +2009,7 @@ export default function GroupDetailScreen() {
                (p.phone || '').includes(s);
       })
       .sort((a, b) => a.nickname.localeCompare(b.nickname, 'it', { sensitivity: 'base' }));
-  }, [players, selectedRole, search, favoriteIds]);
+  }, [players, selectedRole, search, favoriteIds, group?.show_hidden_players]);
 
   const teamAParticipants = React.useMemo(() => {
     if (editingMatchId) {
@@ -2643,8 +2648,16 @@ export default function GroupDetailScreen() {
     const activeSortId = group?.group_type === 'tournament' && sortBy === 'points' ? 'goals' : sortBy;
     const finalSort = sortOptions.find(o => o.id === activeSortId) || sortOptions[0];
 
-    // Applicazione del filtro Presenze Minime (Opzione B)
+    // Applicazione del filtro Presenze Minime e Giocatori Nascosti
     let filteredStandings = [...standings];
+
+    if (group?.show_hidden_players !== true) {
+      filteredStandings = filteredStandings.filter(s => {
+        const p = players.find(x => x.id === s.player_id);
+        return !p?.is_hidden;
+      });
+    }
+
     if (minMatchesFilter > 0) {
       filteredStandings = filteredStandings.filter(s => (s.played || 0) >= minMatchesFilter);
     } else if (minMatchesFilter === -1) {
@@ -6383,6 +6396,22 @@ export default function GroupDetailScreen() {
                               />
                             </View>
 
+                            <View style={[styles.detailDivider, dynamicStyles.divider, { marginHorizontal: 0, opacity: 0.3, marginVertical: 8 }]} />
+
+                            <View style={styles.bonusRow}>
+                              <View style={{ flex: 1, paddingRight: 10 }}>
+                                <Text style={[dynamicStyles.text, { fontSize: 14, fontWeight: '600' }]}>🙈 Mostra Giocatori Nascosti</Text>
+                                <Text style={[dynamicStyles.subText, { fontSize: 10, marginTop: 1 }]}>Includi anche i giocatori nascosti nelle liste e classifiche</Text>
+                              </View>
+                              <Switch
+                                style={{ transform: [{ scale: 1.1 }] }}
+                                trackColor={{ false: '#767577', true: '#FF9500' }}
+                                thumbColor="#FFF"
+                                value={group?.show_hidden_players === true}
+                                onValueChange={(v) => handleUpdateGroupSettings({ show_hidden_players: v })}
+                              />
+                            </View>
+
 
 
 
@@ -6667,13 +6696,17 @@ export default function GroupDetailScreen() {
                   data={filteredPlayersList}
                   contentContainerStyle={styles.listContent}
                   renderItem={({ item }) => (
-                    <TouchableOpacity style={[styles.pCard, dynamicStyles.card]} onPress={() => router.push(`/player/${item.id}?groupId=${groupId}`)}>
+                    <TouchableOpacity style={[styles.pCard, dynamicStyles.card, item.is_hidden && { opacity: 0.6 }]} onPress={() => router.push(`/player/${item.id}?groupId=${groupId}`)}>
                       <View style={[styles.pAvatar, { backgroundColor: ROLE_COLORS[item.role] + '20', width: 34, height: 34 }]}>
                         <Text style={[styles.pAvatarText, { color: ROLE_COLORS[item.role], fontSize: 14 }]}>{getInitials(item.nickname)}</Text>
                       </View>
                       <View style={styles.pInfo}>
-                        <Text style={[styles.pNickname, dynamicStyles.text, { fontSize: 15 }]}>{item.nickname}</Text>
-                        <Text style={[styles.pRoleText, { color: ROLE_COLORS[item.role], fontSize: 10 }]}>{item.role}</Text>
+                        <Text style={[styles.pNickname, dynamicStyles.text, { fontSize: 15 }]}>
+                          {item.nickname} {item.is_hidden ? '🙈' : ''}
+                        </Text>
+                        <Text style={[styles.pRoleText, { color: ROLE_COLORS[item.role], fontSize: 10 }]}>
+                          {item.role} {item.is_hidden ? '• NASCOSTO' : ''}
+                        </Text>
                       </View>
                       <View style={[styles.pStrBadge, { backgroundColor: isDarkMode ? '#3A3A3C' : '#F2F2F7', flexDirection: 'row', gap: 6, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8, alignItems: 'center', justifyContent: 'center' }]}>
                         <TouchableOpacity
