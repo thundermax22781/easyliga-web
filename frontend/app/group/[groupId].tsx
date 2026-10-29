@@ -160,6 +160,7 @@ export default function GroupDetailScreen() {
   const [sharingMatchesList, setSharingMatchesList] = useState(false);
   const [sharingPlayersList, setSharingPlayersList] = useState(false);
   const [showCareerSettings, setShowCareerSettings] = useState(false);
+  const [showBonusSettingsModal, setShowBonusSettingsModal] = useState(false);
   const matchViewShotRef = useRef<ViewShot>(null);
   const standingsViewShotRef = useRef<ViewShot>(null);
   const bracketViewShotRef = useRef<ViewShot>(null);
@@ -4575,6 +4576,196 @@ export default function GroupDetailScreen() {
     );
   };
 
+  const renderBonusSettingsModal = () => {
+    if (!showBonusSettingsModal) return null;
+
+    return (
+      <Modal visible={showBonusSettingsModal} animationType="slide" transparent={true} onRequestClose={() => setShowBonusSettingsModal(false)}>
+        <View style={styles.modalOverlay}>
+          <TouchableOpacity
+            style={StyleSheet.absoluteFill}
+            activeOpacity={1}
+            onPress={() => setShowBonusSettingsModal(false)}
+          />
+          <View style={[styles.modalContent, dynamicStyles.modalContent, { height: '85%', maxHeight: '85%', maxWidth: 420, paddingBottom: 0, overflow: 'hidden', flexDirection: 'column' }]}>
+            <View style={styles.modalHeader}>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.modalTitle, dynamicStyles.text]}>Gestione Bonus</Text>
+                <Text style={[dynamicStyles.subText, { fontSize: 11 }]}>Configura regole e parametri dei bonus</Text>
+              </View>
+              <TouchableOpacity onPress={() => setShowBonusSettingsModal(false)} style={{ padding: 4 }}>
+                <Ionicons name="close-circle" size={26} color={isDarkMode ? "#AAA" : "#8E8E93"} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView
+              style={{ flex: 1 }}
+              contentContainerStyle={{ padding: 16, paddingBottom: 30, gap: 14 }}
+              showsVerticalScrollIndicator={true}
+              nestedScrollEnabled={true}
+              keyboardShouldPersistTaps="handled"
+            >
+              {/* 1. Bonus Giocatore (Combo) */}
+              <View style={{ backgroundColor: isDarkMode ? '#2C2C2E' : '#F8F9FF', padding: 14, borderRadius: 14, borderWidth: 1, borderColor: isDarkMode ? '#3A3A3C' : '#E5E5EA' }}>
+                <View style={styles.bonusRow}>
+                  <View style={{ flex: 1, paddingRight: 10 }}>
+                    <Text style={[dynamicStyles.text, { fontSize: 15, fontWeight: '800' }]}>🌟 Bonus Giocatore (Combo)</Text>
+                    <Text style={[dynamicStyles.subText, { fontSize: 11, marginTop: 2 }]}>
+                      Premia chi realizza almeno la soglia minima di Goal e Assist nella stessa partita.
+                    </Text>
+                  </View>
+                  <Switch
+                    style={{ transform: [{ scale: 1.1 }] }}
+                    trackColor={{ false: '#767577', true: '#34C759' }}
+                    thumbColor="#FFF"
+                    value={group?.use_bonus}
+                    onValueChange={(v) => handleUpdateGroupSettings({ use_bonus: v })}
+                  />
+                </View>
+
+                {group?.use_bonus && (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 12, paddingTop: 10, borderTopWidth: 1, borderTopColor: isDarkMode ? '#3A3A3C' : '#E5E5EA' }}>
+                    <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <Text style={[dynamicStyles.subText, { fontSize: 12, fontWeight: '700' }]}>Goal ≥</Text>
+                      <TextInput
+                        style={[styles.scoreInput, dynamicStyles.input, { flex: 1, height: 36, fontSize: 15, fontWeight: '800', textAlign: 'center', padding: 0, borderRadius: 8 }]}
+                        keyboardType="numeric"
+                        value={String(group?.bonus_goals_threshold ?? 2)}
+                        onChangeText={(v) => handleUpdateGroupSettings({ bonus_goals_threshold: parseInt(v) || 0 })}
+                      />
+                    </View>
+                    <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <Text style={[dynamicStyles.subText, { fontSize: 12, fontWeight: '700' }]}>Assist ≥</Text>
+                      <TextInput
+                        style={[styles.scoreInput, dynamicStyles.input, { flex: 1, height: 36, fontSize: 15, fontWeight: '800', textAlign: 'center', padding: 0, borderRadius: 8 }]}
+                        keyboardType="numeric"
+                        value={String(group?.bonus_assists_threshold ?? 2)}
+                        onChangeText={(v) => handleUpdateGroupSettings({ bonus_assists_threshold: parseInt(v) || 0 })}
+                      />
+                    </View>
+                  </View>
+                )}
+              </View>
+
+              {/* 2. Bonus Difesa */}
+              <View style={{ backgroundColor: isDarkMode ? '#2C2C2E' : '#F8F9FF', padding: 14, borderRadius: 14, borderWidth: 1, borderColor: isDarkMode ? '#3A3A3C' : '#E5E5EA' }}>
+                <View style={styles.bonusRow}>
+                  <View style={{ flex: 1, paddingRight: 10 }}>
+                    <Text style={[dynamicStyles.text, { fontSize: 15, fontWeight: '800' }]}>🧱 Bonus Difesa</Text>
+                    <Text style={[dynamicStyles.subText, { fontSize: 11, marginTop: 2 }]}>
+                      Premia i giocatori difensivi quando la propria squadra subisce meno gol della soglia.
+                    </Text>
+                  </View>
+                  <Switch
+                    style={{ transform: [{ scale: 1.1 }] }}
+                    trackColor={{ false: '#767577', true: '#34C759' }}
+                    thumbColor="#FFF"
+                    value={group?.use_gk_bonus}
+                    onValueChange={(v) => handleUpdateGroupSettings({ use_gk_bonus: v })}
+                  />
+                </View>
+
+                {group?.use_gk_bonus && (
+                  <View style={{ marginTop: 12, paddingTop: 10, borderTopWidth: 1, borderTopColor: isDarkMode ? '#3A3A3C' : '#E5E5EA' }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+                      <Text style={[dynamicStyles.subText, { fontSize: 12, fontWeight: '700' }]}>Goal Subiti {'<'}</Text>
+                      <TextInput
+                        style={[styles.scoreInput, dynamicStyles.input, { width: 50, height: 36, fontSize: 15, fontWeight: '800', textAlign: 'center', padding: 0, borderRadius: 8 }]}
+                        keyboardType="numeric"
+                        value={String(group?.gk_bonus_threshold ?? 5)}
+                        onChangeText={(v) => handleUpdateGroupSettings({ gk_bonus_threshold: parseInt(v) || 0 })}
+                      />
+                    </View>
+
+                    <Text style={[dynamicStyles.subText, { fontSize: 11, fontWeight: '700', marginBottom: 6 }]}>
+                      Ruoli abilitati a ricevere il Bonus Difesa:
+                    </Text>
+
+                    {/* Selezione Ruoli */}
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+                      {['Portiere', 'Difensore', 'Mediana', 'Attaccante'].map(r => {
+                        const excludedList = Array.isArray(group?.gk_bonus_excluded_roles) ? group.gk_bonus_excluded_roles : [];
+                        const isExcluded = excludedList.includes(r);
+                        const roleCol = (ROLE_COLORS as any)[r] || '#8E8E93';
+
+                        return (
+                          <TouchableOpacity
+                            key={r}
+                            onPress={() => {
+                              const next = isExcluded ? excludedList.filter(x => x !== r) : [...excludedList, r];
+                              handleUpdateGroupSettings({ gk_bonus_excluded_roles: next });
+                            }}
+                            style={{
+                              paddingHorizontal: 10,
+                              paddingVertical: 6,
+                              borderRadius: 8,
+                              borderWidth: 1.5,
+                              borderColor: isExcluded ? (isDarkMode ? '#3A3A3C' : '#E5E5EA') : roleCol,
+                              backgroundColor: isExcluded ? 'transparent' : roleCol + '20'
+                            }}
+                          >
+                            <Text style={{ fontSize: 10, fontWeight: '800', color: isExcluded ? '#8E8E93' : roleCol }}>{r.toUpperCase()}</Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  </View>
+                )}
+              </View>
+
+              {/* 3. Bilanciamento */}
+              <View style={{ backgroundColor: isDarkMode ? '#2C2C2E' : '#F8F9FF', padding: 14, borderRadius: 14, borderWidth: 1, borderColor: isDarkMode ? '#3A3A3C' : '#E5E5EA' }}>
+                <View style={styles.bonusRow}>
+                  <View style={{ flex: 1, paddingRight: 10 }}>
+                    <Text style={[dynamicStyles.text, { fontSize: 15, fontWeight: '800' }]}>⚖️ Bilanciamento</Text>
+                    <Text style={[dynamicStyles.subText, { fontSize: 11, marginTop: 2 }]}>
+                      Attiva solo il bonus più alto tra Bonus Personale e Bonus Difesa se entrambi conseguiti.
+                    </Text>
+                  </View>
+                  <Switch
+                    style={{ transform: [{ scale: 1.1 }] }}
+                    trackColor={{ false: '#767577', true: '#FF9500' }}
+                    thumbColor="#FFF"
+                    value={group?.use_balance_bonus}
+                    onValueChange={(v) => handleUpdateGroupSettings({ use_balance_bonus: v })}
+                  />
+                </View>
+              </View>
+
+              {/* 4. Bonus Clean Sheet */}
+              <View style={{ backgroundColor: isDarkMode ? '#2C2C2E' : '#F8F9FF', padding: 14, borderRadius: 14, borderWidth: 1, borderColor: isDarkMode ? '#3A3A3C' : '#E5E5EA' }}>
+                <View style={styles.bonusRow}>
+                  <View style={{ flex: 1, paddingRight: 10 }}>
+                    <Text style={[dynamicStyles.text, { fontSize: 15, fontWeight: '800' }]}>🧼 Bonus Clean Sheet</Text>
+                    <Text style={[dynamicStyles.subText, { fontSize: 11, marginTop: 2 }]}>
+                      Assegna 1 punto bonus nelle partite concluse con 0 gol subiti.
+                    </Text>
+                  </View>
+                  <Switch
+                    style={{ transform: [{ scale: 1.1 }] }}
+                    trackColor={{ false: '#767577', true: '#34C759' }}
+                    thumbColor="#FFF"
+                    value={group?.use_clean_sheet_bonus}
+                    onValueChange={(v) => handleUpdateGroupSettings({ use_clean_sheet_bonus: v })}
+                  />
+                </View>
+              </View>
+            </ScrollView>
+
+            <View style={{ padding: 12, borderTopWidth: 1, borderTopColor: isDarkMode ? '#2C2C2E' : '#E5E5EA', backgroundColor: isDarkMode ? '#1C1C1E' : '#FFFFFF' }}>
+              <TouchableOpacity
+                style={[styles.saveBtn, { marginTop: 0, height: 44, borderRadius: 12 }]}
+                onPress={() => setShowBonusSettingsModal(false)}
+              >
+                <Text style={styles.saveBtnText}>Chiudi</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    );
+  };
+
   const renderCareerSettingsModal = () => {
     return (
       <Modal visible={showCareerSettings} transparent animationType="slide">
@@ -5953,7 +6144,7 @@ export default function GroupDetailScreen() {
                                 justifyContent: 'space-between',
                                 borderWidth: 1,
                                 borderColor: '#007AFF40',
-                                marginBottom: 15
+                                marginBottom: 10
                               }}
                             >
                               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 15 }}>
@@ -5969,116 +6160,36 @@ export default function GroupDetailScreen() {
                               </View>
                               <Ionicons name="chevron-forward" size={22} color="#007AFF" />
                             </TouchableOpacity>
-                            <View style={[styles.detailDivider, dynamicStyles.divider, { marginHorizontal: 0, opacity: 0.3 }]} />
-                            <View>
-                              <View style={styles.bonusRow}>
-                                <Text style={[dynamicStyles.text, { fontSize: 14, fontWeight: '600' }]}>Bonus Giocatore (Combo)</Text>
-                                <Switch style={{ transform: [{ scale: 1.1 }] }} trackColor={{ false: '#767577', true: '#34C759' }} thumbColor="#FFF" value={group?.use_bonus} onValueChange={(v) => handleUpdateGroupSettings({ use_bonus: v })} />
-                              </View>
-                              {group?.use_bonus && (
-                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 5 }}>
-                                  <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-                                    <Text style={[dynamicStyles.subText, { fontSize: 11, fontWeight: '600' }]}>Goal ≥</Text>
-                                    <TextInput
-                                      style={[styles.scoreInput, dynamicStyles.input, { flex: 1, height: 30, fontSize: 13, fontWeight: '700', textAlign: 'center', padding: 0, borderRadius: 6 }]}
-                                      keyboardType="numeric"
-                                      value={String(group?.bonus_goals_threshold ?? 2)}
-                                      onChangeText={(v) => handleUpdateGroupSettings({ bonus_goals_threshold: parseInt(v) || 0 })}
-                                    />
-                                  </View>
-                                  <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-                                    <Text style={[dynamicStyles.subText, { fontSize: 11, fontWeight: '600' }]}>Assist ≥</Text>
-                                    <TextInput
-                                      style={[styles.scoreInput, dynamicStyles.input, { flex: 1, height: 30, fontSize: 13, fontWeight: '700', textAlign: 'center', padding: 0, borderRadius: 6 }]}
-                                      keyboardType="numeric"
-                                      value={String(group?.bonus_assists_threshold ?? 2)}
-                                      onChangeText={(v) => handleUpdateGroupSettings({ bonus_assists_threshold: parseInt(v) || 0 })}
-                                    />
-                                  </View>
+
+                            <TouchableOpacity
+                              onPress={() => setShowBonusSettingsModal(true)}
+                              style={{
+                                backgroundColor: isDarkMode ? '#2C2C2E' : '#F8F9FF',
+                                borderRadius: 16,
+                                padding: 18,
+                                flexDirection: 'row',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                borderWidth: 1,
+                                borderColor: '#FF950040',
+                                marginBottom: 15
+                              }}
+                            >
+                              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 15 }}>
+                                <View style={{ width: 44, height: 44, borderRadius: 12, backgroundColor: '#FF950015', alignItems: 'center', justifyContent: 'center' }}>
+                                  <Ionicons name="gift" size={24} color="#FF9500" />
                                 </View>
-                              )}
-                            </View>
-                            <View>
-                              <View style={styles.bonusRow}>
-                                <Text style={[dynamicStyles.text, { fontSize: 14, fontWeight: '600' }]}>Bonus Difesa</Text>
-                                <Switch
-                                  style={{ transform: [{ scale: 1.1 }] }}
-                                  trackColor={{ false: '#767577', true: '#34C759' }}
-                                  thumbColor="#FFF"
-                                  value={group?.use_gk_bonus}
-                                  onValueChange={(v) => handleUpdateGroupSettings({ use_gk_bonus: v })}
-                                />
-                              </View>
-                              {group?.use_gk_bonus && (
-                                <View style={{ marginTop: 5 }}>
-                                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                                    <Text style={[dynamicStyles.subText, { fontSize: 11, fontWeight: '600' }]}>Goal Subiti {'<'}</Text>
-                                    <TextInput
-                                      style={[styles.scoreInput, dynamicStyles.input, { width: 40, height: 30, fontSize: 13, fontWeight: '700', textAlign: 'center', padding: 0, borderRadius: 6 }]}
-                                      keyboardType="numeric"
-                                      value={String(group?.gk_bonus_threshold ?? 5)}
-                                      onChangeText={(v) => handleUpdateGroupSettings({ gk_bonus_threshold: parseInt(v) || 0 })}
-                                    />
-                                  </View>
-
-                                  {/* Selezione Ruoli */}
-                                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 5, marginTop: 10 }}>
-                                    {['Portiere', 'Difensore', 'Mediana', 'Attaccante'].map(r => {
-                                      const excludedList = Array.isArray(group?.gk_bonus_excluded_roles) ? group.gk_bonus_excluded_roles : [];
-                                      const isExcluded = excludedList.includes(r);
-                                      const roleCol = (ROLE_COLORS as any)[r] || '#8E8E93';
-
-                                      return (
-                                        <TouchableOpacity
-                                          key={r}
-                                          onPress={() => {
-                                            // Toggle: se è escluso lo tolgo (torna attivo), se non è escluso lo aggiungo (diventa spento)
-                                            const next = isExcluded ? excludedList.filter(x => x !== r) : [...excludedList, r];
-                                            handleUpdateGroupSettings({ gk_bonus_excluded_roles: next });
-                                          }}
-                                          style={{
-                                            paddingHorizontal: 8,
-                                            paddingVertical: 4,
-                                            borderRadius: 6,
-                                            borderWidth: 1,
-                                            borderColor: isExcluded ? (isDarkMode ? '#3A3A3C' : '#E5E5EA') : roleCol,
-                                            backgroundColor: isExcluded ? 'transparent' : roleCol + '15'
-                                          }}
-                                        >
-                                          <Text style={{ fontSize: 9, fontWeight: '800', color: isExcluded ? '#8E8E93' : roleCol }}>{r.toUpperCase()}</Text>
-                                        </TouchableOpacity>
-                                      );
-                                    })}
-                                  </View>
-
-
-                                  <Text style={[dynamicStyles.subText, { fontSize: 10, marginTop: 4, fontStyle: 'italic' }]}>
-                                    Seleziona i ruoli che POSSONO ricevere il bonus.
+                                <View style={{ flex: 1 }}>
+                                  <Text style={[dynamicStyles.text, { fontSize: 16, fontWeight: '800' }]}>Gestione Bonus</Text>
+                                  <Text style={[dynamicStyles.subText, { fontSize: 11, marginTop: 1 }]} numberOfLines={2}>
+                                    Bonus Combo, Difesa, Clean Sheet e Bilanciamento
                                   </Text>
                                 </View>
-                              )}
-                            </View>
-
-                            <View style={styles.bonusRow}>
-                              <View style={{ flex: 1 }}>
-                                <Text style={[dynamicStyles.text, { fontSize: 14, fontWeight: '700' }]}>Bilanciamento</Text>
-                                <Text style={[dynamicStyles.subText, { fontSize: 11 }]}>Attiva solo il bonus più alto tra Personale e Difesa.</Text>
                               </View>
-                              <Switch
-                                style={{ transform: [{ scale: 1.1 }] }}
-                                trackColor={{ false: '#767577', true: '#FF9500' }}
-                                thumbColor="#FFF"
-                                value={group?.use_balance_bonus}
-                                onValueChange={(v) => handleUpdateGroupSettings({ use_balance_bonus: v })}
-                              />
-                            </View>
+                              <Ionicons name="chevron-forward" size={22} color="#FF9500" />
+                            </TouchableOpacity>
 
-                            <View style={[styles.detailDivider, dynamicStyles.divider, { marginHorizontal: 0, opacity: 0.3, marginVertical: 8 }]} />
-
-                            <View style={styles.bonusRow}>
-                              <Text style={[dynamicStyles.text, { fontSize: 14, fontWeight: '600' }]}>Bonus Clean Sheet</Text>
-                              <Switch style={{ transform: [{ scale: 1.1 }] }} trackColor={{ false: '#767577', true: '#34C759' }} thumbColor="#FFF" value={group?.use_clean_sheet_bonus} onValueChange={(v) => handleUpdateGroupSettings({ use_clean_sheet_bonus: v })} />
-                            </View>
+                            <View style={[styles.detailDivider, dynamicStyles.divider, { marginHorizontal: 0, opacity: 0.3 }]} />
 
                             <View style={[styles.detailDivider, dynamicStyles.divider, { marginHorizontal: 0, opacity: 0.3, marginVertical: 8 }]} />
 
@@ -6798,6 +6909,7 @@ export default function GroupDetailScreen() {
         {renderTieBreakerSelectorModal()}
         {renderCareerSettingsModal()}
         {renderRadarConfigModal()}
+        {renderBonusSettingsModal()}
         {renderMatchSharePreview()}
         {renderStandingsSharePreview()}
         {renderTournamentStandingsSharePreview()}

@@ -1,0 +1,17 @@
+name: Supabase Keep Alive
+
+on:
+  schedule:
+    # Esegue lo script ogni 3 giorni a mezzanotte UTC
+    - cron: '0 0 */3 * *'
+  workflow_dispatch: # Permette l'avvio manuale dalla scheda Actions su GitHub
+
+jobs:
+  keep_alive:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Supabase Database
+        run: |
+          curl -i -X GET "https://wqxikajjsqskwvemmqze.supabase.co/rest/v1/groups?select=id&limit=1" \
+          -H "apikey: ${{ secrets.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndxeGlrYWpqc3Fza3d2ZW1tcXplIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUwNTE4ODMsImV4cCI6MjA5MDYyNzg4M30.ozmkU8ePsFirJKJjsLhcXFUJhSiHtaeSoYIJ2it4MbM' }}" \
+          -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndxeGlrYWpqc3Fza3d2ZW1tcXplIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUwNTE4ODMsImV4cCI6MjA5MDYyNzg4M30.ozmkU8ePsFirJKJjsLhcXFUJhSiHtaeSoYIJ2it4MbM' }}"
