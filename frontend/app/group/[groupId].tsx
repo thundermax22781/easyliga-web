@@ -163,6 +163,9 @@ export default function GroupDetailScreen() {
   const [showBonusSettingsModal, setShowBonusSettingsModal] = useState(false);
   const [showSharingSettingsModal, setShowSharingSettingsModal] = useState(false);
   const [showCalcettoSettingsModal, setShowCalcettoSettingsModal] = useState(false);
+  const [calcettoStepIndex, setCalcettoStepIndex] = useState(0);
+  const [bonusStepIndex, setBonusStepIndex] = useState(0);
+  const [sharingStepIndex, setSharingStepIndex] = useState(0);
   const matchViewShotRef = useRef<ViewShot>(null);
   const standingsViewShotRef = useRef<ViewShot>(null);
   const bracketViewShotRef = useRef<ViewShot>(null);
@@ -4622,6 +4625,16 @@ export default function GroupDetailScreen() {
   const renderBonusSettingsModal = () => {
     if (!showBonusSettingsModal) return null;
 
+    const sections = [
+      { id: 'combo', icon: '🌟', label: 'Combo' },
+      { id: 'defense', icon: '🧱', label: 'Difesa' },
+      { id: 'balance', icon: '⚖️', label: 'Bilancio' },
+      { id: 'cleansheet', icon: '🧼', label: 'Clean Sheet' },
+    ];
+
+    const activeIndex = Math.min(Math.max(0, bonusStepIndex), sections.length - 1);
+    const activeSection = sections[activeIndex];
+
     return (
       <Modal visible={showBonusSettingsModal} animationType="slide" transparent={true} onRequestClose={() => setShowBonusSettingsModal(false)}>
         <View style={styles.modalOverlay}>
@@ -4630,179 +4643,260 @@ export default function GroupDetailScreen() {
             activeOpacity={1}
             onPress={() => setShowBonusSettingsModal(false)}
           />
-          <View style={[styles.modalContent, dynamicStyles.modalContent, { height: '94%', maxHeight: '94%', maxWidth: 420, paddingBottom: Platform.OS === 'android' ? 24 : 10, overflow: 'hidden', flexDirection: 'column' }]}>
+          <View style={[styles.modalContent, dynamicStyles.modalContent, { height: 'auto', maxHeight: '92%', maxWidth: 420, paddingBottom: 0, overflow: 'hidden', flexDirection: 'column' }]}>
             <View style={styles.modalHeader}>
               <View style={{ flex: 1 }}>
                 <Text style={[styles.modalTitle, dynamicStyles.text]}>Gestione Bonus</Text>
-                <Text style={[dynamicStyles.subText, { fontSize: 11 }]}>Configura regole e parametri dei bonus</Text>
+                <Text style={[dynamicStyles.subText, { fontSize: 11 }]}>Bonus {activeIndex + 1} di {sections.length}: {activeSection.label}</Text>
               </View>
               <TouchableOpacity onPress={() => setShowBonusSettingsModal(false)} style={{ padding: 4 }}>
                 <Ionicons name="close-circle" size={26} color={isDarkMode ? "#AAA" : "#8E8E93"} />
               </TouchableOpacity>
             </View>
 
-            <ScrollView
-              style={{ flex: 1 }}
-              contentContainerStyle={{ padding: 16, paddingBottom: 70, gap: 14 }}
-              contentContainerStyle={{ padding: 16, paddingBottom: 40, gap: 14 }}
-              showsVerticalScrollIndicator={true}
-              nestedScrollEnabled={true}
-              keyboardShouldPersistTaps="handled"
-            >
-              {/* 1. Bonus Giocatore (Combo) */}
-              <View style={{ backgroundColor: isDarkMode ? '#2C2C2E' : '#F8F9FF', padding: 14, borderRadius: 14, borderWidth: 1, borderColor: isDarkMode ? '#3A3A3C' : '#E5E5EA' }}>
-                <View style={styles.bonusRow}>
-                  <View style={{ flex: 1, paddingRight: 10 }}>
-                    <Text style={[dynamicStyles.text, { fontSize: 15, fontWeight: '800' }]}>🌟 Bonus Giocatore (Combo)</Text>
-                    <Text style={[dynamicStyles.subText, { fontSize: 11, marginTop: 2 }]}>
-                      Premia chi realizza almeno la soglia minima di Goal e Assist nella stessa partita.
-                    </Text>
-                  </View>
-                  <Switch
-                    style={{ transform: [{ scale: 1.1 }] }}
-                    trackColor={{ false: '#767577', true: '#34C759' }}
-                    thumbColor="#FFF"
-                    value={group?.use_bonus}
-                    onValueChange={(v) => handleUpdateGroupSettings({ use_bonus: v })}
-                  />
-                </View>
-
-                {group?.use_bonus && (
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 12, paddingTop: 10, borderTopWidth: 1, borderTopColor: isDarkMode ? '#3A3A3C' : '#E5E5EA' }}>
-                    <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                      <Text style={[dynamicStyles.subText, { fontSize: 12, fontWeight: '700' }]}>Goal ≥</Text>
-                      <TextInput
-                        style={[styles.scoreInput, dynamicStyles.input, { flex: 1, height: 36, fontSize: 15, fontWeight: '800', textAlign: 'center', padding: 0, borderRadius: 8 }]}
-                        keyboardType="numeric"
-                        value={String(group?.bonus_goals_threshold ?? 2)}
-                        onChangeText={(v) => handleUpdateGroupSettings({ bonus_goals_threshold: parseInt(v) || 0 })}
-                      />
-                    </View>
-                    <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                      <Text style={[dynamicStyles.subText, { fontSize: 12, fontWeight: '700' }]}>Assist ≥</Text>
-                      <TextInput
-                        style={[styles.scoreInput, dynamicStyles.input, { flex: 1, height: 36, fontSize: 15, fontWeight: '800', textAlign: 'center', padding: 0, borderRadius: 8 }]}
-                        keyboardType="numeric"
-                        value={String(group?.bonus_assists_threshold ?? 2)}
-                        onChangeText={(v) => handleUpdateGroupSettings({ bonus_assists_threshold: parseInt(v) || 0 })}
-                      />
-                    </View>
-                  </View>
-                )}
+            <View style={{ padding: 16 }}>
+              {/* Tab Rapidi per i 4 Bonus */}
+              <View style={{ flexDirection: 'row', gap: 6, marginBottom: 16 }}>
+                {sections.map((sec, idx) => {
+                  const isSelected = idx === activeIndex;
+                  return (
+                    <TouchableOpacity
+                      key={sec.id}
+                      onPress={() => setBonusStepIndex(idx)}
+                      style={{
+                        flex: 1,
+                        paddingVertical: 8,
+                        paddingHorizontal: 2,
+                        borderRadius: 10,
+                        backgroundColor: isSelected ? '#FF9500' : (isDarkMode ? '#2C2C2E' : '#F2F2F7'),
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        borderWidth: 1,
+                        borderColor: isSelected ? '#FF9500' : (isDarkMode ? '#3A3A3C' : '#E5E5EA'),
+                      }}
+                    >
+                      <Text style={{ fontSize: 14, marginBottom: 2 }}>{sec.icon}</Text>
+                      <Text
+                        numberOfLines={1}
+                        style={{
+                          fontSize: 9.5,
+                          fontWeight: '800',
+                          color: isSelected ? '#FFFFFF' : (isDarkMode ? '#AEAEB2' : '#636366'),
+                        }}
+                      >
+                        {sec.label}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
               </View>
 
-              {/* 2. Bonus Difesa */}
-              <View style={{ backgroundColor: isDarkMode ? '#2C2C2E' : '#F8F9FF', padding: 14, borderRadius: 14, borderWidth: 1, borderColor: isDarkMode ? '#3A3A3C' : '#E5E5EA' }}>
-                <View style={styles.bonusRow}>
-                  <View style={{ flex: 1, paddingRight: 10 }}>
-                    <Text style={[dynamicStyles.text, { fontSize: 15, fontWeight: '800' }]}>🧱 Bonus Difesa</Text>
-                    <Text style={[dynamicStyles.subText, { fontSize: 11, marginTop: 2 }]}>
-                      Premia i giocatori difensivi quando la propria squadra subisce meno gol della soglia.
-                    </Text>
-                  </View>
-                  <Switch
-                    style={{ transform: [{ scale: 1.1 }] }}
-                    trackColor={{ false: '#767577', true: '#34C759' }}
-                    thumbColor="#FFF"
-                    value={group?.use_gk_bonus}
-                    onValueChange={(v) => handleUpdateGroupSettings({ use_gk_bonus: v })}
-                  />
-                </View>
-
-                {group?.use_gk_bonus && (
-                  <View style={{ marginTop: 12, paddingTop: 10, borderTopWidth: 1, borderTopColor: isDarkMode ? '#3A3A3C' : '#E5E5EA' }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 }}>
-                      <Text style={[dynamicStyles.subText, { fontSize: 12, fontWeight: '700' }]}>Goal Subiti {'<'}</Text>
-                      <TextInput
-                        style={[styles.scoreInput, dynamicStyles.input, { width: 50, height: 36, fontSize: 15, fontWeight: '800', textAlign: 'center', padding: 0, borderRadius: 8 }]}
-                        keyboardType="numeric"
-                        value={String(group?.gk_bonus_threshold ?? 5)}
-                        onChangeText={(v) => handleUpdateGroupSettings({ gk_bonus_threshold: parseInt(v) || 0 })}
-                      />
+              {/* CONTENUTO SCHEDA ATTIVA */}
+              {activeSection.id === 'combo' && (
+                <View style={{ backgroundColor: isDarkMode ? '#2C2C2E' : '#F8F9FF', padding: 16, borderRadius: 14, borderWidth: 1, borderColor: isDarkMode ? '#3A3A3C' : '#E5E5EA' }}>
+                  <View style={styles.bonusRow}>
+                    <View style={{ flex: 1, paddingRight: 10 }}>
+                      <Text style={[dynamicStyles.text, { fontSize: 15, fontWeight: '800' }]}>🌟 Bonus Giocatore (Combo)</Text>
+                      <Text style={[dynamicStyles.subText, { fontSize: 11, marginTop: 2 }]}>
+                        Premia chi realizza almeno la soglia minima di Goal e Assist nella stessa partita.
+                      </Text>
                     </View>
+                    <Switch
+                      style={{ transform: [{ scale: 1.1 }] }}
+                      trackColor={{ false: '#767577', true: '#34C759' }}
+                      thumbColor="#FFF"
+                      value={group?.use_bonus}
+                      onValueChange={(v) => handleUpdateGroupSettings({ use_bonus: v })}
+                    />
+                  </View>
 
-                    <Text style={[dynamicStyles.subText, { fontSize: 11, fontWeight: '700', marginBottom: 6 }]}>
-                      Ruoli abilitati a ricevere il Bonus Difesa:
-                    </Text>
-
-                    {/* Selezione Ruoli */}
-                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
-                      {['Portiere', 'Difensore', 'Mediana', 'Attaccante'].map(r => {
-                        const excludedList = Array.isArray(group?.gk_bonus_excluded_roles) ? group.gk_bonus_excluded_roles : [];
-                        const isExcluded = excludedList.includes(r);
-                        const roleCol = (ROLE_COLORS as any)[r] || '#8E8E93';
-
-                        return (
-                          <TouchableOpacity
-                            key={r}
-                            onPress={() => {
-                              const next = isExcluded ? excludedList.filter(x => x !== r) : [...excludedList, r];
-                              handleUpdateGroupSettings({ gk_bonus_excluded_roles: next });
-                            }}
-                            style={{
-                              paddingHorizontal: 10,
-                              paddingVertical: 6,
-                              borderRadius: 8,
-                              borderWidth: 1.5,
-                              borderColor: isExcluded ? (isDarkMode ? '#3A3A3C' : '#E5E5EA') : roleCol,
-                              backgroundColor: isExcluded ? 'transparent' : roleCol + '20'
-                            }}
-                          >
-                            <Text style={{ fontSize: 10, fontWeight: '800', color: isExcluded ? '#8E8E93' : roleCol }}>{r.toUpperCase()}</Text>
-                          </TouchableOpacity>
-                        );
-                      })}
+                  {group?.use_bonus && (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 14, paddingTop: 12, borderTopWidth: 1, borderTopColor: isDarkMode ? '#3A3A3C' : '#E5E5EA' }}>
+                      <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <Text style={[dynamicStyles.subText, { fontSize: 12, fontWeight: '700' }]}>Goal ≥</Text>
+                        <TextInput
+                          style={[styles.scoreInput, dynamicStyles.input, { flex: 1, height: 38, fontSize: 15, fontWeight: '800', textAlign: 'center', padding: 0, borderRadius: 8 }]}
+                          keyboardType="numeric"
+                          value={String(group?.bonus_goals_threshold ?? 2)}
+                          onChangeText={(v) => handleUpdateGroupSettings({ bonus_goals_threshold: parseInt(v) || 0 })}
+                        />
+                      </View>
+                      <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <Text style={[dynamicStyles.subText, { fontSize: 12, fontWeight: '700' }]}>Assist ≥</Text>
+                        <TextInput
+                          style={[styles.scoreInput, dynamicStyles.input, { flex: 1, height: 38, fontSize: 15, fontWeight: '800', textAlign: 'center', padding: 0, borderRadius: 8 }]}
+                          keyboardType="numeric"
+                          value={String(group?.bonus_assists_threshold ?? 2)}
+                          onChangeText={(v) => handleUpdateGroupSettings({ bonus_assists_threshold: parseInt(v) || 0 })}
+                        />
+                      </View>
                     </View>
-                  </View>
-                )}
-              </View>
-
-              {/* 3. Bilanciamento */}
-              <View style={{ backgroundColor: isDarkMode ? '#2C2C2E' : '#F8F9FF', padding: 14, borderRadius: 14, borderWidth: 1, borderColor: isDarkMode ? '#3A3A3C' : '#E5E5EA' }}>
-                <View style={styles.bonusRow}>
-                  <View style={{ flex: 1, paddingRight: 10 }}>
-                    <Text style={[dynamicStyles.text, { fontSize: 15, fontWeight: '800' }]}>⚖️ Bilanciamento</Text>
-                    <Text style={[dynamicStyles.subText, { fontSize: 11, marginTop: 2 }]}>
-                      Attiva solo il bonus più alto tra Bonus Personale e Bonus Difesa se entrambi conseguiti.
-                    </Text>
-                  </View>
-                  <Switch
-                    style={{ transform: [{ scale: 1.1 }] }}
-                    trackColor={{ false: '#767577', true: '#FF9500' }}
-                    thumbColor="#FFF"
-                    value={group?.use_balance_bonus}
-                    onValueChange={(v) => handleUpdateGroupSettings({ use_balance_bonus: v })}
-                  />
+                  )}
                 </View>
-              </View>
+              )}
 
-              {/* 4. Bonus Clean Sheet */}
-              <View style={{ backgroundColor: isDarkMode ? '#2C2C2E' : '#F8F9FF', padding: 14, borderRadius: 14, borderWidth: 1, borderColor: isDarkMode ? '#3A3A3C' : '#E5E5EA' }}>
-                <View style={styles.bonusRow}>
-                  <View style={{ flex: 1, paddingRight: 10 }}>
-                    <Text style={[dynamicStyles.text, { fontSize: 15, fontWeight: '800' }]}>🧼 Bonus Clean Sheet</Text>
-                    <Text style={[dynamicStyles.subText, { fontSize: 11, marginTop: 2 }]}>
-                      Assegna 1 punto bonus nelle partite concluse con 0 gol subiti.
-                    </Text>
+              {activeSection.id === 'defense' && (
+                <View style={{ backgroundColor: isDarkMode ? '#2C2C2E' : '#F8F9FF', padding: 16, borderRadius: 14, borderWidth: 1, borderColor: isDarkMode ? '#3A3A3C' : '#E5E5EA' }}>
+                  <View style={styles.bonusRow}>
+                    <View style={{ flex: 1, paddingRight: 10 }}>
+                      <Text style={[dynamicStyles.text, { fontSize: 15, fontWeight: '800' }]}>🧱 Bonus Difesa</Text>
+                      <Text style={[dynamicStyles.subText, { fontSize: 11, marginTop: 2 }]}>
+                        Premia i giocatori difensivi quando la propria squadra subisce meno gol della soglia.
+                      </Text>
+                    </View>
+                    <Switch
+                      style={{ transform: [{ scale: 1.1 }] }}
+                      trackColor={{ false: '#767577', true: '#34C759' }}
+                      thumbColor="#FFF"
+                      value={group?.use_gk_bonus}
+                      onValueChange={(v) => handleUpdateGroupSettings({ use_gk_bonus: v })}
+                    />
                   </View>
-                  <Switch
-                    style={{ transform: [{ scale: 1.1 }] }}
-                    trackColor={{ false: '#767577', true: '#34C759' }}
-                    thumbColor="#FFF"
-                    value={group?.use_clean_sheet_bonus}
-                    onValueChange={(v) => handleUpdateGroupSettings({ use_clean_sheet_bonus: v })}
-                  />
-                </View>
-              </View>
 
-              {/* Pulsante Chiudi integrato dentro lo ScrollView */}
+                  {group?.use_gk_bonus && (
+                    <View style={{ marginTop: 14, paddingTop: 12, borderTopWidth: 1, borderTopColor: isDarkMode ? '#3A3A3C' : '#E5E5EA' }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+                        <Text style={[dynamicStyles.subText, { fontSize: 12, fontWeight: '700' }]}>Goal Subiti {'<'}</Text>
+                        <TextInput
+                          style={[styles.scoreInput, dynamicStyles.input, { width: 55, height: 38, fontSize: 15, fontWeight: '800', textAlign: 'center', padding: 0, borderRadius: 8 }]}
+                          keyboardType="numeric"
+                          value={String(group?.gk_bonus_threshold ?? 5)}
+                          onChangeText={(v) => handleUpdateGroupSettings({ gk_bonus_threshold: parseInt(v) || 0 })}
+                        />
+                      </View>
+
+                      <Text style={[dynamicStyles.subText, { fontSize: 11, fontWeight: '700', marginBottom: 6 }]}>
+                        Ruoli abilitati a ricevere il Bonus Difesa:
+                      </Text>
+
+                      {/* Selezione Ruoli */}
+                      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+                        {['Portiere', 'Difensore', 'Mediana', 'Attaccante'].map(r => {
+                          const excludedList = Array.isArray(group?.gk_bonus_excluded_roles) ? group.gk_bonus_excluded_roles : [];
+                          const isExcluded = excludedList.includes(r);
+                          const roleCol = (ROLE_COLORS as any)[r] || '#8E8E93';
+
+                          return (
+                            <TouchableOpacity
+                              key={r}
+                              onPress={() => {
+                                const next = isExcluded ? excludedList.filter(x => x !== r) : [...excludedList, r];
+                                handleUpdateGroupSettings({ gk_bonus_excluded_roles: next });
+                              }}
+                              style={{
+                                paddingHorizontal: 10,
+                                paddingVertical: 6,
+                                borderRadius: 8,
+                                borderWidth: 1.5,
+                                borderColor: isExcluded ? (isDarkMode ? '#3A3A3C' : '#E5E5EA') : roleCol,
+                                backgroundColor: isExcluded ? 'transparent' : roleCol + '20'
+                              }}
+                            >
+                              <Text style={{ fontSize: 10, fontWeight: '800', color: isExcluded ? '#8E8E93' : roleCol }}>{r.toUpperCase()}</Text>
+                            </TouchableOpacity>
+                          );
+                        })}
+                      </View>
+                    </View>
+                  )}
+                </View>
+              )}
+
+              {activeSection.id === 'balance' && (
+                <View style={{ backgroundColor: isDarkMode ? '#2C2C2E' : '#F8F9FF', padding: 16, borderRadius: 14, borderWidth: 1, borderColor: isDarkMode ? '#3A3A3C' : '#E5E5EA' }}>
+                  <View style={styles.bonusRow}>
+                    <View style={{ flex: 1, paddingRight: 10 }}>
+                      <Text style={[dynamicStyles.text, { fontSize: 15, fontWeight: '800' }]}>⚖️ Bilanciamento</Text>
+                      <Text style={[dynamicStyles.subText, { fontSize: 11, marginTop: 4 }]}>
+                        Attiva solo il bonus più alto tra Bonus Personale e Bonus Difesa se entrambi conseguiti nella stessa partita.
+                      </Text>
+                    </View>
+                    <Switch
+                      style={{ transform: [{ scale: 1.1 }] }}
+                      trackColor={{ false: '#767577', true: '#FF9500' }}
+                      thumbColor="#FFF"
+                      value={group?.use_balance_bonus}
+                      onValueChange={(v) => handleUpdateGroupSettings({ use_balance_bonus: v })}
+                    />
+                  </View>
+                </View>
+              )}
+
+              {activeSection.id === 'cleansheet' && (
+                <View style={{ backgroundColor: isDarkMode ? '#2C2C2E' : '#F8F9FF', padding: 16, borderRadius: 14, borderWidth: 1, borderColor: isDarkMode ? '#3A3A3C' : '#E5E5EA' }}>
+                  <View style={styles.bonusRow}>
+                    <View style={{ flex: 1, paddingRight: 10 }}>
+                      <Text style={[dynamicStyles.text, { fontSize: 15, fontWeight: '800' }]}>🧼 Bonus Clean Sheet</Text>
+                      <Text style={[dynamicStyles.subText, { fontSize: 11, marginTop: 4 }]}>
+                        Assegna 1 punto bonus nelle partite concluse senza subire alcun gol da parte della propria squadra.
+                      </Text>
+                    </View>
+                    <Switch
+                      style={{ transform: [{ scale: 1.1 }] }}
+                      trackColor={{ false: '#767577', true: '#34C759' }}
+                      thumbColor="#FFF"
+                      value={group?.use_clean_sheet_bonus}
+                      onValueChange={(v) => handleUpdateGroupSettings({ use_clean_sheet_bonus: v })}
+                    />
+                  </View>
+                </View>
+              )}
+            </View>
+
+            {/* Pulsanti di Navigazione Avanti / Indietro / Chiudi */}
+            <View style={{ padding: 12, borderTopWidth: 1, borderTopColor: isDarkMode ? '#2C2C2E' : '#E5E5EA', backgroundColor: isDarkMode ? '#1C1C1E' : '#FFFFFF', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
               <TouchableOpacity
-                style={[styles.saveBtn, { marginTop: 10, height: 46, borderRadius: 12 }]}
-                onPress={() => setShowBonusSettingsModal(false)}
+                disabled={activeIndex === 0}
+                onPress={() => setBonusStepIndex(prev => Math.max(0, prev - 1))}
+                style={{
+                  flex: 1,
+                  height: 44,
+                  borderRadius: 12,
+                  backgroundColor: activeIndex === 0 ? (isDarkMode ? '#2C2C2E' : '#E5E5EA') : '#FF950020',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexDirection: 'row',
+                  gap: 4,
+                  opacity: activeIndex === 0 ? 0.5 : 1,
+                }}
               >
-                <Text style={styles.saveBtnText}>Chiudi</Text>
+                <Ionicons name="chevron-back" size={18} color={activeIndex === 0 ? '#8E8E93' : '#FF9500'} />
+                <Text style={{ fontSize: 13, fontWeight: '800', color: activeIndex === 0 ? '#8E8E93' : '#FF9500' }}>Indietro</Text>
               </TouchableOpacity>
-            </ScrollView>
+
+              {activeIndex < sections.length - 1 ? (
+                <TouchableOpacity
+                  onPress={() => setBonusStepIndex(prev => Math.min(sections.length - 1, prev + 1))}
+                  style={{
+                    flex: 1,
+                    height: 44,
+                    borderRadius: 12,
+                    backgroundColor: '#FF9500',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexDirection: 'row',
+                    gap: 4,
+                  }}
+                >
+                  <Text style={{ fontSize: 13, fontWeight: '800', color: '#FFFFFF' }}>Successivo</Text>
+                  <Ionicons name="chevron-forward" size={18} color="#FFFFFF" />
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity
+                  onPress={() => setShowBonusSettingsModal(false)}
+                  style={{
+                    flex: 1,
+                    height: 44,
+                    borderRadius: 12,
+                    backgroundColor: '#34C759',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <Text style={{ fontSize: 13, fontWeight: '800', color: '#FFFFFF' }}>Chiudi</Text>
+                </TouchableOpacity>
+              )}
+            </View>
           </View>
         </View>
       </Modal>
@@ -4812,6 +4906,19 @@ export default function GroupDetailScreen() {
   const renderSharingSettingsModal = () => {
     if (!showSharingSettingsModal) return null;
 
+    const sections = [
+      { id: 'web', icon: '🌐', label: 'Link Web' },
+      { id: 'token', icon: '🔑', label: 'Token' },
+      { id: 'data', icon: '📦', label: 'Backup & Dati' },
+    ];
+
+    if (group?.group_type === 'tournament' && isAdminOrOwner) {
+      sections.push({ id: 'reset', icon: '⚠️', label: 'Reset' });
+    }
+
+    const activeIndex = Math.min(Math.max(0, sharingStepIndex), sections.length - 1);
+    const activeSection = sections[activeIndex];
+
     return (
       <Modal visible={showSharingSettingsModal} animationType="slide" transparent={true} onRequestClose={() => setShowSharingSettingsModal(false)}>
         <View style={styles.modalOverlay}>
@@ -4820,134 +4927,215 @@ export default function GroupDetailScreen() {
             activeOpacity={1}
             onPress={() => setShowSharingSettingsModal(false)}
           />
-          <View style={[styles.modalContent, dynamicStyles.modalContent, { height: '94%', maxHeight: '94%', maxWidth: 420, paddingBottom: Platform.OS === 'android' ? 24 : 10, overflow: 'hidden', flexDirection: 'column' }]}>
+          <View style={[styles.modalContent, dynamicStyles.modalContent, { height: 'auto', maxHeight: '92%', maxWidth: 420, paddingBottom: 0, overflow: 'hidden', flexDirection: 'column' }]}>
             <View style={styles.modalHeader}>
               <View style={{ flex: 1 }}>
                 <Text style={[styles.modalTitle, dynamicStyles.text]}>Gestione Condivisione</Text>
-                <Text style={[dynamicStyles.subText, { fontSize: 11 }]}>Link web, token di accesso e backup dati</Text>
+                <Text style={[dynamicStyles.subText, { fontSize: 11 }]}>Sezione {activeIndex + 1} di {sections.length}: {activeSection.label}</Text>
               </View>
               <TouchableOpacity onPress={() => setShowSharingSettingsModal(false)} style={{ padding: 4 }}>
                 <Ionicons name="close-circle" size={26} color={isDarkMode ? "#AAA" : "#8E8E93"} />
               </TouchableOpacity>
             </View>
 
-            <ScrollView
-              style={{ flex: 1 }}
-              contentContainerStyle={{ padding: 16, paddingBottom: 70, gap: 16 }}
-              showsVerticalScrollIndicator={true}
-              nestedScrollEnabled={true}
-              keyboardShouldPersistTaps="handled"
-            >
-              {/* 1. Link Web (Accesso Diretto) */}
-              <View style={{ backgroundColor: isDarkMode ? '#2C2C2E' : '#F8F9FF', padding: 14, borderRadius: 14, borderWidth: 1, borderColor: isDarkMode ? '#3A3A3C' : '#E5E5EA' }}>
-                <Text style={[dynamicStyles.text, { fontSize: 15, fontWeight: '800', marginBottom: 4 }]}>🌐 Link Web (Accesso Diretto)</Text>
-                <Text style={[dynamicStyles.subText, { fontSize: 11, marginBottom: 12 }]}>
-                  Copia o condividi il link web per accedere direttamente senza inserire il token.
-                </Text>
-                <View style={{ flexDirection: 'row', gap: 8 }}>
-                  <TouchableOpacity
-                    style={[styles.saveBtn, { flex: 1, backgroundColor: '#34C759', height: 42, borderRadius: 10, flexDirection: 'row' }]}
-                    onPress={() => handleShareWebLink('viewer')}
-                  >
-                    <Ionicons name="link-outline" size={18} color="#FFF" style={{ marginRight: 6 }} />
-                    <Text style={[styles.saveBtnText, { fontSize: 13, fontWeight: '800' }]}>Link Viewer</Text>
-                  </TouchableOpacity>
-                  {(group?.role === 'owner' || group?.role === 'admin') && (
+            <View style={{ padding: 16 }}>
+              {/* Tab Rapidi per le sezioni */}
+              <View style={{ flexDirection: 'row', gap: 6, marginBottom: 16 }}>
+                {sections.map((sec, idx) => {
+                  const isSelected = idx === activeIndex;
+                  return (
                     <TouchableOpacity
-                      style={[styles.saveBtn, { flex: 1, backgroundColor: '#007AFF', height: 42, borderRadius: 10, flexDirection: 'row' }]}
-                      onPress={() => handleShareWebLink('admin')}
+                      key={sec.id}
+                      onPress={() => setSharingStepIndex(idx)}
+                      style={{
+                        flex: 1,
+                        paddingVertical: 8,
+                        paddingHorizontal: 2,
+                        borderRadius: 10,
+                        backgroundColor: isSelected ? '#34C759' : (isDarkMode ? '#2C2C2E' : '#F2F2F7'),
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        borderWidth: 1,
+                        borderColor: isSelected ? '#34C759' : (isDarkMode ? '#3A3A3C' : '#E5E5EA'),
+                      }}
+                    >
+                      <Text style={{ fontSize: 14, marginBottom: 2 }}>{sec.icon}</Text>
+                      <Text
+                        numberOfLines={1}
+                        style={{
+                          fontSize: 9.5,
+                          fontWeight: '800',
+                          color: isSelected ? '#FFFFFF' : (isDarkMode ? '#AEAEB2' : '#636366'),
+                        }}
+                      >
+                        {sec.label}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
+              {/* CONTENUTO SCHEDA ATTIVA */}
+              {activeSection.id === 'web' && (
+                <View style={{ backgroundColor: isDarkMode ? '#2C2C2E' : '#F8F9FF', padding: 16, borderRadius: 14, borderWidth: 1, borderColor: isDarkMode ? '#3A3A3C' : '#E5E5EA' }}>
+                  <Text style={[dynamicStyles.text, { fontSize: 15, fontWeight: '800', marginBottom: 4 }]}>🌐 Link Web (Accesso Diretto)</Text>
+                  <Text style={[dynamicStyles.subText, { fontSize: 11, marginBottom: 14 }]}>
+                    Copia o condividi il link web per accedere direttamente al gruppo senza inserire il token.
+                  </Text>
+                  <View style={{ flexDirection: 'row', gap: 8 }}>
+                    <TouchableOpacity
+                      style={[styles.saveBtn, { flex: 1, backgroundColor: '#34C759', height: 44, borderRadius: 10, flexDirection: 'row' }]}
+                      onPress={() => handleShareWebLink('viewer')}
                     >
                       <Ionicons name="link-outline" size={18} color="#FFF" style={{ marginRight: 6 }} />
-                      <Text style={[styles.saveBtnText, { fontSize: 13, fontWeight: '800' }]}>Link Admin</Text>
+                      <Text style={[styles.saveBtnText, { fontSize: 13, fontWeight: '800' }]}>Link Viewer</Text>
                     </TouchableOpacity>
-                  )}
+                    {(group?.role === 'owner' || group?.role === 'admin') && (
+                      <TouchableOpacity
+                        style={[styles.saveBtn, { flex: 1, backgroundColor: '#007AFF', height: 44, borderRadius: 10, flexDirection: 'row' }]}
+                        onPress={() => handleShareWebLink('admin')}
+                      >
+                        <Ionicons name="link-outline" size={18} color="#FFF" style={{ marginRight: 6 }} />
+                        <Text style={[styles.saveBtnText, { fontSize: 13, fontWeight: '800' }]}>Link Admin</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
                 </View>
-              </View>
+              )}
 
-              {/* 2. Token Accesso (Codice Manuale) */}
-              <View style={{ backgroundColor: isDarkMode ? '#2C2C2E' : '#F8F9FF', padding: 14, borderRadius: 14, borderWidth: 1, borderColor: isDarkMode ? '#3A3A3C' : '#E5E5EA' }}>
-                <Text style={[dynamicStyles.text, { fontSize: 15, fontWeight: '800', marginBottom: 4 }]}>🔑 Token Accesso (Codice Manuale)</Text>
-                <Text style={[dynamicStyles.subText, { fontSize: 11, marginBottom: 12 }]}>
-                  Condividi il codice alfanumerico di accesso per ciascun ruolo.
-                </Text>
-                <View style={{ flexDirection: 'row', gap: 8 }}>
-                  {group?.role === 'owner' && (
-                    <TouchableOpacity style={[styles.tokenBtn, { flex: 1, backgroundColor: '#5856D6', height: 38, borderRadius: 8 }]} onPress={() => handleShareToken('owner')}>
-                      <Text style={[styles.tokenBtnText, { fontSize: 12, fontWeight: '800' }]}>Owner</Text>
+              {activeSection.id === 'token' && (
+                <View style={{ backgroundColor: isDarkMode ? '#2C2C2E' : '#F8F9FF', padding: 16, borderRadius: 14, borderWidth: 1, borderColor: isDarkMode ? '#3A3A3C' : '#E5E5EA' }}>
+                  <Text style={[dynamicStyles.text, { fontSize: 15, fontWeight: '800', marginBottom: 4 }]}>🔑 Token Accesso (Codice Manuale)</Text>
+                  <Text style={[dynamicStyles.subText, { fontSize: 11, marginBottom: 14 }]}>
+                    Condividi il codice alfanumerico di accesso per ciascun ruolo.
+                  </Text>
+                  <View style={{ flexDirection: 'row', gap: 8 }}>
+                    {group?.role === 'owner' && (
+                      <TouchableOpacity style={[styles.tokenBtn, { flex: 1, backgroundColor: '#5856D6', height: 40, borderRadius: 8 }]} onPress={() => handleShareToken('owner')}>
+                        <Text style={[styles.tokenBtnText, { fontSize: 13, fontWeight: '800' }]}>Owner</Text>
+                      </TouchableOpacity>
+                    )}
+                    {(group?.role === 'owner' || group?.role === 'admin') && (
+                      <TouchableOpacity style={[styles.tokenBtn, { flex: 1, backgroundColor: '#007AFF', height: 40, borderRadius: 8 }]} onPress={() => handleShareToken('admin')}>
+                        <Text style={[styles.tokenBtnText, { fontSize: 13, fontWeight: '800' }]}>Admin</Text>
+                      </TouchableOpacity>
+                    )}
+                    <TouchableOpacity style={[styles.tokenBtn, { flex: 1, backgroundColor: '#8E8E93', height: 40, borderRadius: 8 }]} onPress={() => handleShareToken('viewer')}>
+                      <Text style={[styles.tokenBtnText, { fontSize: 13, fontWeight: '800' }]}>Viewer</Text>
                     </TouchableOpacity>
-                  )}
-                  {(group?.role === 'owner' || group?.role === 'admin') && (
-                    <TouchableOpacity style={[styles.tokenBtn, { flex: 1, backgroundColor: '#007AFF', height: 38, borderRadius: 8 }]} onPress={() => handleShareToken('admin')}>
-                      <Text style={[styles.tokenBtnText, { fontSize: 12, fontWeight: '800' }]}>Admin</Text>
-                    </TouchableOpacity>
-                  )}
-                  <TouchableOpacity style={[styles.tokenBtn, { flex: 1, backgroundColor: '#8E8E93', height: 38, borderRadius: 8 }]} onPress={() => handleShareToken('viewer')}>
-                    <Text style={[styles.tokenBtnText, { fontSize: 12, fontWeight: '800' }]}>Viewer</Text>
-                  </TouchableOpacity>
+                  </View>
                 </View>
-              </View>
+              )}
 
-              {/* 3. Dati e Backup */}
-              <View style={{ backgroundColor: isDarkMode ? '#2C2C2E' : '#F8F9FF', padding: 14, borderRadius: 14, borderWidth: 1, borderColor: isDarkMode ? '#3A3A3C' : '#E5E5EA' }}>
-                <Text style={[dynamicStyles.text, { fontSize: 15, fontWeight: '800', marginBottom: 4 }]}>📦 Dati e Backup</Text>
-                <Text style={[dynamicStyles.subText, { fontSize: 11, marginBottom: 12 }]}>
-                  Esporta/Importa la lista giocatori oppure salvataggi di backup del gruppo.
-                </Text>
-                <View style={{ flexDirection: 'row', gap: 8, marginBottom: 10 }}>
-                  <TouchableOpacity style={[styles.saveBtn, { flex: 1, backgroundColor: '#007AFF', height: 40, borderRadius: 8, flexDirection: 'row' }]} onPress={handleExportPlayers}>
-                    <Ionicons name="download-outline" size={16} color="#FFF" style={{ marginRight: 6 }} />
-                    <Text style={[styles.saveBtnText, { fontSize: 12, fontWeight: '700' }]} numberOfLines={1}>Esporta Giocatori</Text>
-                  </TouchableOpacity>
-                  {isAdminOrOwner && (
-                    <TouchableOpacity style={[styles.saveBtn, { flex: 1, backgroundColor: '#34C759', height: 40, borderRadius: 8, flexDirection: 'row' }]} onPress={handleImportPlayers}>
-                      <Ionicons name="arrow-up-outline" size={16} color="#FFF" style={{ marginRight: 6 }} />
-                      <Text style={[styles.saveBtnText, { fontSize: 12, fontWeight: '700' }]} numberOfLines={1}>Importa Giocatori</Text>
+              {activeSection.id === 'data' && (
+                <View style={{ backgroundColor: isDarkMode ? '#2C2C2E' : '#F8F9FF', padding: 16, borderRadius: 14, borderWidth: 1, borderColor: isDarkMode ? '#3A3A3C' : '#E5E5EA' }}>
+                  <Text style={[dynamicStyles.text, { fontSize: 15, fontWeight: '800', marginBottom: 4 }]}>📦 Dati e Backup</Text>
+                  <Text style={[dynamicStyles.subText, { fontSize: 11, marginBottom: 14 }]}>
+                    Esporta/Importa la lista giocatori oppure salvataggi di backup del gruppo.
+                  </Text>
+                  <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
+                    <TouchableOpacity style={[styles.saveBtn, { flex: 1, backgroundColor: '#007AFF', height: 42, borderRadius: 10, flexDirection: 'row' }]} onPress={handleExportPlayers}>
+                      <Ionicons name="download-outline" size={16} color="#FFF" style={{ marginRight: 6 }} />
+                      <Text style={[styles.saveBtnText, { fontSize: 12, fontWeight: '800' }]} numberOfLines={1}>Esporta</Text>
                     </TouchableOpacity>
-                  )}
-                </View>
-                <View style={{ flexDirection: 'row', gap: 8 }}>
-                  <TouchableOpacity style={[styles.saveBtn, { flex: 1, backgroundColor: '#8E8E93', height: 40, borderRadius: 8, flexDirection: 'row' }]} onPress={handleCreateGroupBackup}>
-                    <Ionicons name="copy-outline" size={16} color="#FFF" style={{ marginRight: 6 }} />
-                    <Text style={[styles.saveBtnText, { fontSize: 12, fontWeight: '700' }]} numberOfLines={1}>Crea Backup</Text>
-                  </TouchableOpacity>
-                  {isAdminOrOwner && (
-                    <TouchableOpacity style={[styles.saveBtn, { flex: 1, backgroundColor: '#FF9500', height: 40, borderRadius: 8, flexDirection: 'row' }]} onPress={handleRestoreGroupBackup}>
-                      <Ionicons name="refresh-outline" size={16} color="#FFF" style={{ marginRight: 6 }} />
-                      <Text style={[styles.saveBtnText, { fontSize: 12, fontWeight: '700' }]} numberOfLines={1}>Ripristina Backup</Text>
+                    {isAdminOrOwner && (
+                      <TouchableOpacity style={[styles.saveBtn, { flex: 1, backgroundColor: '#34C759', height: 42, borderRadius: 10, flexDirection: 'row' }]} onPress={handleImportPlayers}>
+                        <Ionicons name="arrow-up-outline" size={16} color="#FFF" style={{ marginRight: 6 }} />
+                        <Text style={[styles.saveBtnText, { fontSize: 12, fontWeight: '800' }]} numberOfLines={1}>Importa</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                  <View style={{ flexDirection: 'row', gap: 8 }}>
+                    <TouchableOpacity style={[styles.saveBtn, { flex: 1, backgroundColor: '#8E8E93', height: 42, borderRadius: 10, flexDirection: 'row' }]} onPress={handleCreateGroupBackup}>
+                      <Ionicons name="copy-outline" size={16} color="#FFF" style={{ marginRight: 6 }} />
+                      <Text style={[styles.saveBtnText, { fontSize: 12, fontWeight: '800' }]} numberOfLines={1}>Crea Backup</Text>
                     </TouchableOpacity>
-                  )}
+                    {isAdminOrOwner && (
+                      <TouchableOpacity style={[styles.saveBtn, { flex: 1, backgroundColor: '#FF9500', height: 42, borderRadius: 10, flexDirection: 'row' }]} onPress={handleRestoreGroupBackup}>
+                        <Ionicons name="refresh-outline" size={16} color="#FFF" style={{ marginRight: 6 }} />
+                        <Text style={[styles.saveBtnText, { fontSize: 12, fontWeight: '800' }]} numberOfLines={1}>Ripristina</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
                 </View>
-              </View>
+              )}
 
-              {/* 4. Azioni Avanzate Torneo (Reset) */}
-              {group?.group_type === 'tournament' && isAdminOrOwner && (
-                <View style={{ backgroundColor: isDarkMode ? '#2C2C2E' : '#F8F9FF', padding: 14, borderRadius: 14, borderWidth: 1, borderColor: isDarkMode ? '#3A3A3C' : '#E5E5EA', gap: 10 }}>
+              {activeSection.id === 'reset' && (
+                <View style={{ backgroundColor: isDarkMode ? '#2C2C2E' : '#F8F9FF', padding: 16, borderRadius: 14, borderWidth: 1, borderColor: isDarkMode ? '#3A3A3C' : '#E5E5EA', gap: 12 }}>
                   <Text style={[dynamicStyles.text, { fontSize: 15, fontWeight: '800', marginBottom: 2 }]}>⚠️ Reset Torneo</Text>
                   <TouchableOpacity
-                    style={[styles.saveBtn, { backgroundColor: 'transparent', borderWidth: 1, borderColor: '#007AFF', height: 40, borderRadius: 8, flexDirection: 'row' }]}
+                    style={[styles.saveBtn, { backgroundColor: 'transparent', borderWidth: 1.5, borderColor: '#007AFF', height: 42, borderRadius: 10, flexDirection: 'row' }]}
                     onPress={handleResetTournamentResults}
                   >
-                    <Ionicons name="refresh-circle-outline" size={16} color="#007AFF" style={{ marginRight: 6 }} />
-                    <Text style={[styles.saveBtnText, { fontSize: 12, fontWeight: '700', color: '#007AFF' }]}>RESET RISULTATI TORNEO</Text>
+                    <Ionicons name="refresh-circle-outline" size={18} color="#007AFF" style={{ marginRight: 6 }} />
+                    <Text style={[styles.saveBtnText, { fontSize: 13, fontWeight: '800', color: '#007AFF' }]}>RESET RISULTATI TORNEO</Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity
-                    style={[styles.saveBtn, { backgroundColor: 'transparent', borderWidth: 1, borderColor: '#FF3B30', height: 40, borderRadius: 8, flexDirection: 'row' }]}
+                    style={[styles.saveBtn, { backgroundColor: 'transparent', borderWidth: 1.5, borderColor: '#FF3B30', height: 42, borderRadius: 10, flexDirection: 'row' }]}
                     onPress={handleResetTournament}
                   >
-                    <Ionicons name="reload-outline" size={16} color="#FF3B30" style={{ marginRight: 6 }} />
-                    <Text style={[styles.saveBtnText, { fontSize: 12, fontWeight: '700', color: '#FF3B30' }]}>RESET TORNEO</Text>
+                    <Ionicons name="reload-outline" size={18} color="#FF3B30" style={{ marginRight: 6 }} />
+                    <Text style={[styles.saveBtnText, { fontSize: 13, fontWeight: '800', color: '#FF3B30' }]}>RESET TORNEO</Text>
                   </TouchableOpacity>
                 </View>
               )}
-              {/* Pulsante Chiudi integrato dentro lo ScrollView */}
+            </View>
+
+            {/* Pulsanti di Navigazione Avanti / Indietro / Chiudi */}
+            <View style={{ padding: 12, borderTopWidth: 1, borderTopColor: isDarkMode ? '#2C2C2E' : '#E5E5EA', backgroundColor: isDarkMode ? '#1C1C1E' : '#FFFFFF', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
               <TouchableOpacity
-                style={[styles.saveBtn, { marginTop: 10, height: 46, borderRadius: 12 }]}
-                onPress={() => setShowSharingSettingsModal(false)}
+                disabled={activeIndex === 0}
+                onPress={() => setSharingStepIndex(prev => Math.max(0, prev - 1))}
+                style={{
+                  flex: 1,
+                  height: 44,
+                  borderRadius: 12,
+                  backgroundColor: activeIndex === 0 ? (isDarkMode ? '#2C2C2E' : '#E5E5EA') : '#34C75920',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexDirection: 'row',
+                  gap: 4,
+                  opacity: activeIndex === 0 ? 0.5 : 1,
+                }}
               >
-                <Text style={styles.saveBtnText}>Chiudi</Text>
+                <Ionicons name="chevron-back" size={18} color={activeIndex === 0 ? '#8E8E93' : '#34C759'} />
+                <Text style={{ fontSize: 13, fontWeight: '800', color: activeIndex === 0 ? '#8E8E93' : '#34C759' }}>Indietro</Text>
               </TouchableOpacity>
-            </ScrollView>
+
+              {activeIndex < sections.length - 1 ? (
+                <TouchableOpacity
+                  onPress={() => setSharingStepIndex(prev => Math.min(sections.length - 1, prev + 1))}
+                  style={{
+                    flex: 1,
+                    height: 44,
+                    borderRadius: 12,
+                    backgroundColor: '#34C759',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexDirection: 'row',
+                    gap: 4,
+                  }}
+                >
+                  <Text style={{ fontSize: 13, fontWeight: '800', color: '#FFFFFF' }}>Successivo</Text>
+                  <Ionicons name="chevron-forward" size={18} color="#FFFFFF" />
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity
+                  onPress={() => setShowSharingSettingsModal(false)}
+                  style={{
+                    flex: 1,
+                    height: 44,
+                    borderRadius: 12,
+                    backgroundColor: '#34C759',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <Text style={{ fontSize: 13, fontWeight: '800', color: '#FFFFFF' }}>Chiudi</Text>
+                </TouchableOpacity>
+              )}
+            </View>
           </View>
         </View>
       </Modal>
@@ -4957,6 +5145,19 @@ export default function GroupDetailScreen() {
   const renderCalcettoSettingsModal = () => {
     if (!showCalcettoSettingsModal) return null;
 
+    const sections = [
+      { id: 'format', icon: '⚽', label: 'Formato & Punti' },
+      { id: 'views', icon: '👁️', label: 'Visualizzazione' },
+      { id: 'tiebreakers', icon: '📊', label: 'Parità Punti' },
+    ];
+
+    if (group?.group_type === 'tournament') {
+      sections.push({ id: 'tournament', icon: '🎯', label: 'Gironi & Torneo' });
+    }
+
+    const activeIndex = Math.min(Math.max(0, calcettoStepIndex), sections.length - 1);
+    const activeSection = sections[activeIndex];
+
     return (
       <Modal visible={showCalcettoSettingsModal} animationType="slide" transparent={true} onRequestClose={() => setShowCalcettoSettingsModal(false)}>
         <View style={styles.modalOverlay}>
@@ -4965,172 +5166,305 @@ export default function GroupDetailScreen() {
             activeOpacity={1}
             onPress={() => setShowCalcettoSettingsModal(false)}
           />
-          <View style={[styles.modalContent, dynamicStyles.modalContent, { height: '94%', maxHeight: '94%', maxWidth: 420, paddingBottom: Platform.OS === 'android' ? 24 : 10, overflow: 'hidden', flexDirection: 'column' }]}>
+          <View style={[styles.modalContent, dynamicStyles.modalContent, { height: 'auto', maxHeight: '92%', maxWidth: 420, paddingBottom: 0, overflow: 'hidden', flexDirection: 'column' }]}>
+            {/* Header del Modal */}
             <View style={styles.modalHeader}>
               <View style={{ flex: 1 }}>
                 <Text style={[styles.modalTitle, dynamicStyles.text]}>Gestione Calcetto</Text>
-                <Text style={[dynamicStyles.subText, { fontSize: 11 }]}>Formato partite, punteggi, parità e viste</Text>
+                <Text style={[dynamicStyles.subText, { fontSize: 11 }]}>Sezione {activeIndex + 1} di {sections.length}: {activeSection.label}</Text>
               </View>
               <TouchableOpacity onPress={() => setShowCalcettoSettingsModal(false)} style={{ padding: 4 }}>
                 <Ionicons name="close-circle" size={26} color={isDarkMode ? "#AAA" : "#8E8E93"} />
               </TouchableOpacity>
             </View>
 
-            <ScrollView
-              style={{ flex: 1 }}
-              contentContainerStyle={{ padding: 16, paddingBottom: 70, gap: 16 }}
-              showsVerticalScrollIndicator={true}
-              nestedScrollEnabled={true}
-              keyboardShouldPersistTaps="handled"
-            >
-              {/* 1. Formato Partita (es. 5 vs 5) */}
-              <View style={{ backgroundColor: isDarkMode ? '#2C2C2E' : '#F8F9FF', padding: 14, borderRadius: 14, borderWidth: 1, borderColor: isDarkMode ? '#3A3A3C' : '#E5E5EA' }}>
-                <Text style={[dynamicStyles.text, { fontSize: 15, fontWeight: '800', marginBottom: 10 }]}>⚽ Formato Partita</Text>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <Text style={[dynamicStyles.subText, { fontSize: 12, fontWeight: '700' }]}>Giocatori per Squadra</Text>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                    <View style={[dynamicStyles.card, { flexDirection: 'row', alignItems: 'center', padding: 2, borderRadius: 8, borderWidth: 1 }]}>
-                      {isAdminOrOwner && (
-                        <TouchableOpacity
-                          onPress={() => {
-                            const newVal = Math.max(1, matchType - 1);
-                            setMatchType(newVal);
-                            handleUpdateGroupSettings({ match_type: newVal });
-                          }}
-                          style={{ width: 30, height: 30, borderRadius: 6, backgroundColor: isDarkMode ? '#3A3A3C' : '#E5E5EA', alignItems: 'center', justifyContent: 'center' }}
-                        >
-                          <Ionicons name="remove" size={16} color={isDarkMode ? "#FFF" : "#000"} />
-                        </TouchableOpacity>
-                      )}
-                      <Text style={[dynamicStyles.text, { fontSize: 15, fontWeight: '900', minWidth: 26, textAlign: 'center' }]}>{matchType}</Text>
-                      {isAdminOrOwner && (
-                        <TouchableOpacity
-                          onPress={() => {
-                            const newVal = matchType + 1;
-                            setMatchType(newVal);
-                            handleUpdateGroupSettings({ match_type: newVal });
-                          }}
-                          style={{ width: 30, height: 30, borderRadius: 6, backgroundColor: isDarkMode ? '#3A3A3C' : '#E5E5EA', alignItems: 'center', justifyContent: 'center' }}
-                        >
-                          <Ionicons name="add" size={16} color={isDarkMode ? "#FFF" : "#000"} />
-                        </TouchableOpacity>
-                      )}
-                    </View>
-                    <View style={{ backgroundColor: '#007AFF15', paddingHorizontal: 6, paddingVertical: 5, borderRadius: 6 }}>
-                      <Text style={{ fontSize: 11, fontWeight: '900', color: '#007AFF' }}>{matchType}v{matchType}</Text>
-                    </View>
-                  </View>
-                </View>
+            <View style={{ padding: 16 }}>
+              {/* Tab/Pilloli di Navigazione Rapida */}
+              <View style={{ flexDirection: 'row', gap: 6, marginBottom: 16 }}>
+                {sections.map((sec, idx) => {
+                  const isSelected = idx === activeIndex;
+                  return (
+                    <TouchableOpacity
+                      key={sec.id}
+                      onPress={() => setCalcettoStepIndex(idx)}
+                      style={{
+                        flex: 1,
+                        paddingVertical: 8,
+                        paddingHorizontal: 4,
+                        borderRadius: 10,
+                        backgroundColor: isSelected ? '#E040FB' : (isDarkMode ? '#2C2C2E' : '#F2F2F7'),
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        borderWidth: 1,
+                        borderColor: isSelected ? '#E040FB' : (isDarkMode ? '#3A3A3C' : '#E5E5EA'),
+                      }}
+                    >
+                      <Text style={{ fontSize: 14, marginBottom: 2 }}>{sec.icon}</Text>
+                      <Text
+                        numberOfLines={1}
+                        style={{
+                          fontSize: 10,
+                          fontWeight: '800',
+                          color: isSelected ? '#FFFFFF' : (isDarkMode ? '#AEAEB2' : '#636366'),
+                        }}
+                      >
+                        {sec.label}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
               </View>
 
-              {/* 2. Punti Vittoria e Pareggio */}
-              {isAdminOrOwner && (
-                <View style={{ backgroundColor: isDarkMode ? '#2C2C2E' : '#F8F9FF', padding: 14, borderRadius: 14, borderWidth: 1, borderColor: isDarkMode ? '#3A3A3C' : '#E5E5EA' }}>
-                  <Text style={[dynamicStyles.text, { fontSize: 15, fontWeight: '800', marginBottom: 10 }]}>🏆 Assegnazione Punti</Text>
-                  <View style={{ flexDirection: 'row', gap: 15 }}>
-                    <View style={{ flex: 1 }}>
-                      <Text style={[styles.configSectionTitle, dynamicStyles.text, { fontSize: 12, fontWeight: '700', marginBottom: 4 }]}>Punti Vittoria</Text>
-                      <TextInput
-                        style={[styles.scoreInput, dynamicStyles.input, { height: 40, fontSize: 16, fontWeight: '800', textAlign: 'center', borderRadius: 8 }]}
-                        keyboardType="numeric"
-                        value={String(group?.points_win ?? 3)}
-                        onChangeText={(v) => handleUpdateGroupSettings({ points_win: parseInt(v) || 0 })}
-                      />
+              {/* CONTENUTO SCHEDA ATTIVA */}
+              {activeSection.id === 'format' && (
+                <View style={{ gap: 14 }}>
+                  {/* Formato Partita */}
+                  <View style={{ backgroundColor: isDarkMode ? '#2C2C2E' : '#F8F9FF', padding: 14, borderRadius: 14, borderWidth: 1, borderColor: isDarkMode ? '#3A3A3C' : '#E5E5EA' }}>
+                    <Text style={[dynamicStyles.text, { fontSize: 15, fontWeight: '800', marginBottom: 10 }]}>⚽ Formato Partita</Text>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <Text style={[dynamicStyles.subText, { fontSize: 12, fontWeight: '700' }]}>Giocatori per Squadra</Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <View style={[dynamicStyles.card, { flexDirection: 'row', alignItems: 'center', padding: 2, borderRadius: 8, borderWidth: 1 }]}>
+                          {isAdminOrOwner && (
+                            <TouchableOpacity
+                              onPress={() => {
+                                const newVal = Math.max(1, matchType - 1);
+                                setMatchType(newVal);
+                                handleUpdateGroupSettings({ match_type: newVal });
+                              }}
+                              style={{ width: 30, height: 30, borderRadius: 6, backgroundColor: isDarkMode ? '#3A3A3C' : '#E5E5EA', alignItems: 'center', justifyContent: 'center' }}
+                            >
+                              <Ionicons name="remove" size={16} color={isDarkMode ? "#FFF" : "#000"} />
+                            </TouchableOpacity>
+                          )}
+                          <Text style={[dynamicStyles.text, { fontSize: 15, fontWeight: '900', minWidth: 26, textAlign: 'center' }]}>{matchType}</Text>
+                          {isAdminOrOwner && (
+                            <TouchableOpacity
+                              onPress={() => {
+                                const newVal = matchType + 1;
+                                setMatchType(newVal);
+                                handleUpdateGroupSettings({ match_type: newVal });
+                              }}
+                              style={{ width: 30, height: 30, borderRadius: 6, backgroundColor: isDarkMode ? '#3A3A3C' : '#E5E5EA', alignItems: 'center', justifyContent: 'center' }}
+                            >
+                              <Ionicons name="add" size={16} color={isDarkMode ? "#FFF" : "#000"} />
+                            </TouchableOpacity>
+                          )}
+                        </View>
+                        <View style={{ backgroundColor: '#E040FB15', paddingHorizontal: 8, paddingVertical: 6, borderRadius: 8 }}>
+                          <Text style={{ fontSize: 13, fontWeight: '900', color: '#E040FB' }}>{matchType} vs {matchType}</Text>
+                        </View>
+                      </View>
                     </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={[styles.configSectionTitle, dynamicStyles.text, { fontSize: 12, fontWeight: '700', marginBottom: 4 }]}>Punti Pareggio</Text>
-                      <TextInput
-                        style={[styles.scoreInput, dynamicStyles.input, { height: 40, fontSize: 16, fontWeight: '800', textAlign: 'center', borderRadius: 8 }]}
-                        keyboardType="numeric"
-                        value={String(group?.points_draw ?? 1)}
-                        onChangeText={(v) => handleUpdateGroupSettings({ points_draw: parseInt(v) || 0 })}
-                      />
+                  </View>
+
+                  {/* Assegnazione Punti */}
+                  {isAdminOrOwner && (
+                    <View style={{ backgroundColor: isDarkMode ? '#2C2C2E' : '#F8F9FF', padding: 14, borderRadius: 14, borderWidth: 1, borderColor: isDarkMode ? '#3A3A3C' : '#E5E5EA' }}>
+                      <Text style={[dynamicStyles.text, { fontSize: 15, fontWeight: '800', marginBottom: 10 }]}>🏆 Assegnazione Punti</Text>
+                      <View style={{ flexDirection: 'row', gap: 15 }}>
+                        <View style={{ flex: 1 }}>
+                          <Text style={[styles.configSectionTitle, dynamicStyles.text, { fontSize: 12, fontWeight: '700', marginBottom: 4 }]}>Punti Vittoria</Text>
+                          <TextInput
+                            style={[styles.scoreInput, dynamicStyles.input, { height: 42, fontSize: 16, fontWeight: '800', textAlign: 'center', borderRadius: 8 }]}
+                            keyboardType="numeric"
+                            value={String(group?.points_win ?? 3)}
+                            onChangeText={(v) => handleUpdateGroupSettings({ points_win: parseInt(v) || 0 })}
+                          />
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={[styles.configSectionTitle, dynamicStyles.text, { fontSize: 12, fontWeight: '700', marginBottom: 4 }]}>Punti Pareggio</Text>
+                          <TextInput
+                            style={[styles.scoreInput, dynamicStyles.input, { height: 42, fontSize: 16, fontWeight: '800', textAlign: 'center', borderRadius: 8 }]}
+                            keyboardType="numeric"
+                            value={String(group?.points_draw ?? 1)}
+                            onChangeText={(v) => handleUpdateGroupSettings({ points_draw: parseInt(v) || 0 })}
+                          />
+                        </View>
+                      </View>
                     </View>
+                  )}
+                </View>
+              )}
+
+              {activeSection.id === 'views' && (
+                <View style={{ backgroundColor: isDarkMode ? '#2C2C2E' : '#F8F9FF', padding: 14, borderRadius: 14, borderWidth: 1, borderColor: isDarkMode ? '#3A3A3C' : '#E5E5EA', gap: 14 }}>
+                  <Text style={[dynamicStyles.text, { fontSize: 15, fontWeight: '800', marginBottom: 2 }]}>👁️ Opzioni Visualizzazione</Text>
+
+                  <View style={styles.bonusRow}>
+                    <View style={{ flex: 1, paddingRight: 10 }}>
+                      <Text style={[dynamicStyles.text, { fontSize: 14, fontWeight: '700' }]}>Mostra Valore Spider (SPD)</Text>
+                      <Text style={[dynamicStyles.subText, { fontSize: 11, marginTop: 1 }]}>Mostra il rating del grafico spider sulle schede giocatori</Text>
+                    </View>
+                    <Switch
+                      style={{ transform: [{ scale: 1.1 }] }}
+                      trackColor={{ false: '#767577', true: '#007AFF' }}
+                      thumbColor="#FFF"
+                      value={group?.show_spider_rating !== false}
+                      onValueChange={(v) => handleUpdateGroupSettings({ show_spider_rating: v })}
+                    />
+                  </View>
+
+                  <View style={[styles.detailDivider, dynamicStyles.divider, { marginHorizontal: 0, opacity: 0.3 }]} />
+
+                  <View style={styles.bonusRow}>
+                    <View style={{ flex: 1, paddingRight: 10 }}>
+                      <Text style={[dynamicStyles.text, { fontSize: 14, fontWeight: '700' }]}>🙈 Mostra Giocatori Nascosti</Text>
+                      <Text style={[dynamicStyles.subText, { fontSize: 11, marginTop: 1 }]}>Includi anche i giocatori nascosti nelle liste e classifiche</Text>
+                    </View>
+                    <Switch
+                      style={{ transform: [{ scale: 1.1 }] }}
+                      trackColor={{ false: '#767577', true: '#FF9500' }}
+                      thumbColor="#FFF"
+                      value={group?.show_hidden_players === true}
+                      onValueChange={(v) => handleUpdateGroupSettings({ show_hidden_players: v })}
+                    />
                   </View>
                 </View>
               )}
 
-              {/* 3. Opzioni Visualizzazione */}
-              <View style={{ backgroundColor: isDarkMode ? '#2C2C2E' : '#F8F9FF', padding: 14, borderRadius: 14, borderWidth: 1, borderColor: isDarkMode ? '#3A3A3C' : '#E5E5EA', gap: 12 }}>
-                <Text style={[dynamicStyles.text, { fontSize: 15, fontWeight: '800', marginBottom: 2 }]}>👁️ Opzioni Visualizzazione</Text>
+              {activeSection.id === 'tiebreakers' && (
+                <View style={{ backgroundColor: isDarkMode ? '#2C2C2E' : '#F8F9FF', padding: 14, borderRadius: 14, borderWidth: 1, borderColor: isDarkMode ? '#3A3A3C' : '#E5E5EA' }}>
+                  <Text style={[dynamicStyles.text, { fontSize: 15, fontWeight: '800', marginBottom: 4 }]}>📊 Criteri Parità Punti (Ordine)</Text>
+                  <Text style={[dynamicStyles.subText, { fontSize: 11, marginBottom: 14 }]}>
+                    Stabilisci i criteri di spareggio in classifica a parità di punteggio.
+                  </Text>
 
-                <View style={styles.bonusRow}>
-                  <View style={{ flex: 1, paddingRight: 10 }}>
-                    <Text style={[dynamicStyles.text, { fontSize: 14, fontWeight: '600' }]}>Mostra Valore Spider (SPD)</Text>
-                    <Text style={[dynamicStyles.subText, { fontSize: 10, marginTop: 1 }]}>Mostra il rating del grafico spider sulle schede giocatori</Text>
-                  </View>
-                  <Switch
-                    style={{ transform: [{ scale: 1.1 }] }}
-                    trackColor={{ false: '#767577', true: '#007AFF' }}
-                    thumbColor="#FFF"
-                    value={group?.show_spider_rating !== false}
-                    onValueChange={(v) => handleUpdateGroupSettings({ show_spider_rating: v })}
-                  />
-                </View>
+                  <View style={{ gap: 12 }}>
+                    {[1, 2].map((num) => {
+                      const currentId = num === 1 ? (group?.tie_breaker_1 || 'ratio') : (group?.tie_breaker_2 || 'incisivity');
+                      const options = [
+                        { id: 'ratio', label: 'Media Punti Partita' },
+                        { id: 'played', label: 'Partite Giocate' },
+                        { id: 'goals', label: 'Goal' },
+                        { id: 'assists', label: 'Assist' },
+                        { id: 'bonus', label: 'Bonus' },
+                        { id: 'incisivity', label: 'Incisività' },
+                      ];
+                      const currentLabel = options.find(o => o.id === currentId)?.label || 'Seleziona';
 
-                <View style={[styles.detailDivider, dynamicStyles.divider, { marginHorizontal: 0, opacity: 0.3 }]} />
-
-                <View style={styles.bonusRow}>
-                  <View style={{ flex: 1, paddingRight: 10 }}>
-                    <Text style={[dynamicStyles.text, { fontSize: 14, fontWeight: '600' }]}>🙈 Mostra Giocatori Nascosti</Text>
-                    <Text style={[dynamicStyles.subText, { fontSize: 10, marginTop: 1 }]}>Includi anche i giocatori nascosti nelle liste e classifiche</Text>
-                  </View>
-                  <Switch
-                    style={{ transform: [{ scale: 1.1 }] }}
-                    trackColor={{ false: '#767577', true: '#FF9500' }}
-                    thumbColor="#FFF"
-                    value={group?.show_hidden_players === true}
-                    onValueChange={(v) => handleUpdateGroupSettings({ show_hidden_players: v })}
-                  />
-                </View>
-              </View>
-
-              {/* 4. Criteri Parità Punti (Ordine) */}
-              <View style={{ backgroundColor: isDarkMode ? '#2C2C2E' : '#F8F9FF', padding: 14, borderRadius: 14, borderWidth: 1, borderColor: isDarkMode ? '#3A3A3C' : '#E5E5EA' }}>
-                <Text style={[dynamicStyles.text, { fontSize: 15, fontWeight: '800', marginBottom: 4 }]}>📊 Criteri Parità Punti (Ordine)</Text>
-                <Text style={[dynamicStyles.subText, { fontSize: 11, marginBottom: 12 }]}>
-                  Stabilisci i criteri di spareggio in classifica a parità di punteggio.
-                </Text>
-
-                <View style={{ gap: 10 }}>
-                  {[1, 2].map((num) => {
-                    const currentId = num === 1 ? (group?.tie_breaker_1 || 'ratio') : (group?.tie_breaker_2 || 'incisivity');
-                    const options = [
-                      { id: 'ratio', label: 'Media Punti Partita' },
-                      { id: 'played', label: 'Partite Giocate' },
-                      { id: 'goals', label: 'Goal' },
-                      { id: 'assists', label: 'Assist' },
-                      { id: 'bonus', label: 'Bonus' },
-                      { id: 'incisivity', label: 'Incisività' },
-                    ];
-                    const currentLabel = options.find(o => o.id === currentId)?.label || 'Seleziona';
-
-                    return (
-                      <View key={num} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                        <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: '#007AFF', alignItems: 'center', justifyContent: 'center' }}>
-                          <Text style={{ color: '#FFF', fontSize: 12, fontWeight: '900' }}>{num}</Text>
+                      return (
+                        <View key={num} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                          <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: '#007AFF', alignItems: 'center', justifyContent: 'center' }}>
+                            <Text style={{ color: '#FFF', fontSize: 13, fontWeight: '900' }}>{num}</Text>
+                          </View>
+                          <TouchableOpacity
+                            style={[styles.scoreInput, dynamicStyles.input, { flex: 1, height: 44, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderRadius: 8 }]}
+                            onPress={() => setShowTieBreakerSelector({ number: num as 1 | 2 })}
+                          >
+                            <Text style={[dynamicStyles.text, { fontSize: 14, fontWeight: '700' }]}>{currentLabel}</Text>
+                            <Ionicons name="chevron-down" size={18} color="#8E8E93" />
+                          </TouchableOpacity>
                         </View>
-                        <TouchableOpacity
-                          style={[styles.scoreInput, dynamicStyles.input, { flex: 1, height: 42, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderRadius: 8 }]}
-                          onPress={() => setShowTieBreakerSelector({ number: num as 1 | 2 })}
-                        >
-                          <Text style={[dynamicStyles.text, { fontSize: 13, fontWeight: '700' }]}>{currentLabel}</Text>
-                          <Ionicons name="chevron-down" size={18} color="#8E8E93" />
-                        </TouchableOpacity>
-                      </View>
-                    );
-                  })}
+                      );
+                    })}
+                  </View>
                 </View>
-              </View>
+              )}
 
-              {/* Pulsante Chiudi integrato dentro lo ScrollView per visibilità garantita al 100% */}
+              {activeSection.id === 'tournament' && (
+                <View style={{ backgroundColor: isDarkMode ? '#2C2C2E' : '#F8F9FF', padding: 14, borderRadius: 14, borderWidth: 1, borderColor: isDarkMode ? '#3A3A3C' : '#E5E5EA', gap: 12 }}>
+                  <Text style={[dynamicStyles.text, { fontSize: 15, fontWeight: '800', marginBottom: 4 }]}>🎯 Impostazioni Torneo</Text>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Text style={[dynamicStyles.subText, { fontSize: 12, fontWeight: '700' }]}>Numero Gironi:</Text>
+                    <View style={[dynamicStyles.card, { flexDirection: 'row', alignItems: 'center', padding: 4, borderRadius: 8, borderWidth: 1 }]}>
+                      {isAdminOrOwner && (
+                        <TouchableOpacity
+                          onPress={() => {
+                            const newVal = Math.max(1, numGroups - 1);
+                            setNumGroups(newVal);
+                            handleUpdateGroupSettings({ num_groups: newVal });
+                          }}
+                          style={{ width: 32, height: 32, borderRadius: 6, backgroundColor: isDarkMode ? '#3A3A3C' : '#E5E5EA', alignItems: 'center', justifyContent: 'center' }}
+                        >
+                          <Ionicons name="remove" size={18} color={isDarkMode ? "#FFF" : "#000"} />
+                        </TouchableOpacity>
+                      )}
+                      <Text style={[dynamicStyles.text, { fontSize: 16, fontWeight: '900', minWidth: 40, textAlign: 'center' }]}>{numGroups}</Text>
+                      {isAdminOrOwner && (
+                        <TouchableOpacity
+                          onPress={() => {
+                            if (numTeams < 6 && numGroups >= 1) {
+                              Alert.alert("Torneo Sbilanciato", "Hai bisogno di almeno 6 squadre per creare 2 gironi.");
+                              return;
+                            }
+                            const newVal = numGroups + 1;
+                            setNumGroups(newVal);
+                            handleUpdateGroupSettings({ num_groups: newVal });
+                          }}
+                          style={{ width: 32, height: 32, borderRadius: 6, backgroundColor: isDarkMode ? '#3A3A3C' : '#E5E5EA', alignItems: 'center', justifyContent: 'center' }}
+                        >
+                          <Ionicons name="add" size={18} color={isDarkMode ? "#FFF" : "#000"} />
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  </View>
+                  <View style={styles.bonusRow}>
+                    <Text style={[dynamicStyles.text, { fontSize: 14, fontWeight: '600' }]}>Marcatori</Text>
+                    <Switch style={{ transform: [{ scale: 1.1 }] }} trackColor={{ false: '#767577', true: '#34C759' }} thumbColor="#FFF" value={group?.show_scorers} onValueChange={(v) => handleUpdateGroupSettings({ show_scorers: v })} />
+                  </View>
+                  <View style={styles.bonusRow}>
+                    <Text style={[dynamicStyles.text, { fontSize: 14, fontWeight: '600' }]}>Assist</Text>
+                    <Switch style={{ transform: [{ scale: 1.1 }] }} trackColor={{ false: '#767577', true: '#34C759' }} thumbColor="#FFF" value={group?.show_assists} onValueChange={(v) => handleUpdateGroupSettings({ show_assists: v })} />
+                  </View>
+                </View>
+              )}
+            </View>
+
+            {/* Pulsanti di Navigazione Avanti / Indietro / Chiudi */}
+            <View style={{ padding: 12, borderTopWidth: 1, borderTopColor: isDarkMode ? '#2C2C2E' : '#E5E5EA', backgroundColor: isDarkMode ? '#1C1C1E' : '#FFFFFF', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
               <TouchableOpacity
-                style={[styles.saveBtn, { marginTop: 10, height: 46, borderRadius: 12 }]}
-                onPress={() => setShowCalcettoSettingsModal(false)}
+                disabled={activeIndex === 0}
+                onPress={() => setCalcettoStepIndex(prev => Math.max(0, prev - 1))}
+                style={{
+                  flex: 1,
+                  height: 44,
+                  borderRadius: 12,
+                  backgroundColor: activeIndex === 0 ? (isDarkMode ? '#2C2C2E' : '#E5E5EA') : '#E040FB20',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexDirection: 'row',
+                  gap: 4,
+                  opacity: activeIndex === 0 ? 0.5 : 1,
+                }}
               >
-                <Text style={styles.saveBtnText}>Chiudi</Text>
+                <Ionicons name="chevron-back" size={18} color={activeIndex === 0 ? '#8E8E93' : '#E040FB'} />
+                <Text style={{ fontSize: 13, fontWeight: '800', color: activeIndex === 0 ? '#8E8E93' : '#E040FB' }}>Indietro</Text>
               </TouchableOpacity>
-            </ScrollView>
+
+              {activeIndex < sections.length - 1 ? (
+                <TouchableOpacity
+                  onPress={() => setCalcettoStepIndex(prev => Math.min(sections.length - 1, prev + 1))}
+                  style={{
+                    flex: 1,
+                    height: 44,
+                    borderRadius: 12,
+                    backgroundColor: '#E040FB',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexDirection: 'row',
+                    gap: 4,
+                  }}
+                >
+                  <Text style={{ fontSize: 13, fontWeight: '800', color: '#FFFFFF' }}>Successivo</Text>
+                  <Ionicons name="chevron-forward" size={18} color="#FFFFFF" />
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity
+                  onPress={() => setShowCalcettoSettingsModal(false)}
+                  style={{
+                    flex: 1,
+                    height: 44,
+                    borderRadius: 12,
+                    backgroundColor: '#34C759',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <Text style={{ fontSize: 13, fontWeight: '800', color: '#FFFFFF' }}>Chiudi</Text>
+                </TouchableOpacity>
+              )}
+            </View>
           </View>
         </View>
       </Modal>
@@ -6477,7 +6811,7 @@ export default function GroupDetailScreen() {
                             </TouchableOpacity>
 
                             <TouchableOpacity
-                              onPress={() => setShowBonusSettingsModal(true)}
+                              onPress={() => { setBonusStepIndex(0); setShowBonusSettingsModal(true); }}
                               style={{
                                 backgroundColor: isDarkMode ? '#2C2C2E' : '#F8F9FF',
                                 borderRadius: 16,
@@ -6505,7 +6839,7 @@ export default function GroupDetailScreen() {
                             </TouchableOpacity>
 
                             <TouchableOpacity
-                              onPress={() => setShowSharingSettingsModal(true)}
+                              onPress={() => { setSharingStepIndex(0); setShowSharingSettingsModal(true); }}
                               style={{
                                 backgroundColor: isDarkMode ? '#2C2C2E' : '#F8F9FF',
                                 borderRadius: 16,
@@ -6533,7 +6867,7 @@ export default function GroupDetailScreen() {
                             </TouchableOpacity>
 
                             <TouchableOpacity
-                              onPress={() => setShowCalcettoSettingsModal(true)}
+                              onPress={() => { setCalcettoStepIndex(0); setShowCalcettoSettingsModal(true); }}
                               style={{
                                 backgroundColor: isDarkMode ? '#2C2C2E' : '#F8F9FF',
                                 borderRadius: 16,
