@@ -335,7 +335,7 @@ export const syncCloudData = async (groupId?: string): Promise<Group | null> => 
         'tournament_win_bonus', 'tournament_2nd_bonus', 'tournament_3rd_bonus',
         'tournament_4th_bonus', 'tournament_group_winner_bonus',
         'tournament_top_scorer_bonus', 'tournament_top_assistant_bonus',
-        'tournament_3rd_team_name', 'tournament_4th_team_name', 'radar_config', 'show_spider_rating'
+        'tournament_3rd_team_name', 'tournament_4th_team_name', 'radar_config', 'show_spider_rating', 'show_hidden_players'
       ];
 
       for (const g of mapped) {
@@ -498,7 +498,7 @@ export const updateGroup = async (groupId: string, updates: Partial<Group> | str
           'tournament_win_bonus', 'tournament_2nd_bonus', 'tournament_3rd_bonus',
           'tournament_4th_bonus', 'tournament_group_winner_bonus',
           'tournament_top_scorer_bonus', 'tournament_top_assistant_bonus',
-          'tournament_3rd_team_name', 'tournament_4th_team_name', 'radar_config', 'show_spider_rating'
+          'tournament_3rd_team_name', 'tournament_4th_team_name', 'radar_config', 'show_spider_rating', 'show_hidden_players'
         ];
 
         for (const field of careerFields) {
@@ -516,7 +516,7 @@ export const updateGroup = async (groupId: string, updates: Partial<Group> | str
         'tournament_win_bonus', 'tournament_2nd_bonus', 'tournament_3rd_bonus',
         'tournament_4th_bonus', 'tournament_group_winner_bonus',
         'tournament_top_scorer_bonus', 'tournament_top_assistant_bonus',
-        'tournament_3rd_team_name', 'tournament_4th_team_name', 'radar_config', 'show_spider_rating'
+        'tournament_3rd_team_name', 'tournament_4th_team_name', 'radar_config', 'show_spider_rating', 'show_hidden_players'
       ];
       for (const field of careerFields) {
         await AsyncStorage.removeItem(`override_${field}_${groupId}`);
@@ -642,7 +642,19 @@ export const fetchPlayers = async (params: { group_id: string; search?: string; 
     }
   }
 
-  const mapped = players.map(p => ({ ...p, age: p.date_of_birth ? calculateAge(p.date_of_birth) : (p.age || 0) }));
+  const mapped = await Promise.all(players.map(async p => {
+    let isHidden = p.is_hidden;
+    const override = await AsyncStorage.getItem(`player_hidden_${p.id}`);
+    if (override !== null) {
+      isHidden = override === 'true';
+    }
+    return {
+      ...p,
+      is_hidden: isHidden === true,
+      age: p.date_of_birth ? calculateAge(p.date_of_birth) : (p.age || 0)
+    };
+  }));
+
   let filtered = mapped;
   if (params.search) filtered = filtered.filter(p => p.nickname.toLowerCase().includes(params.search!.toLowerCase()));
   if (params.role) filtered = filtered.filter(p => p.role === params.role);
@@ -666,6 +678,10 @@ export const savePlayer = async (player: Partial<Player> & { group_id: string })
 
   const playerWithId = { ...player, id: player.id || Math.random().toString(36).substring(7) } as Player;
 
+  if (player.is_hidden !== undefined) {
+    await AsyncStorage.setItem(`player_hidden_${playerWithId.id}`, String(playerWithId.is_hidden));
+  }
+
   // Verifichiamo se il giocatore esiste già in QUESTO gruppo (per decidere se fare update o insert)
   const exists = players.some(p => p.id === player.id);
   const updatedLocal = exists ? players.map(p => p.id === player.id ? playerWithId : p) : [...players, playerWithId];
@@ -673,7 +689,7 @@ export const savePlayer = async (player: Partial<Player> & { group_id: string })
   await AsyncStorage.setItem(`players_${player.group_id}`, JSON.stringify(updatedLocal));
   if (group?.storage_type === 'cloud') {
     await setNeedsSync(player.group_id);
-    const dataToSave = {
+    const dataToSave: any = {
       nickname: player.nickname,
       name: player.name,
       surname: player.surname,
@@ -681,12 +697,19 @@ export const savePlayer = async (player: Partial<Player> & { group_id: string })
       date_of_birth: player.date_of_birth,
       role: player.role,
       strength: player.strength,
-      group_id: player.group_id
+      group_id: player.group_id,
+      is_hidden: player.is_hidden
     };
     try {
       if (player.id && player.id.length > 20) await supabase.from('players').update(dataToSave).eq('id', player.id);
       else await supabase.from('players').insert([dataToSave]);
-    } catch (e) {}
+    } catch (e) {
+      delete dataToSave.is_hidden;
+      try {
+        if (player.id && player.id.length > 20) await supabase.from('players').update(dataToSave).eq('id', player.id);
+        else await supabase.from('players').insert([dataToSave]);
+      } catch (err) {}
+    }
   }
 };
 
