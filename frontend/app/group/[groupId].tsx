@@ -5033,29 +5033,33 @@ export default function GroupDetailScreen() {
                   <Text style={[dynamicStyles.subText, { fontSize: 11, marginBottom: 14 }]}>
                     Esporta/Importa la lista giocatori oppure salvataggi di backup del gruppo.
                   </Text>
-                  <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
-                    <TouchableOpacity style={[styles.saveBtn, { flex: 1, backgroundColor: '#007AFF', height: 42, borderRadius: 10, flexDirection: 'row' }]} onPress={handleExportPlayers}>
-                      <Ionicons name="download-outline" size={16} color="#FFF" style={{ marginRight: 6 }} />
-                      <Text style={[styles.saveBtnText, { fontSize: 12, fontWeight: '800' }]} numberOfLines={1}>Esporta</Text>
-                    </TouchableOpacity>
-                    {isAdminOrOwner && (
-                      <TouchableOpacity style={[styles.saveBtn, { flex: 1, backgroundColor: '#34C759', height: 42, borderRadius: 10, flexDirection: 'row' }]} onPress={handleImportPlayers}>
-                        <Ionicons name="arrow-up-outline" size={16} color="#FFF" style={{ marginRight: 6 }} />
-                        <Text style={[styles.saveBtnText, { fontSize: 12, fontWeight: '800' }]} numberOfLines={1}>Importa</Text>
+
+                  <View style={{ gap: 10 }}>
+                    <View style={{ flexDirection: 'row', gap: 8 }}>
+                      <TouchableOpacity style={[styles.saveBtn, { flex: 1, backgroundColor: '#007AFF', height: 42, borderRadius: 10, flexDirection: 'row', paddingHorizontal: 4 }]} onPress={handleExportPlayers}>
+                        <Ionicons name="download-outline" size={16} color="#FFF" style={{ marginRight: 4 }} />
+                        <Text style={[styles.saveBtnText, { fontSize: 11.5, fontWeight: '800' }]} numberOfLines={1}>Esporta Giocatori</Text>
                       </TouchableOpacity>
-                    )}
-                  </View>
-                  <View style={{ flexDirection: 'row', gap: 8 }}>
-                    <TouchableOpacity style={[styles.saveBtn, { flex: 1, backgroundColor: '#8E8E93', height: 42, borderRadius: 10, flexDirection: 'row' }]} onPress={handleCreateGroupBackup}>
-                      <Ionicons name="copy-outline" size={16} color="#FFF" style={{ marginRight: 6 }} />
-                      <Text style={[styles.saveBtnText, { fontSize: 12, fontWeight: '800' }]} numberOfLines={1}>Crea Backup</Text>
-                    </TouchableOpacity>
-                    {isAdminOrOwner && (
-                      <TouchableOpacity style={[styles.saveBtn, { flex: 1, backgroundColor: '#FF9500', height: 42, borderRadius: 10, flexDirection: 'row' }]} onPress={handleRestoreGroupBackup}>
-                        <Ionicons name="refresh-outline" size={16} color="#FFF" style={{ marginRight: 6 }} />
-                        <Text style={[styles.saveBtnText, { fontSize: 12, fontWeight: '800' }]} numberOfLines={1}>Ripristina</Text>
+                      {isAdminOrOwner && (
+                        <TouchableOpacity style={[styles.saveBtn, { flex: 1, backgroundColor: '#34C759', height: 42, borderRadius: 10, flexDirection: 'row', paddingHorizontal: 4 }]} onPress={handleImportPlayers}>
+                          <Ionicons name="arrow-up-outline" size={16} color="#FFF" style={{ marginRight: 4 }} />
+                          <Text style={[styles.saveBtnText, { fontSize: 11.5, fontWeight: '800' }]} numberOfLines={1}>Importa Giocatori</Text>
+                        </TouchableOpacity>
+                      )}
+                    </View>
+
+                    <View style={{ flexDirection: 'row', gap: 8 }}>
+                      <TouchableOpacity style={[styles.saveBtn, { flex: 1, backgroundColor: '#8E8E93', height: 42, borderRadius: 10, flexDirection: 'row', paddingHorizontal: 4 }]} onPress={handleCreateGroupBackup}>
+                        <Ionicons name="copy-outline" size={16} color="#FFF" style={{ marginRight: 4 }} />
+                        <Text style={[styles.saveBtnText, { fontSize: 11.5, fontWeight: '800' }]} numberOfLines={1}>Crea Backup</Text>
                       </TouchableOpacity>
-                    )}
+                      {isAdminOrOwner && (
+                        <TouchableOpacity style={[styles.saveBtn, { flex: 1, backgroundColor: '#FF9500', height: 42, borderRadius: 10, flexDirection: 'row', paddingHorizontal: 4 }]} onPress={handleRestoreGroupBackup}>
+                          <Ionicons name="refresh-outline" size={16} color="#FFF" style={{ marginRight: 4 }} />
+                          <Text style={[styles.saveBtnText, { fontSize: 11.5, fontWeight: '800' }]} numberOfLines={1}>Ripristina Backup</Text>
+                        </TouchableOpacity>
+                      )}
+                    </View>
                   </View>
                 </View>
               )}
