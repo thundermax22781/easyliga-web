@@ -529,14 +529,23 @@ export default function GroupDetailScreen() {
     }
     setGenerating(true);
     try {
-      const currentPlayersInTeams = teams ? (teams.teams ? teams.teams.flatMap(t => t.players) : [...(teams.team_a || []), ...(teams.team_b || [])]) : [];
+      const useSpider = group?.use_spider_for_teams === true;
+      const selectedPlayersList = players.filter(p => selectedIds.has(p.id));
+      const modifiedPlayers = selectedPlayersList.map(p => {
+        let effStr = p.strength;
+        if (useSpider && spiderScoresMap[p.id] !== undefined && spiderScoresMap[p.id] > 0) {
+          effStr = spiderScoresMap[p.id];
+        }
+        return { ...p, strength: effStr };
+      });
+
       const res = await generateTeams(
         Array.from(selectedIds),
         matchType,
         groupId as string,
         group?.group_type === 'tournament' ? numTeams : 2,
         teams?.team_a.map(p => p.id),
-        currentPlayersInTeams
+        modifiedPlayers
       );
 
       if (teams) {
@@ -3480,7 +3489,7 @@ export default function GroupDetailScreen() {
                           </View>
                           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
                             <Text style={[styles.teamStatsSub, { fontSize: 10 }]}>
-                              {t.avg_age} Età Media • {(t.total_strength / (t.players.length || 1)).toFixed(1)} FRZ Media
+                              {t.avg_age} Età Media • {(t.total_strength / (t.players.length || 1)).toFixed(1)} {group?.use_spider_for_teams ? 'SPD Media' : 'FRZ Media'}
                             </Text>
                           </View>
                           {isAdminOrOwner && !sharing && (
@@ -3539,7 +3548,7 @@ export default function GroupDetailScreen() {
                                     ? (isDarkMode ? '#AEAEB2' : '#8E8E93')
                                     : teamHex,
                                   marginTop: -2
-                                }}>FRZ</Text>
+                                }}>{group?.use_spider_for_teams ? 'SPD' : 'FRZ'}</Text>
                              </View>
                           </View>
                         </View>
@@ -4576,6 +4585,25 @@ export default function GroupDetailScreen() {
                   </View>
                 );
               })}
+
+              {/* Opzione Bilanciamento Squadre tramite Spider */}
+              <View style={{ backgroundColor: isDarkMode ? '#2C2C2E' : '#F8F9FF', padding: 14, borderRadius: 12, borderWidth: 1, borderColor: isDarkMode ? '#3A3A3C' : '#E5E5EA', marginTop: 10 }}>
+                <View style={styles.bonusRow}>
+                  <View style={{ flex: 1, paddingRight: 10 }}>
+                    <Text style={[dynamicStyles.text, { fontSize: 14, fontWeight: '800' }]}>🕸️ Usa Spider (SPD) per Generare Squadre</Text>
+                    <Text style={[dynamicStyles.subText, { fontSize: 11, marginTop: 2 }]}>
+                      Bilancia le squadre in base alle prestazioni effettive (Spider Rating) anziché alla forza manuale.
+                    </Text>
+                  </View>
+                  <Switch
+                    style={{ transform: [{ scale: 1.1 }] }}
+                    trackColor={{ false: '#767577', true: '#007AFF' }}
+                    thumbColor="#FFF"
+                    value={group?.use_spider_for_teams === true}
+                    onValueChange={(v) => handleUpdateGroupSettings({ use_spider_for_teams: v })}
+                  />
+                </View>
+              </View>
 
               <TouchableOpacity
                 style={[styles.saveBtn, { marginTop: 20, marginBottom: 10 }]}
@@ -6820,6 +6848,38 @@ export default function GroupDetailScreen() {
                      </TouchableOpacity>
                    );
                  }} contentContainerStyle={styles.listContent} />
+                 {manualStep === -1 && (
+                   <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginHorizontal: 20, marginTop: 4, marginBottom: 4, gap: 6, backgroundColor: isDarkMode ? '#2C2C2E' : '#F2F2F7', padding: 4, borderRadius: 10 }}>
+                     <Text style={[dynamicStyles.subText, { fontSize: 10, fontWeight: '800', marginRight: 2 }]}>BILANCIA PER:</Text>
+                     <TouchableOpacity
+                       onPress={() => handleUpdateGroupSettings({ use_spider_for_teams: false })}
+                       style={{
+                         paddingHorizontal: 10,
+                         paddingVertical: 4,
+                         borderRadius: 8,
+                         backgroundColor: !group?.use_spider_for_teams ? '#007AFF' : 'transparent',
+                       }}
+                     >
+                       <Text style={{ fontSize: 11, fontWeight: '800', color: !group?.use_spider_for_teams ? '#FFF' : (isDarkMode ? '#AEAEB2' : '#8E8E93') }}>
+                         🏋️ Forza (FRZ)
+                       </Text>
+                     </TouchableOpacity>
+
+                     <TouchableOpacity
+                       onPress={() => handleUpdateGroupSettings({ use_spider_for_teams: true })}
+                       style={{
+                         paddingHorizontal: 10,
+                         paddingVertical: 4,
+                         borderRadius: 8,
+                         backgroundColor: group?.use_spider_for_teams ? '#007AFF' : 'transparent',
+                       }}
+                     >
+                       <Text style={{ fontSize: 11, fontWeight: '800', color: group?.use_spider_for_teams ? '#FFF' : (isDarkMode ? '#AEAEB2' : '#8E8E93') }}>
+                         🕸️ Spider (SPD)
+                       </Text>
+                     </TouchableOpacity>
+                   </View>
+                 )}
                  <View style={styles.genBar}>
                    {manualStep !== -1 ? (
                      <TouchableOpacity
