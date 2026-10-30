@@ -6847,40 +6847,40 @@ export default function GroupDetailScreen() {
                        </View>
                      </TouchableOpacity>
                    );
-                 }} contentContainerStyle={styles.listContent} />
-                 {manualStep === -1 && (
-                   <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginHorizontal: 20, marginTop: 4, marginBottom: 4, gap: 6, backgroundColor: isDarkMode ? '#2C2C2E' : '#F2F2F7', padding: 4, borderRadius: 10 }}>
-                     <Text style={[dynamicStyles.subText, { fontSize: 10, fontWeight: '800', marginRight: 2 }]}>BILANCIA PER:</Text>
-                     <TouchableOpacity
-                       onPress={() => handleUpdateGroupSettings({ use_spider_for_teams: false })}
-                       style={{
-                         paddingHorizontal: 10,
-                         paddingVertical: 4,
-                         borderRadius: 8,
-                         backgroundColor: !group?.use_spider_for_teams ? '#007AFF' : 'transparent',
-                       }}
-                     >
-                       <Text style={{ fontSize: 11, fontWeight: '800', color: !group?.use_spider_for_teams ? '#FFF' : (isDarkMode ? '#AEAEB2' : '#8E8E93') }}>
-                         🏋️ Forza (FRZ)
-                       </Text>
-                     </TouchableOpacity>
+                 }} contentContainerStyle={[styles.listContent, { paddingBottom: 130 }]} />
+                 <View style={[styles.genBar, { bottom: Platform.OS === 'android' ? 14 : 4 }]}>
+                   {manualStep === -1 && (
+                     <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginBottom: 8, gap: 6, backgroundColor: isDarkMode ? '#2C2C2E' : '#FFFFFF', padding: 6, borderRadius: 12, borderWidth: 1, borderColor: isDarkMode ? '#3A3A3C' : '#E5E5EA', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.15, shadowRadius: 4, elevation: 4 }}>
+                       <Text style={[dynamicStyles.subText, { fontSize: 10, fontWeight: '800', marginRight: 2 }]}>BILANCIA PER:</Text>
+                       <TouchableOpacity
+                         onPress={() => handleUpdateGroupSettings({ use_spider_for_teams: false })}
+                         style={{
+                           paddingHorizontal: 12,
+                           paddingVertical: 6,
+                           borderRadius: 8,
+                           backgroundColor: !group?.use_spider_for_teams ? '#007AFF' : (isDarkMode ? '#1C1C1E' : '#F2F2F7'),
+                         }}
+                       >
+                         <Text style={{ fontSize: 11, fontWeight: '800', color: !group?.use_spider_for_teams ? '#FFF' : (isDarkMode ? '#AEAEB2' : '#8E8E93') }}>
+                           🏋️ Forza (FRZ)
+                         </Text>
+                       </TouchableOpacity>
 
-                     <TouchableOpacity
-                       onPress={() => handleUpdateGroupSettings({ use_spider_for_teams: true })}
-                       style={{
-                         paddingHorizontal: 10,
-                         paddingVertical: 4,
-                         borderRadius: 8,
-                         backgroundColor: group?.use_spider_for_teams ? '#007AFF' : 'transparent',
-                       }}
-                     >
-                       <Text style={{ fontSize: 11, fontWeight: '800', color: group?.use_spider_for_teams ? '#FFF' : (isDarkMode ? '#AEAEB2' : '#8E8E93') }}>
-                         🕸️ Spider (SPD)
-                       </Text>
-                     </TouchableOpacity>
-                   </View>
-                 )}
-                 <View style={styles.genBar}>
+                       <TouchableOpacity
+                         onPress={() => handleUpdateGroupSettings({ use_spider_for_teams: true })}
+                         style={{
+                           paddingHorizontal: 12,
+                           paddingVertical: 6,
+                           borderRadius: 8,
+                           backgroundColor: group?.use_spider_for_teams ? '#007AFF' : (isDarkMode ? '#1C1C1E' : '#F2F2F7'),
+                         }}
+                       >
+                         <Text style={{ fontSize: 11, fontWeight: '800', color: group?.use_spider_for_teams ? '#FFF' : (isDarkMode ? '#AEAEB2' : '#8E8E93') }}>
+                           🕸️ Spider (SPD)
+                         </Text>
+                       </TouchableOpacity>
+                     </View>
+                   )}
                    {manualStep !== -1 ? (
                      <TouchableOpacity
                        style={[styles.genBtn, { backgroundColor: '#34C759' }, (selectedIds.size === 0 || selectedIds.size > matchType) && styles.genBtnDisabled]}
