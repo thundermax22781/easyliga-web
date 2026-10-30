@@ -4793,16 +4793,15 @@ export default function GroupDetailScreen() {
                   />
                 </View>
               </View>
-            </ScrollView>
 
-            <View style={{ padding: 12, borderTopWidth: 1, borderTopColor: isDarkMode ? '#2C2C2E' : '#E5E5EA', backgroundColor: isDarkMode ? '#1C1C1E' : '#FFFFFF' }}>
+              {/* Pulsante Chiudi integrato dentro lo ScrollView */}
               <TouchableOpacity
-                style={[styles.saveBtn, { marginTop: 0, height: 44, borderRadius: 12 }]}
+                style={[styles.saveBtn, { marginTop: 10, height: 46, borderRadius: 12 }]}
                 onPress={() => setShowBonusSettingsModal(false)}
               >
                 <Text style={styles.saveBtnText}>Chiudi</Text>
               </TouchableOpacity>
-            </View>
+            </ScrollView>
           </View>
         </View>
       </Modal>
@@ -4940,16 +4939,14 @@ export default function GroupDetailScreen() {
                   </TouchableOpacity>
                 </View>
               )}
-            </ScrollView>
-
-            <View style={{ padding: 12, borderTopWidth: 1, borderTopColor: isDarkMode ? '#2C2C2E' : '#E5E5EA', backgroundColor: isDarkMode ? '#1C1C1E' : '#FFFFFF' }}>
+              {/* Pulsante Chiudi integrato dentro lo ScrollView */}
               <TouchableOpacity
-                style={[styles.saveBtn, { marginTop: 0, height: 44, borderRadius: 12 }]}
+                style={[styles.saveBtn, { marginTop: 10, height: 46, borderRadius: 12 }]}
                 onPress={() => setShowSharingSettingsModal(false)}
               >
                 <Text style={styles.saveBtnText}>Chiudi</Text>
               </TouchableOpacity>
-            </View>
+            </ScrollView>
           </View>
         </View>
       </Modal>
@@ -4980,18 +4977,18 @@ export default function GroupDetailScreen() {
 
             <ScrollView
               style={{ flex: 1 }}
-              contentContainerStyle={{ padding: 16, paddingBottom: 40, gap: 16 }}
+              contentContainerStyle={{ padding: 16, paddingBottom: 50, gap: 16 }}
               showsVerticalScrollIndicator={true}
               nestedScrollEnabled={true}
               keyboardShouldPersistTaps="handled"
             >
               {/* 1. Formato Partita (es. 5 vs 5) */}
               <View style={{ backgroundColor: isDarkMode ? '#2C2C2E' : '#F8F9FF', padding: 14, borderRadius: 14, borderWidth: 1, borderColor: isDarkMode ? '#3A3A3C' : '#E5E5EA' }}>
-                <Text style={[dynamicStyles.text, { fontSize: 15, fontWeight: '800', marginBottom: 8 }]}>⚽ Formato Partita</Text>
+                <Text style={[dynamicStyles.text, { fontSize: 15, fontWeight: '800', marginBottom: 10 }]}>⚽ Formato Partita</Text>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <Text style={[dynamicStyles.subText, { fontSize: 12, fontWeight: '700' }]}>Giocatori per Squadra:</Text>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                    <View style={[dynamicStyles.card, { flexDirection: 'row', alignItems: 'center', padding: 4, borderRadius: 8, borderWidth: 1 }]}>
+                  <Text style={[dynamicStyles.subText, { fontSize: 12, fontWeight: '700' }]}>Giocatori per Squadra</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <View style={[dynamicStyles.card, { flexDirection: 'row', alignItems: 'center', padding: 2, borderRadius: 8, borderWidth: 1 }]}>
                       {isAdminOrOwner && (
                         <TouchableOpacity
                           onPress={() => {
@@ -4999,12 +4996,12 @@ export default function GroupDetailScreen() {
                             setMatchType(newVal);
                             handleUpdateGroupSettings({ match_type: newVal });
                           }}
-                          style={{ width: 32, height: 32, borderRadius: 6, backgroundColor: isDarkMode ? '#3A3A3C' : '#E5E5EA', alignItems: 'center', justifyContent: 'center' }}
+                          style={{ width: 30, height: 30, borderRadius: 6, backgroundColor: isDarkMode ? '#3A3A3C' : '#E5E5EA', alignItems: 'center', justifyContent: 'center' }}
                         >
-                          <Ionicons name="remove" size={18} color={isDarkMode ? "#FFF" : "#000"} />
+                          <Ionicons name="remove" size={16} color={isDarkMode ? "#FFF" : "#000"} />
                         </TouchableOpacity>
                       )}
-                      <Text style={[dynamicStyles.text, { fontSize: 16, fontWeight: '900', minWidth: 32, textAlign: 'center' }]}>{matchType}</Text>
+                      <Text style={[dynamicStyles.text, { fontSize: 15, fontWeight: '900', minWidth: 26, textAlign: 'center' }]}>{matchType}</Text>
                       {isAdminOrOwner && (
                         <TouchableOpacity
                           onPress={() => {
@@ -5012,13 +5009,15 @@ export default function GroupDetailScreen() {
                             setMatchType(newVal);
                             handleUpdateGroupSettings({ match_type: newVal });
                           }}
-                          style={{ width: 32, height: 32, borderRadius: 6, backgroundColor: isDarkMode ? '#3A3A3C' : '#E5E5EA', alignItems: 'center', justifyContent: 'center' }}
+                          style={{ width: 30, height: 30, borderRadius: 6, backgroundColor: isDarkMode ? '#3A3A3C' : '#E5E5EA', alignItems: 'center', justifyContent: 'center' }}
                         >
-                          <Ionicons name="add" size={18} color={isDarkMode ? "#FFF" : "#000"} />
+                          <Ionicons name="add" size={16} color={isDarkMode ? "#FFF" : "#000"} />
                         </TouchableOpacity>
                       )}
                     </View>
-                    <Text style={[dynamicStyles.text, { fontSize: 15, fontWeight: '800' }]}>{matchType} vs {matchType}</Text>
+                    <View style={{ backgroundColor: '#007AFF15', paddingHorizontal: 6, paddingVertical: 5, borderRadius: 6 }}>
+                      <Text style={{ fontSize: 11, fontWeight: '900', color: '#007AFF' }}>{matchType}v{matchType}</Text>
+                    </View>
                   </View>
                 </View>
               </View>
@@ -5122,16 +5121,15 @@ export default function GroupDetailScreen() {
                   })}
                 </View>
               </View>
-            </ScrollView>
 
-            <View style={{ padding: 12, borderTopWidth: 1, borderTopColor: isDarkMode ? '#2C2C2E' : '#E5E5EA', backgroundColor: isDarkMode ? '#1C1C1E' : '#FFFFFF' }}>
+              {/* Pulsante Chiudi integrato dentro lo ScrollView per visibilità garantita al 100% */}
               <TouchableOpacity
-                style={[styles.saveBtn, { marginTop: 0, height: 44, borderRadius: 12 }]}
+                style={[styles.saveBtn, { marginTop: 10, height: 46, borderRadius: 12 }]}
                 onPress={() => setShowCalcettoSettingsModal(false)}
               >
                 <Text style={styles.saveBtnText}>Chiudi</Text>
               </TouchableOpacity>
-            </View>
+            </ScrollView>
           </View>
         </View>
       </Modal>
