@@ -4491,7 +4491,7 @@ export default function GroupDetailScreen() {
             onPress={() => setShowRadarConfigModal(false)}
           />
           <View
-            style={[styles.modalContent, dynamicStyles.modalContent, { height: '85%', maxHeight: '85%', maxWidth: 420, paddingBottom: Platform.OS === 'android' ? 28 : 12, overflow: 'hidden', flexDirection: 'column' }]}
+            style={[styles.modalContent, dynamicStyles.modalContent, { height: '94%', maxHeight: '94%', maxWidth: 420, paddingBottom: Platform.OS === 'android' ? 24 : 10, overflow: 'hidden', flexDirection: 'column' }]}
           >
             <View style={styles.modalHeader}>
               <Text style={[styles.modalTitle, dynamicStyles.text]}>Grafico Prestazioni</Text>
@@ -4630,7 +4630,7 @@ export default function GroupDetailScreen() {
             activeOpacity={1}
             onPress={() => setShowBonusSettingsModal(false)}
           />
-          <View style={[styles.modalContent, dynamicStyles.modalContent, { height: '85%', maxHeight: '85%', maxWidth: 420, paddingBottom: Platform.OS === 'android' ? 28 : 12, overflow: 'hidden', flexDirection: 'column' }]}>
+          <View style={[styles.modalContent, dynamicStyles.modalContent, { height: '94%', maxHeight: '94%', maxWidth: 420, paddingBottom: Platform.OS === 'android' ? 24 : 10, overflow: 'hidden', flexDirection: 'column' }]}>
             <View style={styles.modalHeader}>
               <View style={{ flex: 1 }}>
                 <Text style={[styles.modalTitle, dynamicStyles.text]}>Gestione Bonus</Text>
@@ -4643,6 +4643,7 @@ export default function GroupDetailScreen() {
 
             <ScrollView
               style={{ flex: 1 }}
+              contentContainerStyle={{ padding: 16, paddingBottom: 70, gap: 14 }}
               contentContainerStyle={{ padding: 16, paddingBottom: 40, gap: 14 }}
               showsVerticalScrollIndicator={true}
               nestedScrollEnabled={true}
@@ -4819,7 +4820,7 @@ export default function GroupDetailScreen() {
             activeOpacity={1}
             onPress={() => setShowSharingSettingsModal(false)}
           />
-          <View style={[styles.modalContent, dynamicStyles.modalContent, { height: '85%', maxHeight: '85%', maxWidth: 420, paddingBottom: Platform.OS === 'android' ? 28 : 12, overflow: 'hidden', flexDirection: 'column' }]}>
+          <View style={[styles.modalContent, dynamicStyles.modalContent, { height: '94%', maxHeight: '94%', maxWidth: 420, paddingBottom: Platform.OS === 'android' ? 24 : 10, overflow: 'hidden', flexDirection: 'column' }]}>
             <View style={styles.modalHeader}>
               <View style={{ flex: 1 }}>
                 <Text style={[styles.modalTitle, dynamicStyles.text]}>Gestione Condivisione</Text>
@@ -4832,7 +4833,7 @@ export default function GroupDetailScreen() {
 
             <ScrollView
               style={{ flex: 1 }}
-              contentContainerStyle={{ padding: 16, paddingBottom: 40, gap: 16 }}
+              contentContainerStyle={{ padding: 16, paddingBottom: 70, gap: 16 }}
               showsVerticalScrollIndicator={true}
               nestedScrollEnabled={true}
               keyboardShouldPersistTaps="handled"
@@ -4964,7 +4965,7 @@ export default function GroupDetailScreen() {
             activeOpacity={1}
             onPress={() => setShowCalcettoSettingsModal(false)}
           />
-          <View style={[styles.modalContent, dynamicStyles.modalContent, { height: '85%', maxHeight: '85%', maxWidth: 420, paddingBottom: Platform.OS === 'android' ? 28 : 12, overflow: 'hidden', flexDirection: 'column' }]}>
+          <View style={[styles.modalContent, dynamicStyles.modalContent, { height: '94%', maxHeight: '94%', maxWidth: 420, paddingBottom: Platform.OS === 'android' ? 24 : 10, overflow: 'hidden', flexDirection: 'column' }]}>
             <View style={styles.modalHeader}>
               <View style={{ flex: 1 }}>
                 <Text style={[styles.modalTitle, dynamicStyles.text]}>Gestione Calcetto</Text>
@@ -4977,7 +4978,7 @@ export default function GroupDetailScreen() {
 
             <ScrollView
               style={{ flex: 1 }}
-              contentContainerStyle={{ padding: 16, paddingBottom: 50, gap: 16 }}
+              contentContainerStyle={{ padding: 16, paddingBottom: 70, gap: 16 }}
               showsVerticalScrollIndicator={true}
               nestedScrollEnabled={true}
               keyboardShouldPersistTaps="handled"
