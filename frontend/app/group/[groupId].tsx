@@ -162,6 +162,7 @@ export default function GroupDetailScreen() {
   const [showCareerSettings, setShowCareerSettings] = useState(false);
   const [showBonusSettingsModal, setShowBonusSettingsModal] = useState(false);
   const [showSharingSettingsModal, setShowSharingSettingsModal] = useState(false);
+  const [showCalcettoSettingsModal, setShowCalcettoSettingsModal] = useState(false);
   const matchViewShotRef = useRef<ViewShot>(null);
   const standingsViewShotRef = useRef<ViewShot>(null);
   const bracketViewShotRef = useRef<ViewShot>(null);
@@ -4955,6 +4956,188 @@ export default function GroupDetailScreen() {
     );
   };
 
+  const renderCalcettoSettingsModal = () => {
+    if (!showCalcettoSettingsModal) return null;
+
+    return (
+      <Modal visible={showCalcettoSettingsModal} animationType="slide" transparent={true} onRequestClose={() => setShowCalcettoSettingsModal(false)}>
+        <View style={styles.modalOverlay}>
+          <TouchableOpacity
+            style={StyleSheet.absoluteFill}
+            activeOpacity={1}
+            onPress={() => setShowCalcettoSettingsModal(false)}
+          />
+          <View style={[styles.modalContent, dynamicStyles.modalContent, { height: '85%', maxHeight: '85%', maxWidth: 420, paddingBottom: Platform.OS === 'android' ? 28 : 12, overflow: 'hidden', flexDirection: 'column' }]}>
+            <View style={styles.modalHeader}>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.modalTitle, dynamicStyles.text]}>Gestione Calcetto</Text>
+                <Text style={[dynamicStyles.subText, { fontSize: 11 }]}>Formato partite, punteggi, parità e viste</Text>
+              </View>
+              <TouchableOpacity onPress={() => setShowCalcettoSettingsModal(false)} style={{ padding: 4 }}>
+                <Ionicons name="close-circle" size={26} color={isDarkMode ? "#AAA" : "#8E8E93"} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView
+              style={{ flex: 1 }}
+              contentContainerStyle={{ padding: 16, paddingBottom: 40, gap: 16 }}
+              showsVerticalScrollIndicator={true}
+              nestedScrollEnabled={true}
+              keyboardShouldPersistTaps="handled"
+            >
+              {/* 1. Formato Partita (es. 5 vs 5) */}
+              <View style={{ backgroundColor: isDarkMode ? '#2C2C2E' : '#F8F9FF', padding: 14, borderRadius: 14, borderWidth: 1, borderColor: isDarkMode ? '#3A3A3C' : '#E5E5EA' }}>
+                <Text style={[dynamicStyles.text, { fontSize: 15, fontWeight: '800', marginBottom: 8 }]}>⚽ Formato Partita</Text>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Text style={[dynamicStyles.subText, { fontSize: 12, fontWeight: '700' }]}>Giocatori per Squadra:</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                    <View style={[dynamicStyles.card, { flexDirection: 'row', alignItems: 'center', padding: 4, borderRadius: 8, borderWidth: 1 }]}>
+                      {isAdminOrOwner && (
+                        <TouchableOpacity
+                          onPress={() => {
+                            const newVal = Math.max(1, matchType - 1);
+                            setMatchType(newVal);
+                            handleUpdateGroupSettings({ match_type: newVal });
+                          }}
+                          style={{ width: 32, height: 32, borderRadius: 6, backgroundColor: isDarkMode ? '#3A3A3C' : '#E5E5EA', alignItems: 'center', justifyContent: 'center' }}
+                        >
+                          <Ionicons name="remove" size={18} color={isDarkMode ? "#FFF" : "#000"} />
+                        </TouchableOpacity>
+                      )}
+                      <Text style={[dynamicStyles.text, { fontSize: 16, fontWeight: '900', minWidth: 32, textAlign: 'center' }]}>{matchType}</Text>
+                      {isAdminOrOwner && (
+                        <TouchableOpacity
+                          onPress={() => {
+                            const newVal = matchType + 1;
+                            setMatchType(newVal);
+                            handleUpdateGroupSettings({ match_type: newVal });
+                          }}
+                          style={{ width: 32, height: 32, borderRadius: 6, backgroundColor: isDarkMode ? '#3A3A3C' : '#E5E5EA', alignItems: 'center', justifyContent: 'center' }}
+                        >
+                          <Ionicons name="add" size={18} color={isDarkMode ? "#FFF" : "#000"} />
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                    <Text style={[dynamicStyles.text, { fontSize: 15, fontWeight: '800' }]}>{matchType} vs {matchType}</Text>
+                  </View>
+                </View>
+              </View>
+
+              {/* 2. Punti Vittoria e Pareggio */}
+              {isAdminOrOwner && (
+                <View style={{ backgroundColor: isDarkMode ? '#2C2C2E' : '#F8F9FF', padding: 14, borderRadius: 14, borderWidth: 1, borderColor: isDarkMode ? '#3A3A3C' : '#E5E5EA' }}>
+                  <Text style={[dynamicStyles.text, { fontSize: 15, fontWeight: '800', marginBottom: 10 }]}>🏆 Assegnazione Punti</Text>
+                  <View style={{ flexDirection: 'row', gap: 15 }}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.configSectionTitle, dynamicStyles.text, { fontSize: 12, fontWeight: '700', marginBottom: 4 }]}>Punti Vittoria</Text>
+                      <TextInput
+                        style={[styles.scoreInput, dynamicStyles.input, { height: 40, fontSize: 16, fontWeight: '800', textAlign: 'center', borderRadius: 8 }]}
+                        keyboardType="numeric"
+                        value={String(group?.points_win ?? 3)}
+                        onChangeText={(v) => handleUpdateGroupSettings({ points_win: parseInt(v) || 0 })}
+                      />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.configSectionTitle, dynamicStyles.text, { fontSize: 12, fontWeight: '700', marginBottom: 4 }]}>Punti Pareggio</Text>
+                      <TextInput
+                        style={[styles.scoreInput, dynamicStyles.input, { height: 40, fontSize: 16, fontWeight: '800', textAlign: 'center', borderRadius: 8 }]}
+                        keyboardType="numeric"
+                        value={String(group?.points_draw ?? 1)}
+                        onChangeText={(v) => handleUpdateGroupSettings({ points_draw: parseInt(v) || 0 })}
+                      />
+                    </View>
+                  </View>
+                </View>
+              )}
+
+              {/* 3. Opzioni Visualizzazione */}
+              <View style={{ backgroundColor: isDarkMode ? '#2C2C2E' : '#F8F9FF', padding: 14, borderRadius: 14, borderWidth: 1, borderColor: isDarkMode ? '#3A3A3C' : '#E5E5EA', gap: 12 }}>
+                <Text style={[dynamicStyles.text, { fontSize: 15, fontWeight: '800', marginBottom: 2 }]}>👁️ Opzioni Visualizzazione</Text>
+
+                <View style={styles.bonusRow}>
+                  <View style={{ flex: 1, paddingRight: 10 }}>
+                    <Text style={[dynamicStyles.text, { fontSize: 14, fontWeight: '600' }]}>Mostra Valore Spider (SPD)</Text>
+                    <Text style={[dynamicStyles.subText, { fontSize: 10, marginTop: 1 }]}>Mostra il rating del grafico spider sulle schede giocatori</Text>
+                  </View>
+                  <Switch
+                    style={{ transform: [{ scale: 1.1 }] }}
+                    trackColor={{ false: '#767577', true: '#007AFF' }}
+                    thumbColor="#FFF"
+                    value={group?.show_spider_rating !== false}
+                    onValueChange={(v) => handleUpdateGroupSettings({ show_spider_rating: v })}
+                  />
+                </View>
+
+                <View style={[styles.detailDivider, dynamicStyles.divider, { marginHorizontal: 0, opacity: 0.3 }]} />
+
+                <View style={styles.bonusRow}>
+                  <View style={{ flex: 1, paddingRight: 10 }}>
+                    <Text style={[dynamicStyles.text, { fontSize: 14, fontWeight: '600' }]}>🙈 Mostra Giocatori Nascosti</Text>
+                    <Text style={[dynamicStyles.subText, { fontSize: 10, marginTop: 1 }]}>Includi anche i giocatori nascosti nelle liste e classifiche</Text>
+                  </View>
+                  <Switch
+                    style={{ transform: [{ scale: 1.1 }] }}
+                    trackColor={{ false: '#767577', true: '#FF9500' }}
+                    thumbColor="#FFF"
+                    value={group?.show_hidden_players === true}
+                    onValueChange={(v) => handleUpdateGroupSettings({ show_hidden_players: v })}
+                  />
+                </View>
+              </View>
+
+              {/* 4. Criteri Parità Punti (Ordine) */}
+              <View style={{ backgroundColor: isDarkMode ? '#2C2C2E' : '#F8F9FF', padding: 14, borderRadius: 14, borderWidth: 1, borderColor: isDarkMode ? '#3A3A3C' : '#E5E5EA' }}>
+                <Text style={[dynamicStyles.text, { fontSize: 15, fontWeight: '800', marginBottom: 4 }]}>📊 Criteri Parità Punti (Ordine)</Text>
+                <Text style={[dynamicStyles.subText, { fontSize: 11, marginBottom: 12 }]}>
+                  Stabilisci i criteri di spareggio in classifica a parità di punteggio.
+                </Text>
+
+                <View style={{ gap: 10 }}>
+                  {[1, 2].map((num) => {
+                    const currentId = num === 1 ? (group?.tie_breaker_1 || 'ratio') : (group?.tie_breaker_2 || 'incisivity');
+                    const options = [
+                      { id: 'ratio', label: 'Media Punti Partita' },
+                      { id: 'played', label: 'Partite Giocate' },
+                      { id: 'goals', label: 'Goal' },
+                      { id: 'assists', label: 'Assist' },
+                      { id: 'bonus', label: 'Bonus' },
+                      { id: 'incisivity', label: 'Incisività' },
+                    ];
+                    const currentLabel = options.find(o => o.id === currentId)?.label || 'Seleziona';
+
+                    return (
+                      <View key={num} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                        <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: '#007AFF', alignItems: 'center', justifyContent: 'center' }}>
+                          <Text style={{ color: '#FFF', fontSize: 12, fontWeight: '900' }}>{num}</Text>
+                        </View>
+                        <TouchableOpacity
+                          style={[styles.scoreInput, dynamicStyles.input, { flex: 1, height: 42, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderRadius: 8 }]}
+                          onPress={() => setShowTieBreakerSelector({ number: num as 1 | 2 })}
+                        >
+                          <Text style={[dynamicStyles.text, { fontSize: 13, fontWeight: '700' }]}>{currentLabel}</Text>
+                          <Ionicons name="chevron-down" size={18} color="#8E8E93" />
+                        </TouchableOpacity>
+                      </View>
+                    );
+                  })}
+                </View>
+              </View>
+            </ScrollView>
+
+            <View style={{ padding: 12, borderTopWidth: 1, borderTopColor: isDarkMode ? '#2C2C2E' : '#E5E5EA', backgroundColor: isDarkMode ? '#1C1C1E' : '#FFFFFF' }}>
+              <TouchableOpacity
+                style={[styles.saveBtn, { marginTop: 0, height: 44, borderRadius: 12 }]}
+                onPress={() => setShowCalcettoSettingsModal(false)}
+              >
+                <Text style={styles.saveBtnText}>Chiudi</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    );
+  };
+
   const renderCareerSettingsModal = () => {
     return (
       <Modal visible={showCareerSettings} transparent animationType="slide">
@@ -6235,62 +6418,6 @@ export default function GroupDetailScreen() {
                     {/* SEZIONE CAMPIONATO */}
                     {group?.group_type !== 'tournament' && (
                       <>
-                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 }}>
-                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                            <View style={[dynamicStyles.card, { flexDirection: 'row', alignItems: 'center', padding: 4, borderRadius: 8, borderWidth: 1 }]}>
-                              {isAdminOrOwner && (
-                                <TouchableOpacity
-                                  onPress={() => {
-                                    const newVal = Math.max(1, matchType - 1);
-                                    setMatchType(newVal);
-                                    handleUpdateGroupSettings({ match_type: newVal });
-                                  }}
-                                  style={{ width: 28, height: 28, borderRadius: 6, backgroundColor: isDarkMode ? '#3A3A3C' : '#E5E5EA', alignItems: 'center', justifyContent: 'center' }}
-                                >
-                                  <Ionicons name="remove" size={18} color={isDarkMode ? "#FFF" : "#000"} />
-                                </TouchableOpacity>
-                              )}
-                              <Text style={[dynamicStyles.text, { fontSize: 16, fontWeight: '800', minWidth: 30, textAlign: 'center' }]}>{matchType}</Text>
-                              {isAdminOrOwner && (
-                                <TouchableOpacity
-                                  onPress={() => {
-                                    const newVal = matchType + 1;
-                                    setMatchType(newVal);
-                                    handleUpdateGroupSettings({ match_type: newVal });
-                                  }}
-                                  style={{ width: 28, height: 28, borderRadius: 6, backgroundColor: isDarkMode ? '#3A3A3C' : '#E5E5EA', alignItems: 'center', justifyContent: 'center' }}
-                                >
-                                  <Ionicons name="add" size={18} color={isDarkMode ? "#FFF" : "#000"} />
-                                </TouchableOpacity>
-                              )}
-                            </View>
-                            <Text style={[dynamicStyles.text, { fontSize: 15, fontWeight: '800' }]}>{matchType} vs {matchType}</Text>
-                          </View>
-                        </View>
-
-                        {isAdminOrOwner && (
-                          <View style={{ flexDirection: 'row', gap: 15, marginBottom: 15 }}>
-                            <View style={{ flex: 1 }}>
-                              <Text style={[styles.configSectionTitle, dynamicStyles.text, { fontSize: 12, fontWeight: '700', marginBottom: 4 }]}>Punti Vittoria</Text>
-                              <TextInput
-                                style={[styles.scoreInput, dynamicStyles.input, { height: 40, fontSize: 16, fontWeight: '800', textAlign: 'center', borderRadius: 8 }]}
-                                keyboardType="numeric"
-                                value={String(group?.points_win ?? 3)}
-                                onChangeText={(v) => handleUpdateGroupSettings({ points_win: parseInt(v) || 0 })}
-                              />
-                            </View>
-                            <View style={{ flex: 1 }}>
-                              <Text style={[styles.configSectionTitle, dynamicStyles.text, { fontSize: 12, fontWeight: '700', marginBottom: 4 }]}>Punti Pareggio</Text>
-                              <TextInput
-                                style={[styles.scoreInput, dynamicStyles.input, { height: 40, fontSize: 16, fontWeight: '800', textAlign: 'center', borderRadius: 8 }]}
-                                keyboardType="numeric"
-                                value={String(group?.points_draw ?? 1)}
-                                onChangeText={(v) => handleUpdateGroupSettings({ points_draw: parseInt(v) || 0 })}
-                              />
-                            </View>
-                          </View>
-                        )}
-
                         {isAdminOrOwner && (
                           <View style={{ backgroundColor: isDarkMode ? '#1C1C1E' : '#F2F2F7', borderRadius: 12, padding: 12, gap: 10, marginBottom: 20 }}>
                             <TouchableOpacity
@@ -6389,7 +6516,7 @@ export default function GroupDetailScreen() {
                                 justifyContent: 'space-between',
                                 borderWidth: 1,
                                 borderColor: '#34C75940',
-                                marginBottom: 15
+                                marginBottom: 10
                               }}
                             >
                               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 15 }}>
@@ -6406,79 +6533,33 @@ export default function GroupDetailScreen() {
                               <Ionicons name="chevron-forward" size={22} color="#34C759" />
                             </TouchableOpacity>
 
-                            <View style={[styles.detailDivider, dynamicStyles.divider, { marginHorizontal: 0, opacity: 0.3 }]} />
-
-                            <View style={[styles.detailDivider, dynamicStyles.divider, { marginHorizontal: 0, opacity: 0.3, marginVertical: 8 }]} />
-
-                            <View style={styles.bonusRow}>
-                              <View style={{ flex: 1, paddingRight: 10 }}>
-                                <Text style={[dynamicStyles.text, { fontSize: 14, fontWeight: '600' }]}>Mostra Valore Spider (SPD)</Text>
-                                <Text style={[dynamicStyles.subText, { fontSize: 10, marginTop: 1 }]}>Mostra il rating del grafico spider sulle schede giocatori</Text>
+                            <TouchableOpacity
+                              onPress={() => setShowCalcettoSettingsModal(true)}
+                              style={{
+                                backgroundColor: isDarkMode ? '#2C2C2E' : '#F8F9FF',
+                                borderRadius: 16,
+                                padding: 18,
+                                flexDirection: 'row',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                borderWidth: 1,
+                                borderColor: '#E040FB40',
+                                marginBottom: 10
+                              }}
+                            >
+                              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 15 }}>
+                                <View style={{ width: 44, height: 44, borderRadius: 12, backgroundColor: '#E040FB15', alignItems: 'center', justifyContent: 'center' }}>
+                                  <Ionicons name="football" size={24} color="#E040FB" />
+                                </View>
+                                <View style={{ flex: 1 }}>
+                                  <Text style={[dynamicStyles.text, { fontSize: 16, fontWeight: '800' }]}>Gestione Calcetto</Text>
+                                  <Text style={[dynamicStyles.subText, { fontSize: 11, marginTop: 1 }]} numberOfLines={2}>
+                                    Regole match, punteggi, parità e opzioni viste
+                                  </Text>
+                                </View>
                               </View>
-                              <Switch
-                                style={{ transform: [{ scale: 1.1 }] }}
-                                trackColor={{ false: '#767577', true: '#007AFF' }}
-                                thumbColor="#FFF"
-                                value={group?.show_spider_rating !== false}
-                                onValueChange={(v) => handleUpdateGroupSettings({ show_spider_rating: v })}
-                              />
-                            </View>
-
-                            <View style={[styles.detailDivider, dynamicStyles.divider, { marginHorizontal: 0, opacity: 0.3, marginVertical: 8 }]} />
-
-                            <View style={styles.bonusRow}>
-                              <View style={{ flex: 1, paddingRight: 10 }}>
-                                <Text style={[dynamicStyles.text, { fontSize: 14, fontWeight: '600' }]}>🙈 Mostra Giocatori Nascosti</Text>
-                                <Text style={[dynamicStyles.subText, { fontSize: 10, marginTop: 1 }]}>Includi anche i giocatori nascosti nelle liste e classifiche</Text>
-                              </View>
-                              <Switch
-                                style={{ transform: [{ scale: 1.1 }] }}
-                                trackColor={{ false: '#767577', true: '#FF9500' }}
-                                thumbColor="#FFF"
-                                value={group?.show_hidden_players === true}
-                                onValueChange={(v) => handleUpdateGroupSettings({ show_hidden_players: v })}
-                              />
-                            </View>
-
-
-
-
-                            <View style={[styles.detailDivider, dynamicStyles.divider, { marginHorizontal: 0, opacity: 0.3, marginVertical: 8 }]} />
-
-                            <View>
-                              <Text style={[dynamicStyles.text, { fontSize: 13, fontWeight: '700', marginBottom: 12, color: '#8E8E93' }]}>CRITERI PARITÀ PUNTI (ORDINE)</Text>
-
-
-                              <View style={{ gap: 10 }}>
-                                {[1, 2].map((num) => {
-                                  const currentId = num === 1 ? (group?.tie_breaker_1 || 'ratio') : (group?.tie_breaker_2 || 'incisivity');
-                                  const options = [
-                                    { id: 'ratio', label: 'Media Punti Partita' },
-                                    { id: 'played', label: 'Partite Giocate' },
-                                    { id: 'goals', label: 'Goal' },
-                                    { id: 'assists', label: 'Assist' },
-                                    { id: 'bonus', label: 'Bonus' },
-                                    { id: 'incisivity', label: 'Incisività' },
-                                  ];
-                                  const currentLabel = options.find(o => o.id === currentId)?.label || 'Seleziona';
-
-                                  return (
-                                    <View key={num} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                                      <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: '#007AFF', alignItems: 'center', justifyContent: 'center' }}>
-                                        <Text style={{ color: '#FFF', fontSize: 12, fontWeight: '900' }}>{num}</Text>
-                                      </View>
-                                      <TouchableOpacity
-                                        onPress={() => setShowTieBreakerSelector({ num })}
-                                        style={[dynamicStyles.input, { flex: 1, height: 44, borderRadius: 12, borderWidth: 1, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, justifyContent: 'space-between' }]}
-                                      >
-                                        <Text style={[dynamicStyles.text, { fontSize: 14, fontWeight: '600' }]}>{currentLabel}</Text>
-                                        <Ionicons name="chevron-down" size={18} color="#8E8E93" />
-                                      </TouchableOpacity>
-                                    </View>
-                                  );
-                                })}
-                              </View>
-                            </View>
+                              <Ionicons name="chevron-forward" size={22} color="#E040FB" />
+                            </TouchableOpacity>
                           </View>
                         )}
                       </>
@@ -7119,6 +7200,7 @@ export default function GroupDetailScreen() {
         {renderRadarConfigModal()}
         {renderBonusSettingsModal()}
         {renderSharingSettingsModal()}
+        {renderCalcettoSettingsModal()}
         {renderMatchSharePreview()}
         {renderStandingsSharePreview()}
         {renderTournamentStandingsSharePreview()}
