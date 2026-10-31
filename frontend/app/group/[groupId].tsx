@@ -533,7 +533,7 @@ export default function GroupDetailScreen() {
     }
     setGenerating(true);
     try {
-      const useSpider = group?.use_spider_for_teams === true;
+      const useSpider = group?.group_type !== 'tournament' && group?.use_spider_for_teams === true;
       const selectedPlayersList = players.filter(p => selectedIds.has(p.id));
       const modifiedPlayers = selectedPlayersList.map(p => {
         let effStr = p.strength;
@@ -7286,9 +7286,9 @@ export default function GroupDetailScreen() {
                        </View>
                      </TouchableOpacity>
                    );
-                 }} contentContainerStyle={[styles.listContent, { paddingBottom: 130 }]} />
+                 }} contentContainerStyle={[styles.listContent, { paddingBottom: group?.group_type === 'tournament' ? 90 : 130 }]} />
                  <View style={[styles.genBar, { bottom: Platform.OS === 'android' ? 14 : 4 }]}>
-                   {manualStep === -1 && (
+                   {manualStep === -1 && group?.group_type !== 'tournament' && (
                      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginBottom: 8, gap: 6, backgroundColor: isDarkMode ? '#2C2C2E' : '#FFFFFF', padding: 6, borderRadius: 12, borderWidth: 1, borderColor: isDarkMode ? '#3A3A3C' : '#E5E5EA', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.15, shadowRadius: 4, elevation: 4 }}>
                        <Text style={[dynamicStyles.subText, { fontSize: 10, fontWeight: '800', marginRight: 2 }]}>BILANCIA PER:</Text>
                        <TouchableOpacity
