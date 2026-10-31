@@ -155,6 +155,7 @@ export default function PlayerDetailScreen() {
     defenseBonus: s.defense_bonus_count,
     incisivity: s.incisivity,
     role: s.role,
+    strength: (s as any).strength || (player ? player.strength : 5),
   });
 
   const getInitials = (nick: string) => (nick || '??').substring(0, 2).toUpperCase();

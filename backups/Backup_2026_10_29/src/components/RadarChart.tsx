@@ -16,6 +16,7 @@ interface PlayerStats {
   defenseBonus?: number;
   incisivity?: number; // Valore già calcolato (G+A)/P
   role?: string;
+  strength?: number;
 }
 
 interface RadarChartProps {
@@ -113,6 +114,12 @@ const METRIC_DESCRIPTIONS: Record<string, { label: string; icon: string; desc: s
     icon: '📊',
     desc: 'Il numero totale di partite disputate dal giocatore.',
     formula: 'Formula: Totale partite giocate',
+  },
+  strength: {
+    label: 'Forza Manuale (FRZ)',
+    icon: '🏋️',
+    desc: 'Il valore di forza tecnica (1-10) attribuito direttamente e manualmente al giocatore nella sua scheda.',
+    formula: 'Formula: Valore impostato nella scheda del giocatore',
   },
   team_goals_scored: {
     label: 'Potenza (Gol Squadra)',
@@ -217,6 +224,11 @@ const RadarChart: React.FC<RadarChartProps> = ({ stats, comparisonStats, isDarkM
       case 'played': {
         const score = maxStats?.played ? (s.matches || 0) / maxStats.played * 10 : Math.min(10, (s.matches || 0) * 0.5);
         return { mId, label: 'Presenze', value: Math.min(10, Number(score.toFixed(1))) };
+      }
+      case 'strength':
+      case 'strength_manual': {
+        const score = s.strength || (player as any)?.strength || 5;
+        return { mId, label: 'Forza (FRZ)', value: Math.min(10, Math.max(1, Number(score.toFixed(1)))) };
       }
       default:
         return { mId, label: 'Incisività', value: 5.0 };

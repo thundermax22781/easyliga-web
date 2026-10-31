@@ -4551,6 +4551,7 @@ export default function GroupDetailScreen() {
                       <View style={{ flexDirection: 'row', gap: 6 }}>
                         {[
                           { id: 'incisivity', label: '⚡ Incisività' },
+                          { id: 'strength', label: '🏋️ Forza Manuale (FRZ)' },
                           { id: 'mg', label: '⚽ Media Gol' },
                           { id: 'ma', label: '🎯 Media Assist' },
                           { id: 'team_goals_scored', label: '🔥 Potenza (Gol Squadra)' },
