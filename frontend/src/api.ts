@@ -48,6 +48,7 @@ export interface Group {
   show_spider_rating?: boolean; // Se mostrare il valore Spider (SPD) nelle schede
   show_hidden_players?: boolean; // Se mostrare i giocatori nascosti
   use_spider_for_teams?: boolean; // Se bilanciare le squadre usando il Rating Spider (SPD) anziché Forza (FRZ)
+  hidden_player_ids?: string[]; // IDs dei giocatori nascosti per sincronizzazione cloud tra dispositivi
 }
 
 export interface Player {
@@ -336,7 +337,7 @@ export const syncCloudData = async (groupId?: string): Promise<Group | null> => 
         'tournament_win_bonus', 'tournament_2nd_bonus', 'tournament_3rd_bonus',
         'tournament_4th_bonus', 'tournament_group_winner_bonus',
         'tournament_top_scorer_bonus', 'tournament_top_assistant_bonus',
-        'tournament_3rd_team_name', 'tournament_4th_team_name', 'radar_config', 'show_spider_rating', 'show_hidden_players', 'use_spider_for_teams'
+        'tournament_3rd_team_name', 'tournament_4th_team_name', 'radar_config', 'show_spider_rating', 'show_hidden_players', 'use_spider_for_teams', 'hidden_player_ids'
       ];
 
       for (const g of mapped) {
@@ -499,7 +500,7 @@ export const updateGroup = async (groupId: string, updates: Partial<Group> | str
           'tournament_win_bonus', 'tournament_2nd_bonus', 'tournament_3rd_bonus',
           'tournament_4th_bonus', 'tournament_group_winner_bonus',
           'tournament_top_scorer_bonus', 'tournament_top_assistant_bonus',
-          'tournament_3rd_team_name', 'tournament_4th_team_name', 'radar_config', 'show_spider_rating', 'show_hidden_players', 'use_spider_for_teams'
+          'tournament_3rd_team_name', 'tournament_4th_team_name', 'radar_config', 'show_spider_rating', 'show_hidden_players', 'use_spider_for_teams', 'hidden_player_ids'
         ];
 
         for (const field of careerFields) {
@@ -517,7 +518,7 @@ export const updateGroup = async (groupId: string, updates: Partial<Group> | str
         'tournament_win_bonus', 'tournament_2nd_bonus', 'tournament_3rd_bonus',
         'tournament_4th_bonus', 'tournament_group_winner_bonus',
         'tournament_top_scorer_bonus', 'tournament_top_assistant_bonus',
-        'tournament_3rd_team_name', 'tournament_4th_team_name', 'radar_config', 'show_spider_rating', 'show_hidden_players', 'use_spider_for_teams'
+        'tournament_3rd_team_name', 'tournament_4th_team_name', 'radar_config', 'show_spider_rating', 'show_hidden_players', 'use_spider_for_teams', 'hidden_player_ids'
       ];
       for (const field of careerFields) {
         await AsyncStorage.removeItem(`override_${field}_${groupId}`);
@@ -681,6 +682,17 @@ export const savePlayer = async (player: Partial<Player> & { group_id: string })
 
   if (player.is_hidden !== undefined) {
     await AsyncStorage.setItem(`player_hidden_${playerWithId.id}`, String(playerWithId.is_hidden));
+    if (group) {
+      const currentHiddenSet = new Set<string>(group.hidden_player_ids || []);
+      if (playerWithId.is_hidden) {
+        currentHiddenSet.add(playerWithId.id);
+      } else {
+        currentHiddenSet.delete(playerWithId.id);
+      }
+      const updatedHiddenIds = Array.from(currentHiddenSet);
+      group.hidden_player_ids = updatedHiddenIds;
+      await updateGroup(player.group_id, { hidden_player_ids: updatedHiddenIds });
+    }
   }
 
   // Verifichiamo se il giocatore esiste già in QUESTO gruppo (per decidere se fare update o insert)
