@@ -6905,39 +6905,7 @@ export default function GroupDetailScreen() {
                     {/* SEZIONE TORNEO */}
                     {group?.group_type === 'tournament' && (
                       <>
-                        <View style={{ marginBottom: 15 }}>
-                          <Text style={[styles.configSectionTitle, dynamicStyles.text, { fontSize: 13, marginBottom: 8 }]}>Giocatori per squadra</Text>
-                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                            <View style={[dynamicStyles.card, { flexDirection: 'row', alignItems: 'center', padding: 4, borderRadius: 10, borderWidth: 1 }]}>
-                              {isAdminOrOwner && (
-                                <TouchableOpacity
-                                  onPress={() => {
-                                    const newVal = Math.max(1, matchType - 1);
-                                    setMatchType(newVal);
-                                    handleUpdateGroupSettings({ match_type: newVal });
-                                  }}
-                                  style={{ width: 32, height: 32, borderRadius: 8, backgroundColor: isDarkMode ? '#3A3A3C' : '#E5E5EA', alignItems: 'center', justifyContent: 'center' }}
-                                >
-                                  <Ionicons name="remove" size={20} color={isDarkMode ? "#FFF" : "#000"} />
-                                </TouchableOpacity>
-                              )}
-                              <Text style={[dynamicStyles.text, { fontSize: 18, fontWeight: '900', minWidth: 40, textAlign: 'center' }]}>{matchType}</Text>
-                              {isAdminOrOwner && (
-                                <TouchableOpacity
-                                  onPress={() => {
-                                    const newVal = matchType + 1;
-                                    setMatchType(newVal);
-                                    handleUpdateGroupSettings({ match_type: newVal });
-                                  }}
-                                  style={{ width: 32, height: 32, borderRadius: 8, backgroundColor: isDarkMode ? '#3A3A3C' : '#E5E5EA', alignItems: 'center', justifyContent: 'center' }}
-                                >
-                                  <Ionicons name="add" size={20} color={isDarkMode ? "#FFF" : "#000"} />
-                                </TouchableOpacity>
-                              )}
-                            </View>
-                          </View>
-                        </View>
-
+                        {/* 1. Numero Squadre */}
                         <View style={{ marginBottom: 15 }}>
                           <Text style={[styles.configSectionTitle, dynamicStyles.text, { fontSize: 13, marginBottom: 8 }]}>Numero Squadre</Text>
                           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
@@ -6947,7 +6915,6 @@ export default function GroupDetailScreen() {
                                   onPress={() => {
                                     const newVal = Math.max(3, numTeams - 1);
                                     setNumTeams(newVal);
-                                    // Se le squadre scendono sotto 6, forza 1 solo gruppo
                                     const finalGroups = newVal < 6 ? 1 : numGroups;
                                     setNumGroups(finalGroups);
                                     handleUpdateGroupSettings({ num_teams: newVal, num_groups: finalGroups });
@@ -6975,21 +6942,8 @@ export default function GroupDetailScreen() {
                           </View>
                         </View>
 
-                        <View style={{ marginBottom: 20 }}>
-                          <Text style={[styles.configSectionTitle, dynamicStyles.text, { fontSize: 13, marginBottom: 8 }]}>Giocatori</Text>
-                          <TouchableOpacity
-                            onPress={() => setShowImportPlayersModal(true)}
-                            style={{ backgroundColor: isDarkMode ? '#3A3A3C' : '#F2F2F7', borderRadius: 12, paddingVertical: 12, paddingHorizontal: 15, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderWidth: 1, borderColor: isDarkMode ? '#444' : '#E5E5EA' }}
-                          >
-                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                              <Ionicons name="people-outline" size={20} color="#007AFF" />
-                              <Text style={[dynamicStyles.text, { fontSize: 14, fontWeight: '700' }]}>Importa da altro gruppo</Text>
-                            </View>
-                            <Ionicons name="chevron-forward" size={18} color="#8E8E93" />
-                          </TouchableOpacity>
-                        </View>
-
-                        <View style={{ marginBottom: 20 }}>
+                        {/* 2. Numero Gironi */}
+                        <View style={{ marginBottom: 15 }}>
                           <Text style={[styles.configSectionTitle, dynamicStyles.text, { fontSize: 13, marginBottom: 8 }]}>Numero Gironi</Text>
                           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
                             <View style={[dynamicStyles.card, { flexDirection: 'row', alignItems: 'center', padding: 4, borderRadius: 10, borderWidth: 1 }]}>
@@ -7027,6 +6981,57 @@ export default function GroupDetailScreen() {
                           </View>
                         </View>
 
+                        {/* 3. Giocatori per squadra */}
+                        <View style={{ marginBottom: 15 }}>
+                          <Text style={[styles.configSectionTitle, dynamicStyles.text, { fontSize: 13, marginBottom: 8 }]}>Giocatori per squadra</Text>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                            <View style={[dynamicStyles.card, { flexDirection: 'row', alignItems: 'center', padding: 4, borderRadius: 10, borderWidth: 1 }]}>
+                              {isAdminOrOwner && (
+                                <TouchableOpacity
+                                  onPress={() => {
+                                    const newVal = Math.max(1, matchType - 1);
+                                    setMatchType(newVal);
+                                    handleUpdateGroupSettings({ match_type: newVal });
+                                  }}
+                                  style={{ width: 32, height: 32, borderRadius: 8, backgroundColor: isDarkMode ? '#3A3A3C' : '#E5E5EA', alignItems: 'center', justifyContent: 'center' }}
+                                >
+                                  <Ionicons name="remove" size={20} color={isDarkMode ? "#FFF" : "#000"} />
+                                </TouchableOpacity>
+                              )}
+                              <Text style={[dynamicStyles.text, { fontSize: 18, fontWeight: '900', minWidth: 40, textAlign: 'center' }]}>{matchType}</Text>
+                              {isAdminOrOwner && (
+                                <TouchableOpacity
+                                  onPress={() => {
+                                    const newVal = matchType + 1;
+                                    setMatchType(newVal);
+                                    handleUpdateGroupSettings({ match_type: newVal });
+                                  }}
+                                  style={{ width: 32, height: 32, borderRadius: 8, backgroundColor: isDarkMode ? '#3A3A3C' : '#E5E5EA', alignItems: 'center', justifyContent: 'center' }}
+                                >
+                                  <Ionicons name="add" size={20} color={isDarkMode ? "#FFF" : "#000"} />
+                                </TouchableOpacity>
+                              )}
+                            </View>
+                            <Text style={[dynamicStyles.text, { fontSize: 16, fontWeight: '800', opacity: 0.7 }]}>{matchType} vs {matchType}</Text>
+                          </View>
+                        </View>
+
+                        {/* 4. Giocatori (Importa da altro gruppo) */}
+                        <View style={{ marginBottom: 20 }}>
+                          <Text style={[styles.configSectionTitle, dynamicStyles.text, { fontSize: 13, marginBottom: 8 }]}>Giocatori</Text>
+                          <TouchableOpacity
+                            onPress={() => setShowImportPlayersModal(true)}
+                            style={{ backgroundColor: isDarkMode ? '#3A3A3C' : '#F2F2F7', borderRadius: 12, paddingVertical: 12, paddingHorizontal: 15, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderWidth: 1, borderColor: isDarkMode ? '#444' : '#E5E5EA' }}
+                          >
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                              <Ionicons name="people-outline" size={20} color="#007AFF" />
+                              <Text style={[dynamicStyles.text, { fontSize: 14, fontWeight: '700' }]}>Importa da altro gruppo</Text>
+                            </View>
+                            <Ionicons name="chevron-forward" size={18} color="#8E8E93" />
+                          </TouchableOpacity>
+                        </View>
+
+                        {/* 5. Marcatori, Assist & Mostra Giocatori Nascosti */}
                         {isAdminOrOwner && (
                           <View style={{ backgroundColor: isDarkMode ? '#1C1C1E' : '#F2F2F7', borderRadius: 12, padding: 12, gap: 10, marginBottom: 20 }}>
                             <View style={styles.bonusRow}>
@@ -7036,6 +7041,20 @@ export default function GroupDetailScreen() {
                             <View style={styles.bonusRow}>
                               <Text style={[dynamicStyles.text, { fontSize: 14, fontWeight: '600' }]}>Assist</Text>
                               <Switch style={{ transform: [{ scale: 1.1 }] }} trackColor={{ false: '#767577', true: '#34C759' }} thumbColor="#FFF" value={group?.show_assists} onValueChange={(v) => handleUpdateGroupSettings({ show_assists: v })} />
+                            </View>
+                            <View style={[styles.detailDivider, dynamicStyles.divider, { marginHorizontal: 0, opacity: 0.3 }]} />
+                            <View style={styles.bonusRow}>
+                              <View style={{ flex: 1, paddingRight: 10 }}>
+                                <Text style={[dynamicStyles.text, { fontSize: 14, fontWeight: '600' }]}>🙈 Mostra Giocatori Nascosti</Text>
+                                <Text style={[dynamicStyles.subText, { fontSize: 10, marginTop: 1 }]}>Includi anche i giocatori nascosti nelle liste e classifiche</Text>
+                              </View>
+                              <Switch
+                                style={{ transform: [{ scale: 1.1 }] }}
+                                trackColor={{ false: '#767577', true: '#FF9500' }}
+                                thumbColor="#FFF"
+                                value={group?.show_hidden_players === true}
+                                onValueChange={(v) => handleUpdateGroupSettings({ show_hidden_players: v })}
+                              />
                             </View>
                           </View>
                         )}
@@ -7047,67 +7066,69 @@ export default function GroupDetailScreen() {
               </View>
             )}
 
-            <View style={[styles.tabsWrapper, { marginBottom: 8 }]}>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 10 }}>
-                <View style={{ flexDirection: 'row', borderRadius: 12, overflow: 'hidden', borderWidth: 1, borderColor: isDarkMode ? '#3A3A3C' : '#E5E5EA' }}>
-                  {(() => {
-                    const tabs = [];
-                    const isTournament = group?.group_type === 'tournament';
-                    const hasMatches = matches.length > 0;
+            {!showConfig && (
+              <View style={[styles.tabsWrapper, { marginBottom: 8 }]}>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 10 }}>
+                  <View style={{ flexDirection: 'row', borderRadius: 12, overflow: 'hidden', borderWidth: 1, borderColor: isDarkMode ? '#3A3A3C' : '#E5E5EA' }}>
+                    {(() => {
+                      const tabs = [];
+                      const isTournament = group?.group_type === 'tournament';
+                      const hasMatches = matches.length > 0;
 
-                    if (isTournament && hasMatches) {
-                      tabs.push({ id: 'standings', icon: 'person', label: 'Individuali' });
-                    } else {
-                      tabs.push({ id: 'teams', icon: 'flash', label: 'Genera' });
-                    }
+                      if (isTournament && hasMatches) {
+                        tabs.push({ id: 'standings', icon: 'person', label: 'Individuali' });
+                      } else {
+                        tabs.push({ id: 'teams', icon: 'flash', label: 'Genera' });
+                      }
 
-                    if (isTournament) {
-                      tabs.push({ id: 'tournament_standings', icon: 'trophy', label: 'Torneo' });
-                    } else {
-                      tabs.push({ id: 'standings', icon: 'trophy', label: 'Classifica' });
-                    }
+                      if (isTournament) {
+                        tabs.push({ id: 'tournament_standings', icon: 'trophy', label: 'Torneo' });
+                      } else {
+                        tabs.push({ id: 'standings', icon: 'trophy', label: 'Classifica' });
+                      }
 
-                    tabs.push({ id: 'matches', icon: 'list', label: 'Risultati' });
+                      tabs.push({ id: 'matches', icon: 'list', label: 'Risultati' });
 
-                    return tabs.map((t, i) => (
-                      <TouchableOpacity
-                        key={t.id}
-                        style={{
-                          paddingHorizontal: 12,
-                          height: 46,
-                          flexDirection: 'row',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          backgroundColor: activeTab === t.id ? '#007AFF' : (isDarkMode ? '#2C2C2E' : '#FFFFFF'),
-                          borderLeftWidth: i === 0 ? 0 : 1,
-                          borderLeftColor: isDarkMode ? '#3A3A3C' : '#E5E5EA',
-                          minWidth: isTournament ? 90 : 105
-                        }}
-                        onPress={() => setActiveTab(activeTab === t.id ? 'players' : t.id as any)}
-                      >
-                        <Ionicons
-                          name={(t as any).icon}
-                          size={16}
-                          color={activeTab === t.id ? '#FFFFFF' : (isDarkMode ? '#AEAEB2' : '#8E8E93')}
-                          style={{ marginRight: 6 }}
-                        />
-                        <Text
+                      return tabs.map((t, i) => (
+                        <TouchableOpacity
+                          key={t.id}
                           style={{
-                            fontSize: 10.5,
-                            fontWeight: '900',
-                            color: activeTab === t.id ? '#FFFFFF' : (isDarkMode ? '#AEAEB2' : '#8E8E93'),
-                            textTransform: 'uppercase'
+                            paddingHorizontal: 12,
+                            height: 46,
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            backgroundColor: activeTab === t.id ? '#007AFF' : (isDarkMode ? '#2C2C2E' : '#FFFFFF'),
+                            borderLeftWidth: i === 0 ? 0 : 1,
+                            borderLeftColor: isDarkMode ? '#3A3A3C' : '#E5E5EA',
+                            minWidth: isTournament ? 90 : 105
                           }}
-                          numberOfLines={1}
+                          onPress={() => setActiveTab(activeTab === t.id ? 'players' : t.id as any)}
                         >
-                          {t.label}
-                        </Text>
-                      </TouchableOpacity>
-                    ));
-                  })()}
-                </View>
-              </ScrollView>
-            </View>
+                          <Ionicons
+                            name={(t as any).icon}
+                            size={16}
+                            color={activeTab === t.id ? '#FFFFFF' : (isDarkMode ? '#AEAEB2' : '#8E8E93')}
+                            style={{ marginRight: 6 }}
+                          />
+                          <Text
+                            style={{
+                              fontSize: 10.5,
+                              fontWeight: '900',
+                              color: activeTab === t.id ? '#FFFFFF' : (isDarkMode ? '#AEAEB2' : '#8E8E93'),
+                              textTransform: 'uppercase'
+                            }}
+                            numberOfLines={1}
+                          >
+                            {t.label}
+                          </Text>
+                        </TouchableOpacity>
+                      ));
+                    })()}
+                  </View>
+                </ScrollView>
+              </View>
+            )}
 
             {activeTab === 'players' && (
               <View style={{ flex: 1 }}>
