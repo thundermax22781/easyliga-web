@@ -4597,12 +4597,13 @@ export default function GroupDetailScreen() {
                     <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                       <View style={{ flexDirection: 'row', gap: 6 }}>
                         {[
+                          { id: 'none', label: '🚫 Nessuna' },
                           { id: 'incisivity', label: '⚡ Incisività' },
-                          { id: 'mg', label: '⚽ Media Goal' },
-                          { id: 'ma', label: '🎯 Media Assist' },
+                          { id: 'mg', label: '⚽ Goal' },
+                          { id: 'ma', label: '🎯 Assist' },
                           { id: 'team_goals_scored', label: '🔥 Goal Squadra' },
                           { id: 'solidity', label: '🛡️ Difesa Squadra' },
-                          { id: 'win_rate', label: '🏆 Percentuale Vittorie' },
+                          { id: 'win_rate', label: '🏆 Vittorie' },
                         ].map(mOpt => {
                           const isSelected = currentSelected === mOpt.id;
                           return (

@@ -842,31 +842,31 @@ export default function PlayerDetailScreen() {
       formula: 'Formula: (Gol Fatti + Assist Fatti) / Partite Giocate',
     },
     mg: {
-      label: 'Attacco (Media Gol)',
+      label: 'Goal',
       icon: '⚽',
       desc: 'Indica la pericolosità offensiva e la frequenza di realizzazione del giocatore in partita.',
       formula: 'Formula: Gol Fatti / Partite Giocate',
     },
     ma: {
-      label: 'Regia (Media Assist)',
+      label: 'Assist',
       icon: '🎯',
       desc: 'Misura la visione di gioco e la capacità di servire passaggi vincenti ai compagni di squadra.',
       formula: 'Formula: Assist Fatti / Partite Giocate',
     },
     solidity: {
-      label: 'Solidità Difensiva',
+      label: 'Difesa Squadra',
       icon: '🛡️',
-      desc: 'Misura la tenuta difensiva della squadra quando il giocatore è in campo. Più la media dei gol subiti è bassa rispetto alla lega, più il punteggio è vicino a 100.',
+      desc: 'Misura la tenuta difensiva della squadra quando il giocatore è in campo. Più la media dei gol subiti è bassa rispetto alla lega, più il punteggio è vicino a 10.',
       formula: 'Formula: Confronto relativo della Media Gol Subiti',
     },
     team_goals_scored: {
-      label: 'Potenza (Gol Squadra)',
+      label: 'Goal Squadra',
       icon: '🔥',
       desc: 'Misura la pericolosità e la forza offensiva complessiva della propria squadra quando il giocatore è in campo.',
       formula: 'Formula: Confronto relativo della Media Gol Segnati Squadra',
     },
     win_rate: {
-      label: 'Percentuale Vittorie',
+      label: '% Vittoria',
       icon: '🏆',
       desc: 'Indica la percentuale di partite vinte dal giocatore sul totale dei match disputati.',
       formula: 'Formula: (Partite Vinte / Partite Giocate) × 100',
@@ -920,10 +920,12 @@ export default function PlayerDetailScreen() {
 
     const playerRole = player?.role || 'Attaccante';
     const configuredMetrics = group?.radar_config?.[playerRole] || (
-      playerRole === 'Difensore' ? ['solidity', 'ma', 'defense_bonus', 'mg', 'win_rate'] :
-      playerRole === 'Portiere' ? ['solidity', 'clean_sheets', 'defense_bonus', 'win_rate', 'ma'] :
-      ['incisivity', 'ma', 'personal_bonus', 'defense_bonus', 'mg']
+      playerRole === 'Portiere' ? ['solidity', 'win_rate', 'none', 'none', 'none'] :
+      playerRole === 'Difensore' ? ['solidity', 'win_rate', 'ma', 'team_goals_scored', 'incisivity'] :
+      ['incisivity', 'mg', 'ma', 'team_goals_scored', 'win_rate']
     );
+
+    const activeConfiguredMetrics = configuredMetrics.filter(mId => mId !== 'none' && mId !== '');
 
     const matches = stats.career_divisor || stats.played || 1;
     const goalsPerMatch = (stats.individual_goals || 0) / matches;
@@ -942,26 +944,20 @@ export default function PlayerDetailScreen() {
         case 'solidity': return goalsConcededPerMatch > 0 ? Math.min(10, Number((((maxStats.minGoalsConcededPM || 2.0) / goalsConcededPerMatch) * 10).toFixed(1))) : 10;
         case 'team_goals_scored': return Math.min(10, Number(((teamGoalsScoredPerMatch / (maxStats.teamGoalsScoredPM || 1)) * 10).toFixed(1)));
         case 'win_rate': return Math.min(10, Number(((winRate / (maxStats.winRate || 100)) * 10).toFixed(1)));
-        case 'personal_bonus': return Math.min(10, Number((((stats.personal_bonus_count || 0) / (maxStats.personalBonus || 1)) * 10).toFixed(1)));
-        case 'defense_bonus': return Math.min(10, Number(((defenseBonusPerMatch / (maxStats.defenseBonus || 0.1)) * 10).toFixed(1)));
-        case 'clean_sheets': return Math.min(10, Number(((cleanSheetsPerMatch / (maxStats.cleanSheets || 0.1)) * 10).toFixed(1)));
-        case 'goals': return Math.min(10, Number((((stats.individual_goals || 0) / (maxStats.totalGoals || 1)) * 10).toFixed(1)));
-        case 'assists': return Math.min(10, Number((((stats.individual_assists || 0) / (maxStats.totalAssists || 1)) * 10).toFixed(1)));
-        case 'points': return Math.min(10, Number((((stats.points || 0) / (maxStats.points || 1)) * 10).toFixed(1)));
-        case 'played': return Math.min(10, Number((((stats.played || 0) / (maxStats.played || 1)) * 10).toFixed(1)));
         default: return 5.0;
       }
     };
 
-    const metricItems = configuredMetrics.map(mId => {
+    const metricItems = activeConfiguredMetrics.map(mId => {
       const info = SPIDER_METRIC_INFO[mId] || { label: 'Statistica', icon: '📊', desc: 'Valore calcolato in base alle prestazioni.', formula: '' };
       const score = getMetricScore(mId);
       return { ...info, score };
     });
 
-    const avgScore = Number((metricItems.reduce((sum, item) => sum + item.score, 0) / metricItems.length).toFixed(1));
+    const activeCount = metricItems.length > 0 ? metricItems.length : 1;
+    const avgScore = Number((metricItems.reduce((sum, item) => sum + item.score, 0) / activeCount).toFixed(1));
     const activeIndex = Math.min(Math.max(0, spiderInfoMetricIndex), metricItems.length - 1);
-    const activeItem = metricItems[activeIndex];
+    const activeItem = metricItems[activeIndex] || { label: 'Statistica', icon: '📊', desc: 'Valore calcolato.', formula: '', score: 5.0 };
 
     return (
       <Modal visible={showSpiderInfoModal} transparent animationType="slide" onRequestClose={() => setShowSpiderInfoModal(false)}>

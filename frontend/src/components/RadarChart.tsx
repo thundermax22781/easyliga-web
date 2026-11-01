@@ -50,13 +50,13 @@ const METRIC_DESCRIPTIONS: Record<string, { label: string; icon: string; desc: s
     formula: 'Formula: (Gol Fatti + Assist Fatti) / Partite Giocate',
   },
   mg: {
-    label: 'Media Goal',
+    label: 'Goal',
     icon: '⚽',
     desc: 'Indica la pericolosità offensiva e la frequenza di realizzazione del giocatore in partita.',
     formula: 'Formula: Gol Fatti / Partite Giocate',
   },
   ma: {
-    label: 'Media Assist',
+    label: 'Assist',
     icon: '🎯',
     desc: 'Misura la visione di gioco e la capacità di servire passaggi vincenti ai compagni di squadra.',
     formula: 'Formula: Assist Fatti / Partite Giocate',
@@ -178,11 +178,11 @@ const RadarChart: React.FC<RadarChartProps> = ({ stats, comparisonStats, isDarkM
       }
       case 'mg': {
         const score = maxStats?.goals ? goalsPerMatch / maxStats.goals * 10 : Math.min(10, goalsPerMatch * 5);
-        return { mId, label: 'Media Goal', value: Math.min(10, Number(score.toFixed(1))) };
+        return { mId, label: 'Goal', value: Math.min(10, Number(score.toFixed(1))) };
       }
       case 'ma': {
         const score = maxStats?.assists ? assistsPerMatch / maxStats.assists * 10 : Math.min(10, assistsPerMatch * 6);
-        return { mId, label: 'Media Assist', value: Math.min(10, Number(score.toFixed(1))) };
+        return { mId, label: 'Assist', value: Math.min(10, Number(score.toFixed(1))) };
       }
       case 'solidity': {
         const bestGCPM = maxStats?.minGoalsConcededPM || 2.0;
@@ -195,7 +195,10 @@ const RadarChart: React.FC<RadarChartProps> = ({ stats, comparisonStats, isDarkM
       }
       case 'win_rate': {
         const score = maxStats?.winRate ? (winRate / maxStats.winRate) * 10 : Math.min(10, winRate / 10);
-        return { mId, label: 'Percentuale Vittorie', value: Math.min(10, Number(score.toFixed(1))) };
+        return { mId, label: 'Vittorie', value: Math.min(10, Number(score.toFixed(1))) };
+      }
+      case 'none': {
+        return { mId: 'none', label: 'Nessuna', value: 0 };
       }
       case 'personal_bonus': {
         const score = maxStats?.personalBonus ? (s.personalBonus || 0) / maxStats.personalBonus * 10 : Math.min(10, (s.personalBonus || 0) * 1.5);
@@ -240,15 +243,20 @@ const RadarChart: React.FC<RadarChartProps> = ({ stats, comparisonStats, isDarkM
     const configuredMetrics = radarConfig?.[role];
 
     let metricsToUse = configuredMetrics;
-    if (!metricsToUse || !Array.isArray(metricsToUse) || metricsToUse.length !== 5) {
-      if (role === 'Difensore' || role === 'Portiere') {
+    if (!metricsToUse || !Array.isArray(metricsToUse) || metricsToUse.length === 0) {
+      if (role === 'Portiere') {
+        metricsToUse = ['solidity', 'win_rate', 'none', 'none', 'none'];
+      } else if (role === 'Difensore') {
         metricsToUse = ['solidity', 'win_rate', 'ma', 'team_goals_scored', 'incisivity'];
       } else {
         metricsToUse = ['incisivity', 'mg', 'ma', 'team_goals_scored', 'win_rate'];
       }
     }
 
-    return metricsToUse.map(mId => getSingleMetricScoreAndLabel(mId, s));
+    const activeMetrics = metricsToUse.filter(m => m !== 'none' && m !== '');
+    const finalMetrics = activeMetrics.length > 0 ? activeMetrics : ['incisivity', 'win_rate'];
+
+    return finalMetrics.map(mId => getSingleMetricScoreAndLabel(mId, s));
   };
 
   const data1 = normalizeData(stats);
