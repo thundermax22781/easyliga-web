@@ -1659,6 +1659,30 @@ export default function PlayerDetailScreen() {
             </View>
           </View>
 
+          {player.form_trend && player.form_trend !== 'neutral' && (
+            <View style={{
+              backgroundColor: player.form_trend === 'up' ? 'rgba(52, 199, 89, 0.15)' : 'rgba(255, 59, 48, 0.15)',
+              borderWidth: 1,
+              borderColor: player.form_trend === 'up' ? 'rgba(52, 199, 89, 0.3)' : 'rgba(255, 59, 48, 0.3)',
+              paddingHorizontal: 12,
+              paddingVertical: 6,
+              borderRadius: 10,
+              marginTop: 10,
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 6
+            }}>
+              <Text style={{
+                fontSize: 12,
+                fontWeight: '900',
+                color: player.form_trend === 'up' ? '#34C759' : '#FF3B30'
+              }}>
+                {player.form_trend === 'up' ? '🔥 STATO DI FORMA: IN CRESCITA (+0.5 FRZ)' : '📉 STATO DI FORMA: IN CALO (-0.5 FRZ)'}
+              </Text>
+            </View>
+          )}
+
           {stats && (
             <View style={[styles.bibbiaCard, dynamicStyles.card, { paddingVertical: 12, paddingHorizontal: 18 }]}>
               <ProfileStatRow label="Punti" value={stats.points} />
