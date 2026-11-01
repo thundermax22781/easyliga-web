@@ -50,19 +50,19 @@ const METRIC_DESCRIPTIONS: Record<string, { label: string; icon: string; desc: s
     formula: 'Formula: (Gol Fatti + Assist Fatti) / Partite Giocate',
   },
   mg: {
-    label: 'Attacco (Media Gol)',
+    label: 'Media Goal',
     icon: '⚽',
     desc: 'Indica la pericolosità offensiva e la frequenza di realizzazione del giocatore in partita.',
     formula: 'Formula: Gol Fatti / Partite Giocate',
   },
   ma: {
-    label: 'Regia (Media Assist)',
+    label: 'Media Assist',
     icon: '🎯',
     desc: 'Misura la visione di gioco e la capacità di servire passaggi vincenti ai compagni di squadra.',
     formula: 'Formula: Assist Fatti / Partite Giocate',
   },
   solidity: {
-    label: 'Solidità Difensiva',
+    label: 'Difesa Squadra',
     icon: '🛡️',
     desc: 'Misura la tenuta difensiva della squadra quando il giocatore è in campo. Più la media dei gol subiti è bassa rispetto alla lega, più il punteggio è vicino a 10.',
     formula: 'Formula: Confronto relativo della Media Gol Subiti',
@@ -178,24 +178,24 @@ const RadarChart: React.FC<RadarChartProps> = ({ stats, comparisonStats, isDarkM
       }
       case 'mg': {
         const score = maxStats?.goals ? goalsPerMatch / maxStats.goals * 10 : Math.min(10, goalsPerMatch * 5);
-        return { mId, label: 'Attacco', value: Math.min(10, Number(score.toFixed(1))) };
+        return { mId, label: 'Media Goal', value: Math.min(10, Number(score.toFixed(1))) };
       }
       case 'ma': {
         const score = maxStats?.assists ? assistsPerMatch / maxStats.assists * 10 : Math.min(10, assistsPerMatch * 6);
-        return { mId, label: 'Regia', value: Math.min(10, Number(score.toFixed(1))) };
+        return { mId, label: 'Media Assist', value: Math.min(10, Number(score.toFixed(1))) };
       }
       case 'solidity': {
         const bestGCPM = maxStats?.minGoalsConcededPM || 2.0;
         const score = goalsConcededPerMatch > 0 ? Math.min(10, (bestGCPM / goalsConcededPerMatch) * 10) : 10;
-        return { mId, label: 'Solidità', value: Math.min(10, Number(score.toFixed(1))) };
+        return { mId, label: 'Difesa Squadra', value: Math.min(10, Number(score.toFixed(1))) };
       }
       case 'team_goals_scored': {
         const score = maxStats?.teamGoalsScoredPM ? (teamGoalsScoredPerMatch / maxStats.teamGoalsScoredPM) * 10 : Math.min(10, teamGoalsScoredPerMatch * 2.5);
-        return { mId, label: 'Potenza', value: Math.min(10, Number(score.toFixed(1))) };
+        return { mId, label: 'Goal Squadra', value: Math.min(10, Number(score.toFixed(1))) };
       }
       case 'win_rate': {
         const score = maxStats?.winRate ? (winRate / maxStats.winRate) * 10 : Math.min(10, winRate / 10);
-        return { mId, label: 'Vittorie', value: Math.min(10, Number(score.toFixed(1))) };
+        return { mId, label: 'Percentuale Vittorie', value: Math.min(10, Number(score.toFixed(1))) };
       }
       case 'personal_bonus': {
         const score = maxStats?.personalBonus ? (s.personalBonus || 0) / maxStats.personalBonus * 10 : Math.min(10, (s.personalBonus || 0) * 1.5);
@@ -241,12 +241,10 @@ const RadarChart: React.FC<RadarChartProps> = ({ stats, comparisonStats, isDarkM
 
     let metricsToUse = configuredMetrics;
     if (!metricsToUse || !Array.isArray(metricsToUse) || metricsToUse.length !== 5) {
-      if (role === 'Difensore') {
-        metricsToUse = ['solidity', 'ma', 'defense_bonus', 'mg', 'win_rate'];
-      } else if (role === 'Portiere') {
-        metricsToUse = ['solidity', 'clean_sheets', 'defense_bonus', 'win_rate', 'ma'];
+      if (role === 'Difensore' || role === 'Portiere') {
+        metricsToUse = ['solidity', 'win_rate', 'ma', 'team_goals_scored', 'incisivity'];
       } else {
-        metricsToUse = ['incisivity', 'ma', 'personal_bonus', 'defense_bonus', 'mg'];
+        metricsToUse = ['incisivity', 'mg', 'ma', 'team_goals_scored', 'win_rate'];
       }
     }
 

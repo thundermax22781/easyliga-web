@@ -4558,7 +4558,7 @@ export default function GroupDetailScreen() {
               keyboardShouldPersistTaps="handled"
             >
               <Text style={[dynamicStyles.subText, { fontSize: 12, marginBottom: 15 }]}>
-                Scegli quali 5 metriche mostrare nel grafico Spider per ciascun ruolo.
+                Scegli quali 5 metriche mostrare nel Grafico Prestazioni per ciascun ruolo.
               </Text>
 
               {/* Selettore Ruolo */}
@@ -4592,25 +4592,17 @@ export default function GroupDetailScreen() {
                 return (
                   <View key={`pos-${posIdx}`} style={{ marginBottom: 16, backgroundColor: isDarkMode ? '#2C2C2E' : '#F8F9FF', padding: 12, borderRadius: 12, borderWidth: 1, borderColor: isDarkMode ? '#3A3A3C' : '#E5E5EA' }}>
                     <Text style={[dynamicStyles.text, { fontSize: 12, fontWeight: '800', marginBottom: 8 }]}>
-                      Punto {posIdx + 1} del Grafico Spider:
+                      Punto {posIdx + 1} del Grafico Prestazioni:
                     </Text>
                     <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                       <View style={{ flexDirection: 'row', gap: 6 }}>
                         {[
                           { id: 'incisivity', label: '⚡ Incisività' },
-                          { id: 'strength', label: '🏋️ Forza Manuale (FRZ)' },
-                          { id: 'mg', label: '⚽ Media Gol' },
+                          { id: 'mg', label: '⚽ Media Goal' },
                           { id: 'ma', label: '🎯 Media Assist' },
-                          { id: 'team_goals_scored', label: '🔥 Potenza (Gol Squadra)' },
-                          { id: 'solidity', label: '🛡️ Solidità' },
-                          { id: 'win_rate', label: '🏆 Vittorie %' },
-                          { id: 'defense_bonus', label: '🧱 Bonus Difesa' },
-                          { id: 'personal_bonus', label: '🌟 Bonus Personale' },
-                          { id: 'clean_sheets', label: '🧼 Clean Sheet' },
-                          { id: 'goals', label: '⚽ Gol Totali' },
-                          { id: 'assists', label: '🎯 Assist Totali' },
-                          { id: 'points', label: '📈 Punti' },
-                          { id: 'played', label: '📊 Presenze' },
+                          { id: 'team_goals_scored', label: '🔥 Goal Squadra' },
+                          { id: 'solidity', label: '🛡️ Difesa Squadra' },
+                          { id: 'win_rate', label: '🏆 Percentuale Vittorie' },
                         ].map(mOpt => {
                           const isSelected = currentSelected === mOpt.id;
                           return (
@@ -5346,7 +5338,7 @@ export default function GroupDetailScreen() {
                   <View style={styles.bonusRow}>
                     <View style={{ flex: 1, paddingRight: 10 }}>
                       <Text style={[dynamicStyles.text, { fontSize: 14, fontWeight: '700' }]}>Mostra Valore Spider (SPD)</Text>
-                      <Text style={[dynamicStyles.subText, { fontSize: 11, marginTop: 1 }]}>Mostra il rating del grafico spider sulle schede giocatori</Text>
+                      <Text style={[dynamicStyles.subText, { fontSize: 11, marginTop: 1 }]}>Mostra il rating del Grafico Prestazioni sulle schede giocatori</Text>
                     </View>
                     <Switch
                       style={{ transform: [{ scale: 1.1 }] }}
