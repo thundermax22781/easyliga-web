@@ -424,28 +424,6 @@ export const syncCloudData = async (groupId?: string): Promise<Group | null> => 
           await AsyncStorage.setItem(`matches_${safeGid}`, JSON.stringify(mRes.data));
           // Importante: applicare eventuali metadati trovati nei match (per web compatibility)
           await applyMetadata(safeGid, mRes.data);
-        }
-
-        if (pRes.data) {
-          const existingLocal = await AsyncStorage.getItem(`players_${safeGid}`);
-          const localPlayers: Player[] = existingLocal ? JSON.parse(existingLocal) : [];
-          const metaSaved = await AsyncStorage.getItem(`metadata_${safeGid}`);
-          const cloudMeta = metaSaved ? JSON.parse(metaSaved) : {};
-          const pFormData = cloudMeta.players_form_data || {};
-
-          const mergedPlayers = pRes.data.map((cp: any) => {
-            const lp = localPlayers.find(p => p.id === cp.id);
-            const pMeta = pFormData[cp.id] || {};
-            return {
-              ...cp,
-              initial_strength: cp.initial_strength ?? pMeta.initial_strength ?? lp?.initial_strength ?? cp.strength,
-              activation_spider_score: cp.activation_spider_score ?? pMeta.activation_spider_score ?? lp?.activation_spider_score,
-              last_spider_score: cp.last_spider_score ?? pMeta.last_spider_score ?? lp?.last_spider_score,
-              form_trend: cp.form_trend || pMeta.form_trend || lp?.form_trend || 'neutral',
-            };
-          });
-          await AsyncStorage.setItem(`players_${safeGid}`, JSON.stringify(mergedPlayers));
-        }
 
           // AUTO-DISCOVERY TORNEI COLLEGATI (Per Visualizzatore/Copia Immediata)
           const metaMatch = mRes.data.find(mx => mx.team_a_name === 'METADATA');
@@ -471,6 +449,27 @@ export const syncCloudData = async (groupId?: string): Promise<Group | null> => 
                }
              } catch (e) {}
           }
+        }
+
+        if (pRes.data) {
+          const existingLocal = await AsyncStorage.getItem(`players_${safeGid}`);
+          const localPlayers: Player[] = existingLocal ? JSON.parse(existingLocal) : [];
+          const metaSaved = await AsyncStorage.getItem(`metadata_${safeGid}`);
+          const cloudMeta = metaSaved ? JSON.parse(metaSaved) : {};
+          const pFormData = cloudMeta.players_form_data || {};
+
+          const mergedPlayers = pRes.data.map((cp: any) => {
+            const lp = localPlayers.find(p => p.id === cp.id);
+            const pMeta = pFormData[cp.id] || {};
+            return {
+              ...cp,
+              initial_strength: cp.initial_strength ?? pMeta.initial_strength ?? lp?.initial_strength ?? cp.strength,
+              activation_spider_score: cp.activation_spider_score ?? pMeta.activation_spider_score ?? lp?.activation_spider_score,
+              last_spider_score: cp.last_spider_score ?? pMeta.last_spider_score ?? lp?.last_spider_score,
+              form_trend: cp.form_trend || pMeta.form_trend || lp?.form_trend || 'neutral',
+            };
+          });
+          await AsyncStorage.setItem(`players_${safeGid}`, JSON.stringify(mergedPlayers));
         }
 
         await AsyncStorage.removeItem(`needs_sync_${safeGid}`);
