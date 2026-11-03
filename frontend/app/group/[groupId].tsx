@@ -2865,7 +2865,6 @@ export default function GroupDetailScreen() {
 
     let updatedAny = false;
     const now = new Date();
-    const activationDate = group.dynamic_form_enabled_at ? new Date(group.dynamic_form_enabled_at) : null;
 
     const updatedPlayers = players.map(p => {
       const pStats = standings.find(s => s.player_id === p.id);
@@ -2881,11 +2880,6 @@ export default function GroupDetailScreen() {
          m.team_b_players.map(id => String(id).trim()).includes(p.id))
       );
 
-      // Partite giocate DOPO l'attivazione dello stato di forma dinamico
-      const matchesAfterActivation = activationDate
-        ? playerMatches.filter(m => new Date(m.date).getTime() >= activationDate.getTime())
-        : playerMatches;
-
       // Partite giocate negli ultimi 30 giorni
       const matchesInLastMonth = playerMatches.filter(m => {
         const mDate = new Date(m.date);
@@ -2893,11 +2887,11 @@ export default function GroupDetailScreen() {
         return diffDays <= 30;
       });
 
-      // Se non ci sono nuove partite dall'attivazione oppure il giocatore è inattivo da oltre 30 giorni:
-      // la forza rimane o torna a quella iniziale con trend neutro
-      const isInactiveOrNewActivation = (matchesInLastMonth.length === 0 && playerMatches.length > 0) || (activationDate && matchesAfterActivation.length === 0);
+      // Se il giocatore è inattivo da oltre 30 giorni (ed ha uno storico partite):
+      // la forza torna a quella iniziale con trend neutro
+      const isInactive = playerMatches.length > 0 && matchesInLastMonth.length === 0;
 
-      if (isInactiveOrNewActivation) {
+      if (isInactive) {
         if (p.strength !== baseStrength || p.form_trend !== 'neutral') {
           updatedAny = true;
           const resetPlayer = {
@@ -2913,20 +2907,20 @@ export default function GroupDetailScreen() {
         return p;
       }
 
-      // Valutazione dello Spider rispetto allo Spider registrato all'attivazione
+      // Valutazione dello Spider attuale (SPD) rispetto allo Spider/Forza di riferimento
       const currentSpider = spiderScoresMap[p.id] || 0;
-      const baselineSpider = p.activation_spider_score !== undefined ? p.activation_spider_score : (currentSpider > 0 ? currentSpider : baseStrength);
+      const baselineSpider = p.activation_spider_score !== undefined ? p.activation_spider_score : baseStrength;
 
       if (currentSpider > 0) {
         let newStrength = baseStrength;
         let trend: 'up' | 'down' | 'neutral' = 'neutral';
 
-        // Se lo spider è salito di almeno 0.3 rispetto all'attivazione -> +0.5 FRZ
+        // Se lo spider è salito di almeno 0.3 rispetto alla baseline -> Trend UP 🔥
         if (currentSpider >= baselineSpider + 0.3) {
           newStrength = Math.min(10.0, Number((baseStrength + 0.5).toFixed(1)));
           trend = 'up';
         }
-        // Se lo spider è sceso di almeno 0.3 rispetto all'attivazione -> -0.5 FRZ
+        // Se lo spider è sceso di almeno 0.3 rispetto alla baseline -> -0.5 FRZ, Trend DOWN 📉
         else if (currentSpider <= baselineSpider - 0.3) {
           newStrength = Math.max(1.0, Number((baseStrength - 0.5).toFixed(1)));
           trend = 'down';
@@ -2955,7 +2949,7 @@ export default function GroupDetailScreen() {
     if (updatedAny) {
       setPlayers(updatedPlayers);
     }
-  }, [group?.use_dynamic_form, group?.dynamic_form_enabled_at, standings, spiderScoresMap, matches]);
+  }, [group?.use_dynamic_form, standings, spiderScoresMap, matches]);
 
   const getScoreColor = (score: number) => {
     if (score >= 7.5) return '#34C759';
