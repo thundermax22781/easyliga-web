@@ -309,6 +309,7 @@ export default function PlayerDetailScreen() {
         date_of_birth: dob.toISOString().split('T')[0],
         role,
         strength,
+        initial_strength: strength,
         group_id: groupId,
         is_hidden: isHidden,
       });

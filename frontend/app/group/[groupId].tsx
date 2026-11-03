@@ -1580,11 +1580,52 @@ export default function GroupDetailScreen() {
 
   const handleUpdateGroupSettings = async (updates: Partial<Group>) => {
     if (!groupId || !group) return;
+
+    let payload = { ...updates };
+    if (updates.use_dynamic_form === true && !group.dynamic_form_enabled_at) {
+      payload.dynamic_form_enabled_at = new Date().toISOString();
+    } else if (updates.use_dynamic_form === false) {
+      payload.dynamic_form_enabled_at = undefined;
+    }
+
+    // Aggiornamento ISTANTANEO dell'interfaccia per risposta immediata degli switch
+    const previousGroup = { ...group };
+    const updatedGroup = { ...group, ...payload };
+    setGroup(updatedGroup);
+
     try {
-      const updated = await updateGroup(groupId, updates);
+      const savedGroup = await updateGroup(groupId, payload);
+      setGroup(savedGroup);
       setHasUnsyncedChanges(true);
-      setGroup(updated);
+
+      // Gestione asincrona del ripristino o salvataggio forza iniziale dei giocatori
+      if (updates.use_dynamic_form === false) {
+        const restored = players.map(p => ({
+          ...p,
+          strength: p.initial_strength !== undefined ? p.initial_strength : p.strength,
+          form_trend: 'neutral' as 'neutral',
+          last_spider_score: undefined,
+        }));
+        setPlayers(restored);
+        await AsyncStorage.setItem(`players_${groupId}`, JSON.stringify(restored));
+        for (const p of restored) {
+          savePlayer(p).catch(console.error);
+        }
+      } else if (updates.use_dynamic_form === true) {
+        const prepared = players.map(p => ({
+          ...p,
+          initial_strength: p.initial_strength !== undefined ? p.initial_strength : p.strength,
+          activation_spider_score: spiderScoresMap[p.id] || (p.initial_strength !== undefined ? p.initial_strength : p.strength),
+          form_trend: 'neutral' as 'neutral',
+        }));
+        setPlayers(prepared);
+        await AsyncStorage.setItem(`players_${groupId}`, JSON.stringify(prepared));
+        for (const p of prepared) {
+          savePlayer(p).catch(console.error);
+        }
+      }
     } catch (e) {
+      setGroup(previousGroup);
       Alert.alert('Errore', 'Impossibile aggiornare le impostazioni');
     }
   };
@@ -2818,38 +2859,86 @@ export default function GroupDetailScreen() {
     return map;
   }, [standings, group]);
 
-  // Evoluzione Dinamica Forza (Stato di Forma ogni 4 partite)
+  // Evoluzione Dinamica Forza (Stato di Forma dal momento dell'attivazione con Reset Inattività Mese)
   useEffect(() => {
     if (!group?.use_dynamic_form || group.group_type === 'tournament' || standings.length === 0 || players.length === 0) return;
 
     let updatedAny = false;
+    const now = new Date();
+    const activationDate = group.dynamic_form_enabled_at ? new Date(group.dynamic_form_enabled_at) : null;
+
     const updatedPlayers = players.map(p => {
       const pStats = standings.find(s => s.player_id === p.id);
       if (!pStats) return p;
 
-      const totalMatches = pStats.played || 0;
-      const lastEvaluatedMatches = p.last_form_matches || 0;
-      const currentSpider = spiderScoresMap[p.id] || 0;
+      const baseStrength = p.initial_strength !== undefined ? p.initial_strength : p.strength;
 
-      if (totalMatches >= 4 && (totalMatches - lastEvaluatedMatches) >= 4 && currentSpider > 0) {
-        const lastSpider = p.last_spider_score !== undefined ? p.last_spider_score : currentSpider;
-        let newStrength = p.strength;
+      // Partite disputate dal giocatore
+      const playerMatches = matches.filter(m =>
+        m.team_a_players.map(id => String(id).trim()).includes(p.id) ||
+        m.team_b_players.map(id => String(id).trim()).includes(p.id)
+      );
+
+      // Partite disputate DOPO la data di attivazione dello stato di forma dinamico
+      const matchesAfterActivation = activationDate
+        ? playerMatches.filter(m => new Date(m.date).getTime() >= activationDate.getTime())
+        : playerMatches;
+
+      // Partite giocate negli ultimi 30 giorni (nel corso del mese)
+      const matchesInLastMonth = playerMatches.filter(m => {
+        const mDate = new Date(m.date);
+        const diffDays = (now.getTime() - mDate.getTime()) / (1000 * 60 * 60 * 24);
+        return diffDays <= 30;
+      });
+
+      // Se il giocatore non ha fatto nessuna partita nel corso del mese (o zero dall'attivazione):
+      // la forza torna a quando è stato attivato il tasto dello stato di forma dinamico
+      const hasNoMatchesInMonth = matchesInLastMonth.length === 0 || matchesAfterActivation.length === 0;
+
+      if (hasNoMatchesInMonth) {
+        if (p.strength !== baseStrength || p.form_trend !== 'neutral') {
+          updatedAny = true;
+          const resetPlayer = {
+            ...p,
+            strength: baseStrength,
+            initial_strength: baseStrength,
+            form_trend: 'neutral' as 'neutral',
+            last_spider_score: undefined
+          };
+          savePlayer(resetPlayer).catch(console.error);
+          return resetPlayer;
+        }
+        return p;
+      }
+
+      // Valutazione dello Spider rispetto a quando è stato attivato lo stato di forma
+      const currentSpider = spiderScoresMap[p.id] || 0;
+      const baselineSpider = p.activation_spider_score ?? baseStrength;
+
+      if (currentSpider > 0) {
+        let newStrength = baseStrength;
         let trend: 'up' | 'down' | 'neutral' = 'neutral';
 
-        if (currentSpider > lastSpider + 0.1) {
-          newStrength = Math.min(10.0, Number((p.strength + 0.5).toFixed(1)));
+        // Se lo spider è salito rispetto all'attivazione -> +0.5 FRZ
+        if (currentSpider >= baselineSpider + 0.3) {
+          newStrength = Math.min(10.0, Number((baseStrength + 0.5).toFixed(1)));
           trend = 'up';
-        } else if (currentSpider < lastSpider - 0.1) {
-          newStrength = Math.max(1.0, Number((p.strength - 0.5).toFixed(1)));
+        }
+        // Se lo spider è sceso rispetto all'attivazione -> -0.5 FRZ
+        else if (currentSpider <= baselineSpider - 0.3) {
+          newStrength = Math.max(1.0, Number((baseStrength - 0.5).toFixed(1)));
           trend = 'down';
+        } else {
+          newStrength = baseStrength;
+          trend = 'neutral';
         }
 
-        if (newStrength !== p.strength || lastEvaluatedMatches !== totalMatches || p.last_spider_score !== currentSpider) {
+        if (newStrength !== p.strength || trend !== p.form_trend || p.last_spider_score !== currentSpider) {
           updatedAny = true;
           const updatedPlayer = {
             ...p,
             strength: newStrength,
-            last_form_matches: totalMatches,
+            initial_strength: baseStrength,
             last_spider_score: currentSpider,
             form_trend: trend,
           };
@@ -2863,7 +2952,7 @@ export default function GroupDetailScreen() {
     if (updatedAny) {
       setPlayers(updatedPlayers);
     }
-  }, [group?.use_dynamic_form, standings, spiderScoresMap]);
+  }, [group?.use_dynamic_form, group?.dynamic_form_enabled_at, standings, spiderScoresMap, matches]);
 
   const getScoreColor = (score: number) => {
     if (score >= 7.5) return '#34C759';
@@ -5556,7 +5645,7 @@ export default function GroupDetailScreen() {
                   <View style={{ flex: 1, paddingRight: 10 }}>
                     <Text style={[dynamicStyles.text, { fontSize: 14, fontWeight: '700' }]}>⚡ Evoluzione Dinamica Forza</Text>
                     <Text style={[dynamicStyles.subText, { fontSize: 10, marginTop: 2 }]}>
-                      Aggiorna la Forza (FRZ) di +/- 0.5 ogni 4 partite giocate in base al rendimento Spider.
+                      Aggiorna la Forza (FRZ) di +/- 0.5 dal momento dell'attivazione in base all'andamento dello Spider. Reset a forza iniziale in caso di inattività mensile.
                     </Text>
                   </View>
                   <Switch
@@ -7127,7 +7216,8 @@ export default function GroupDetailScreen() {
             )}
 
             {!showConfig && (
-              <View style={[styles.tabsWrapper, { marginBottom: 8 }]}>
+              <>
+                <View style={[styles.tabsWrapper, { marginBottom: 8 }]}>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 10 }}>
                   <View style={{ flexDirection: 'row', borderRadius: 12, overflow: 'hidden', borderWidth: 1, borderColor: isDarkMode ? '#3A3A3C' : '#E5E5EA' }}>
                     {(() => {
@@ -7188,8 +7278,6 @@ export default function GroupDetailScreen() {
                   </View>
                 </ScrollView>
               </View>
-            )}
-
             {activeTab === 'players' && (
               <View style={{ flex: 1 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4, marginBottom: 8, paddingRight: 10 }}>
@@ -7431,6 +7519,8 @@ export default function GroupDetailScreen() {
             {activeTab === 'tournament_standings' && renderTournamentStandings()}
             {activeTab === 'bracket' && renderBracket()}
             {activeTab === 'matches' && renderMatches()}
+              </>
+            )}
           </View>
         )}
 

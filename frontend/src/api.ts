@@ -49,7 +49,8 @@ export interface Group {
   show_hidden_players?: boolean; // Se mostrare i giocatori nascosti
   use_spider_for_teams?: boolean; // Se bilanciare le squadre usando il Rating Spider (SPD) anziché Forza (FRZ)
   hidden_player_ids?: string[]; // IDs dei giocatori nascosti per sincronizzazione cloud tra dispositivi
-  use_dynamic_form?: boolean; // Se abilitare l'evoluzione dinamica della Forza (+/- 0.5 ogni 4 partite in base allo Spider)
+  use_dynamic_form?: boolean; // Se abilitare l'evoluzione dinamica della Forza (+/- 0.5 in base al rendimento dal momento dell'attivazione)
+  dynamic_form_enabled_at?: string; // Data di attivazione dello stato di forma dinamico (ISO string)
 }
 
 export interface Player {
@@ -67,7 +68,9 @@ export interface Player {
   is_hidden?: boolean;
   last_form_matches?: number;
   last_spider_score?: number;
+  activation_spider_score?: number; // Rating Spider o riferimento al momento dell'attivazione dello stato di forma
   form_trend?: 'up' | 'down' | 'neutral';
+  initial_strength?: number; // Forza base impostata manualmente dall'Admin al momento dell'attivazione
 }
 
 export interface Match {
@@ -341,14 +344,16 @@ export const syncCloudData = async (groupId?: string): Promise<Group | null> => 
         'tournament_win_bonus', 'tournament_2nd_bonus', 'tournament_3rd_bonus',
         'tournament_4th_bonus', 'tournament_group_winner_bonus',
         'tournament_top_scorer_bonus', 'tournament_top_assistant_bonus',
-        'tournament_3rd_team_name', 'tournament_4th_team_name', 'radar_config', 'show_spider_rating', 'show_hidden_players', 'use_spider_for_teams', 'hidden_player_ids', 'use_dynamic_form'
+        'tournament_3rd_team_name', 'tournament_4th_team_name', 'radar_config', 'show_spider_rating', 'show_hidden_players', 'use_spider_for_teams', 'hidden_player_ids', 'use_dynamic_form', 'dynamic_form_enabled_at'
       ];
 
       for (const g of mapped) {
         for (const field of careerFields) {
-          if (g[field] === undefined || g[field] === null) {
-            const override = await AsyncStorage.getItem(`override_${field}_${g.id}`);
-            if (override) g[field] = JSON.parse(override);
+          const override = await AsyncStorage.getItem(`override_${field}_${g.id}`);
+          if (override !== null && override !== undefined) {
+            try {
+              g[field] = JSON.parse(override);
+            } catch (e) {}
           }
         }
       }
@@ -372,7 +377,21 @@ export const syncCloudData = async (groupId?: string): Promise<Group | null> => 
           supabase.from('matches').select('*').eq('group_id', safeGid).order('date', { ascending: false })
         ]);
 
-        if (pRes.data) await AsyncStorage.setItem(`players_${safeGid}`, JSON.stringify(pRes.data));
+        if (pRes.data) {
+          const existingLocal = await AsyncStorage.getItem(`players_${safeGid}`);
+          const localPlayers: Player[] = existingLocal ? JSON.parse(existingLocal) : [];
+          const mergedPlayers = pRes.data.map((cp: any) => {
+            const lp = localPlayers.find(p => p.id === cp.id);
+            return {
+              ...cp,
+              initial_strength: cp.initial_strength !== undefined ? cp.initial_strength : (lp?.initial_strength !== undefined ? lp.initial_strength : cp.strength),
+              activation_spider_score: cp.activation_spider_score !== undefined ? cp.activation_spider_score : lp?.activation_spider_score,
+              last_spider_score: cp.last_spider_score !== undefined ? cp.last_spider_score : lp?.last_spider_score,
+              form_trend: cp.form_trend || lp?.form_trend || 'neutral',
+            };
+          });
+          await AsyncStorage.setItem(`players_${safeGid}`, JSON.stringify(mergedPlayers));
+        }
         if (mRes.data) {
           await AsyncStorage.setItem(`matches_${safeGid}`, JSON.stringify(mRes.data));
           // Importante: applicare eventuali metadati trovati nei match (per web compatibility)
@@ -491,46 +510,30 @@ export const updateGroup = async (groupId: string, updates: Partial<Group> | str
       await AsyncStorage.setItem('cloud_groups_cache', JSON.stringify(updatedCache));
     }
 
+    const careerFields = [
+      'linked_group_ids', 'import_linked_data', 'tournament_match_weight',
+      'tournament_win_bonus', 'tournament_2nd_bonus', 'tournament_3rd_bonus',
+      'tournament_4th_bonus', 'tournament_group_winner_bonus',
+      'tournament_top_scorer_bonus', 'tournament_top_assistant_bonus',
+      'tournament_3rd_team_name', 'tournament_4th_team_name', 'radar_config', 'show_spider_rating', 'show_hidden_players', 'use_spider_for_teams', 'hidden_player_ids', 'use_dynamic_form', 'dynamic_form_enabled_at'
+    ];
+
+    for (const field of careerFields) {
+      if ((payload as any)[field] !== undefined) {
+        await AsyncStorage.setItem(`override_${field}_${groupId}`, JSON.stringify((payload as any)[field]));
+      }
+    }
+
     try {
       const { data, error } = await supabase.from('groups').update(payload).eq('id', groupId).select().single();
 
       if (error) {
         console.warn("Cloud update failure, saving locally as fallback:", error);
-
-        // Gestione fallback per colonne mancanti nel DB (Career Mode / Tornei collegati)
-        // Se il DB restituisce errore (es. colonna non esiste), salviamo i dati localmente come override
-        const careerFields = [
-          'linked_group_ids', 'import_linked_data', 'tournament_match_weight',
-          'tournament_win_bonus', 'tournament_2nd_bonus', 'tournament_3rd_bonus',
-          'tournament_4th_bonus', 'tournament_group_winner_bonus',
-          'tournament_top_scorer_bonus', 'tournament_top_assistant_bonus',
-          'tournament_3rd_team_name', 'tournament_4th_team_name', 'radar_config', 'show_spider_rating', 'show_hidden_players', 'use_spider_for_teams', 'hidden_player_ids', 'use_dynamic_form'
-        ];
-
-        for (const field of careerFields) {
-          if ((payload as any)[field] !== undefined) {
-            await AsyncStorage.setItem(`override_${field}_${groupId}`, JSON.stringify((payload as any)[field]));
-          }
-        }
         return { ...group, ...payload, storage_type: 'cloud' } as Group;
       }
 
-      // Se il salvataggio su cloud ha avuto successo, possiamo pulire gli override locali per questo gruppo
-      // per evitare conflitti di sincronizzazione in futuro
-      const careerFields = [
-        'linked_group_ids', 'import_linked_data', 'tournament_match_weight',
-        'tournament_win_bonus', 'tournament_2nd_bonus', 'tournament_3rd_bonus',
-        'tournament_4th_bonus', 'tournament_group_winner_bonus',
-        'tournament_top_scorer_bonus', 'tournament_top_assistant_bonus',
-        'tournament_3rd_team_name', 'tournament_4th_team_name', 'radar_config', 'show_spider_rating', 'show_hidden_players', 'use_spider_for_teams', 'hidden_player_ids', 'use_dynamic_form'
-      ];
-      for (const field of careerFields) {
-        await AsyncStorage.removeItem(`override_${field}_${groupId}`);
-      }
-
-      return { ...group, ...data, storage_type: 'cloud' } as Group;
-
-    } catch (e) {
+      return { ...group, ...data, ...payload, storage_type: 'cloud' } as Group;
+    } catch (err) {
       return { ...group, ...payload, storage_type: 'cloud' } as Group;
     }
   }
@@ -682,7 +685,11 @@ export const savePlayer = async (player: Partial<Player> & { group_id: string })
     throw new Error(`Esiste già un giocatore con il nickname "${player.nickname}" in questo gruppo.`);
   }
 
-  const playerWithId = { ...player, id: player.id || Math.random().toString(36).substring(7) } as Player;
+  const playerWithId = {
+    ...player,
+    id: player.id || Math.random().toString(36).substring(7),
+    initial_strength: player.initial_strength !== undefined ? player.initial_strength : player.strength
+  } as Player;
 
   if (player.is_hidden !== undefined) {
     await AsyncStorage.setItem(`player_hidden_${playerWithId.id}`, String(playerWithId.is_hidden));
