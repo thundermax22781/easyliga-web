@@ -2871,31 +2871,33 @@ export default function GroupDetailScreen() {
       const pStats = standings.find(s => s.player_id === p.id);
       if (!pStats) return p;
 
+      // La forza iniziale di riferimento non cambia mai durante l'evoluzione dinamica
       const baseStrength = p.initial_strength !== undefined ? p.initial_strength : p.strength;
 
-      // Partite disputate dal giocatore
+      // Partite giocate dal giocatore
       const playerMatches = matches.filter(m =>
-        m.team_a_players.map(id => String(id).trim()).includes(p.id) ||
-        m.team_b_players.map(id => String(id).trim()).includes(p.id)
+        m.status === 'played' &&
+        (m.team_a_players.map(id => String(id).trim()).includes(p.id) ||
+         m.team_b_players.map(id => String(id).trim()).includes(p.id))
       );
 
-      // Partite disputate DOPO la data di attivazione dello stato di forma dinamico
+      // Partite giocate DOPO l'attivazione dello stato di forma dinamico
       const matchesAfterActivation = activationDate
         ? playerMatches.filter(m => new Date(m.date).getTime() >= activationDate.getTime())
         : playerMatches;
 
-      // Partite giocate negli ultimi 30 giorni (nel corso del mese)
+      // Partite giocate negli ultimi 30 giorni
       const matchesInLastMonth = playerMatches.filter(m => {
         const mDate = new Date(m.date);
         const diffDays = (now.getTime() - mDate.getTime()) / (1000 * 60 * 60 * 24);
         return diffDays <= 30;
       });
 
-      // Se il giocatore non ha fatto nessuna partita nel corso del mese (o zero dall'attivazione):
-      // la forza torna a quando è stato attivato il tasto dello stato di forma dinamico
-      const hasNoMatchesInMonth = matchesInLastMonth.length === 0 || matchesAfterActivation.length === 0;
+      // Se non ci sono nuove partite dall'attivazione oppure il giocatore è inattivo da oltre 30 giorni:
+      // la forza rimane o torna a quella iniziale con trend neutro
+      const isInactiveOrNewActivation = (matchesInLastMonth.length === 0 && playerMatches.length > 0) || (activationDate && matchesAfterActivation.length === 0);
 
-      if (hasNoMatchesInMonth) {
+      if (isInactiveOrNewActivation) {
         if (p.strength !== baseStrength || p.form_trend !== 'neutral') {
           updatedAny = true;
           const resetPlayer = {
@@ -2911,20 +2913,20 @@ export default function GroupDetailScreen() {
         return p;
       }
 
-      // Valutazione dello Spider rispetto a quando è stato attivato lo stato di forma
+      // Valutazione dello Spider rispetto allo Spider registrato all'attivazione
       const currentSpider = spiderScoresMap[p.id] || 0;
-      const baselineSpider = p.activation_spider_score ?? baseStrength;
+      const baselineSpider = p.activation_spider_score !== undefined ? p.activation_spider_score : (currentSpider > 0 ? currentSpider : baseStrength);
 
       if (currentSpider > 0) {
         let newStrength = baseStrength;
         let trend: 'up' | 'down' | 'neutral' = 'neutral';
 
-        // Se lo spider è salito rispetto all'attivazione -> +0.5 FRZ
+        // Se lo spider è salito di almeno 0.3 rispetto all'attivazione -> +0.5 FRZ
         if (currentSpider >= baselineSpider + 0.3) {
           newStrength = Math.min(10.0, Number((baseStrength + 0.5).toFixed(1)));
           trend = 'up';
         }
-        // Se lo spider è sceso rispetto all'attivazione -> -0.5 FRZ
+        // Se lo spider è sceso di almeno 0.3 rispetto all'attivazione -> -0.5 FRZ
         else if (currentSpider <= baselineSpider - 0.3) {
           newStrength = Math.max(1.0, Number((baseStrength - 0.5).toFixed(1)));
           trend = 'down';
@@ -2939,6 +2941,7 @@ export default function GroupDetailScreen() {
             ...p,
             strength: newStrength,
             initial_strength: baseStrength,
+            activation_spider_score: baselineSpider,
             last_spider_score: currentSpider,
             form_trend: trend,
           };
