@@ -2859,97 +2859,7 @@ export default function GroupDetailScreen() {
     return map;
   }, [standings, group]);
 
-  // Evoluzione Dinamica Forza (Stato di Forma dal momento dell'attivazione con Reset Inattività Mese)
-  useEffect(() => {
-    if (!group?.use_dynamic_form || group.group_type === 'tournament' || standings.length === 0 || players.length === 0) return;
 
-    let updatedAny = false;
-    const now = new Date();
-
-    const updatedPlayers = players.map(p => {
-      const pStats = standings.find(s => s.player_id === p.id);
-      if (!pStats) return p;
-
-      // La forza iniziale di riferimento non cambia mai durante l'evoluzione dinamica
-      const baseStrength = p.initial_strength !== undefined ? p.initial_strength : p.strength;
-
-      // Partite giocate dal giocatore
-      const playerMatches = matches.filter(m =>
-        m.status === 'played' &&
-        (m.team_a_players.map(id => String(id).trim()).includes(p.id) ||
-         m.team_b_players.map(id => String(id).trim()).includes(p.id))
-      );
-
-      // Partite giocate negli ultimi 30 giorni
-      const matchesInLastMonth = playerMatches.filter(m => {
-        const mDate = new Date(m.date);
-        const diffDays = (now.getTime() - mDate.getTime()) / (1000 * 60 * 60 * 24);
-        return diffDays <= 30;
-      });
-
-      // Se il giocatore è inattivo da oltre 30 giorni (ed ha uno storico partite):
-      // la forza torna a quella iniziale con trend neutro
-      const isInactive = playerMatches.length > 0 && matchesInLastMonth.length === 0;
-
-      if (isInactive) {
-        if (p.strength !== baseStrength || p.form_trend !== 'neutral') {
-          updatedAny = true;
-          const resetPlayer = {
-            ...p,
-            strength: baseStrength,
-            initial_strength: baseStrength,
-            form_trend: 'neutral' as 'neutral',
-            last_spider_score: undefined
-          };
-          savePlayer(resetPlayer).catch(console.error);
-          return resetPlayer;
-        }
-        return p;
-      }
-
-      // Valutazione dello Spider attuale (SPD) rispetto allo Spider/Forza di riferimento
-      const currentSpider = spiderScoresMap[p.id] || 0;
-      const baselineSpider = p.activation_spider_score !== undefined ? p.activation_spider_score : baseStrength;
-
-      if (currentSpider > 0) {
-        let newStrength = baseStrength;
-        let trend: 'up' | 'down' | 'neutral' = 'neutral';
-
-        // Se lo spider è salito di almeno 0.3 rispetto alla baseline -> Trend UP 🔥
-        if (currentSpider >= baselineSpider + 0.3) {
-          newStrength = Math.min(10.0, Number((baseStrength + 0.5).toFixed(1)));
-          trend = 'up';
-        }
-        // Se lo spider è sceso di almeno 0.3 rispetto alla baseline -> -0.5 FRZ, Trend DOWN 📉
-        else if (currentSpider <= baselineSpider - 0.3) {
-          newStrength = Math.max(1.0, Number((baseStrength - 0.5).toFixed(1)));
-          trend = 'down';
-        } else {
-          newStrength = baseStrength;
-          trend = 'neutral';
-        }
-
-        if (newStrength !== p.strength || trend !== p.form_trend || p.last_spider_score !== currentSpider) {
-          updatedAny = true;
-          const updatedPlayer = {
-            ...p,
-            strength: newStrength,
-            initial_strength: baseStrength,
-            activation_spider_score: baselineSpider,
-            last_spider_score: currentSpider,
-            form_trend: trend,
-          };
-          savePlayer(updatedPlayer).catch(console.error);
-          return updatedPlayer;
-        }
-      }
-      return p;
-    });
-
-    if (updatedAny) {
-      setPlayers(updatedPlayers);
-    }
-  }, [group?.use_dynamic_form, standings, spiderScoresMap, matches]);
 
   const getScoreColor = (score: number) => {
     if (score >= 7.5) return '#34C759';
@@ -5637,24 +5547,7 @@ export default function GroupDetailScreen() {
 
                 <View style={[styles.detailDivider, dynamicStyles.divider, { marginHorizontal: 0, opacity: 0.2 }]} />
 
-                {/* Evoluzione Dinamica Forza (Stato di Forma) */}
-                <View style={[styles.bonusRow, { marginBottom: 0 }]}>
-                  <View style={{ flex: 1, paddingRight: 10 }}>
-                    <Text style={[dynamicStyles.text, { fontSize: 14, fontWeight: '700' }]}>⚡ Evoluzione Dinamica Forza</Text>
-                    <Text style={[dynamicStyles.subText, { fontSize: 10, marginTop: 2 }]}>
-                      Aggiorna la Forza (FRZ) di +/- 0.5 dal momento dell'attivazione in base all'andamento dello Spider. Reset a forza iniziale in caso di inattività mensile.
-                    </Text>
-                  </View>
-                  <Switch
-                    style={{ transform: [{ scale: 1.0 }] }}
-                    trackColor={{ false: '#767577', true: '#5856D6' }}
-                    thumbColor="#FFF"
-                    value={group?.use_dynamic_form === true}
-                    onValueChange={(v) => handleUpdateGroupSettings({ use_dynamic_form: v })}
-                  />
-                </View>
 
-                <View style={[styles.detailDivider, dynamicStyles.divider, { marginHorizontal: 0, opacity: 0.2 }]} />
 
                 {/* Peso Partite */}
                 <View>
@@ -7343,11 +7236,7 @@ export default function GroupDetailScreen() {
                           <>
                             <View style={[styles.pDivider, dynamicStyles.divider, { height: 12 }]} />
                             <View style={{alignItems: 'center'}}>
-                              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
-                                <Text style={[styles.pStrNum, dynamicStyles.text, { fontSize: 13 }]}>{item.strength}</Text>
-                                {item.form_trend === 'up' && <Text style={{ fontSize: 9 }}>🔥</Text>}
-                                {item.form_trend === 'down' && <Text style={{ fontSize: 9 }}>📉</Text>}
-                              </View>
+                              <Text style={[styles.pStrNum, dynamicStyles.text, { fontSize: 13 }]}>{item.strength}</Text>
                               <Text style={styles.pStrLabel}>FRZ</Text>
                             </View>
                           </>
@@ -7433,11 +7322,7 @@ export default function GroupDetailScreen() {
                            <>
                              <View style={[styles.pDivider, dynamicStyles.divider, { height: 12 }]} />
                              <View style={{alignItems: 'center'}}>
-                               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
-                                 <Text style={[styles.pStrNum, dynamicStyles.text, { fontSize: 13 }]}>{item.strength}</Text>
-                                 {item.form_trend === 'up' && <Text style={{ fontSize: 9 }}>🔥</Text>}
-                                 {item.form_trend === 'down' && <Text style={{ fontSize: 9 }}>📉</Text>}
-                               </View>
+                               <Text style={[styles.pStrNum, dynamicStyles.text, { fontSize: 13 }]}>{item.strength}</Text>
                                <Text style={styles.pStrLabel}>FRZ</Text>
                              </View>
                            </>
