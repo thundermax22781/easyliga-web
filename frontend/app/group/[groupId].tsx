@@ -3239,7 +3239,7 @@ export default function GroupDetailScreen() {
 
   const renderMatches = () => {
     const isTournament = group?.group_type === 'tournament';
-    let filteredMatches = [...matches];
+    let filteredMatches = matches.filter(m => m.team_a_name !== 'METADATA' && m.team_b_name !== 'METADATA');
 
     if (isTournament) {
       if (selectedGirone === 0) {

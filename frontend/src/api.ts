@@ -281,57 +281,6 @@ export const checkSyncNeeded = async (groupId: string): Promise<boolean> => {
   return false;
 };
 
-// Utility per sincronizzare i metadati del gruppo e dei giocatori tramite un match "finto" METADATA
-const applyMetadata = async (groupId: string, matches: Match[]) => {
-  const metaMatch = matches.find(m => m.team_a_name === 'METADATA');
-  if (metaMatch && metaMatch.description?.startsWith('JSON_METADATA:')) {
-    try {
-      const meta = JSON.parse(metaMatch.description.replace('JSON_METADATA:', ''));
-      if (meta) {
-        await AsyncStorage.setItem(`metadata_${groupId}`, JSON.stringify(meta));
-      }
-    } catch (e) {
-      console.warn("Error applying metadata:", e);
-    }
-  }
-};
-
-export const saveGroupMetadata = async (groupId: string, updates: Record<string, any>) => {
-  const safeGid = String(groupId).trim();
-  if (!safeGid) return;
-
-  try {
-    const currentMetaSaved = await AsyncStorage.getItem(`metadata_${safeGid}`);
-    const currentMeta = currentMetaSaved ? JSON.parse(currentMetaSaved) : {};
-    const newMeta = { ...currentMeta, ...updates };
-
-    await AsyncStorage.setItem(`metadata_${safeGid}`, JSON.stringify(newMeta));
-
-    const description = 'JSON_METADATA:' + JSON.stringify(newMeta);
-    const { data: matches } = await supabase.from('matches').select('*').eq('group_id', safeGid).eq('team_a_name', 'METADATA');
-
-    if (matches && matches.length > 0) {
-      await supabase.from('matches').update({ description }).eq('id', matches[0].id);
-    } else {
-      await supabase.from('matches').insert([{
-        group_id: safeGid,
-        team_a_name: 'METADATA',
-        team_b_name: 'METADATA',
-        team_a_score: 0,
-        team_b_score: 0,
-        team_a_players: [],
-        team_b_players: [],
-        date: new Date().toISOString(),
-        description,
-        status: 'cancelled',
-        match_phase: 'group_stage'
-      }]);
-    }
-  } catch (e) {
-    console.warn("Failed to save metadata to cloud:", e);
-  }
-};
-
 export const syncCloudData = async (groupId?: string): Promise<Group | null> => {
   try {
     const { data: userData } = await supabase.auth.getUser();
@@ -384,19 +333,12 @@ export const syncCloudData = async (groupId?: string): Promise<Group | null> => 
       ];
 
       for (const g of mapped) {
-        const metaSaved = await AsyncStorage.getItem(`metadata_${g.id}`);
-        const cloudMeta = metaSaved ? JSON.parse(metaSaved) : {};
-
         for (const field of careerFields) {
-          if (cloudMeta[field] !== undefined) {
-            g[field] = cloudMeta[field];
-          } else {
-            const override = await AsyncStorage.getItem(`override_${field}_${g.id}`);
-            if (override !== null && override !== undefined) {
-              try {
-                g[field] = JSON.parse(override);
-              } catch (e) {}
-            }
+          const override = await AsyncStorage.getItem(`override_${field}_${g.id}`);
+          if (override !== null && override !== undefined) {
+            try {
+              g[field] = JSON.parse(override);
+            } catch (e) {}
           }
         }
       }
@@ -417,56 +359,26 @@ export const syncCloudData = async (groupId?: string): Promise<Group | null> => 
       if (/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(safeGid)) {
         const [pRes, mRes] = await Promise.all([
           supabase.from('players').select('*').eq('group_id', safeGid),
-          supabase.from('matches').select('*').eq('group_id', safeGid).order('date', { ascending: false })
+          supabase.from('matches').select('*').eq('group_id', safeGid).neq('team_a_name', 'METADATA').order('date', { ascending: false })
         ]);
 
         if (mRes.data) {
-          await AsyncStorage.setItem(`matches_${safeGid}`, JSON.stringify(mRes.data));
-          // Importante: applicare eventuali metadati trovati nei match (per web compatibility)
-          await applyMetadata(safeGid, mRes.data);
-
-          // AUTO-DISCOVERY TORNEI COLLEGATI (Per Visualizzatore/Copia Immediata)
-          const metaMatch = mRes.data.find(mx => mx.team_a_name === 'METADATA');
-          if (metaMatch && metaMatch.description?.startsWith('JSON_METADATA:')) {
-             try {
-               const meta = JSON.parse(metaMatch.description.replace('JSON_METADATA:', ''));
-               const links = meta.linked_group_ids;
-               if (Array.isArray(links) && links.length > 0) {
-                 const currentJoinedSaved = await AsyncStorage.getItem('joined_cloud_groups');
-                 const joined: string[] = currentJoinedSaved ? JSON.parse(currentJoinedSaved) : [];
-                 let changed = false;
-                 for (const lid of links) {
-                   if (!joined.includes(lid)) {
-                     joined.push(lid);
-                     changed = true;
-                     const rolesSaved = await AsyncStorage.getItem('cloud_group_roles');
-                     const roles = rolesSaved ? JSON.parse(rolesSaved) : {};
-                     roles[lid] = 'viewer';
-                     await AsyncStorage.setItem('cloud_group_roles', JSON.stringify(roles));
-                   }
-                 }
-                 if (changed) await AsyncStorage.setItem('joined_cloud_groups', JSON.stringify(joined));
-               }
-             } catch (e) {}
-          }
+          const cleanMatches = mRes.data.filter(m => m.team_a_name !== 'METADATA' && m.team_b_name !== 'METADATA');
+          await AsyncStorage.setItem(`matches_${safeGid}`, JSON.stringify(cleanMatches));
         }
 
         if (pRes.data) {
           const existingLocal = await AsyncStorage.getItem(`players_${safeGid}`);
           const localPlayers: Player[] = existingLocal ? JSON.parse(existingLocal) : [];
-          const metaSaved = await AsyncStorage.getItem(`metadata_${safeGid}`);
-          const cloudMeta = metaSaved ? JSON.parse(metaSaved) : {};
-          const pFormData = cloudMeta.players_form_data || {};
 
           const mergedPlayers = pRes.data.map((cp: any) => {
             const lp = localPlayers.find(p => p.id === cp.id);
-            const pMeta = pFormData[cp.id] || {};
             return {
               ...cp,
-              initial_strength: cp.initial_strength ?? pMeta.initial_strength ?? lp?.initial_strength ?? cp.strength,
-              activation_spider_score: cp.activation_spider_score ?? pMeta.activation_spider_score ?? lp?.activation_spider_score,
-              last_spider_score: cp.last_spider_score ?? pMeta.last_spider_score ?? lp?.last_spider_score,
-              form_trend: cp.form_trend || pMeta.form_trend || lp?.form_trend || 'neutral',
+              initial_strength: cp.initial_strength ?? lp?.initial_strength ?? cp.strength,
+              activation_spider_score: cp.activation_spider_score ?? lp?.activation_spider_score,
+              last_spider_score: cp.last_spider_score ?? lp?.last_spider_score,
+              form_trend: cp.form_trend || lp?.form_trend || 'neutral',
             };
           });
           await AsyncStorage.setItem(`players_${safeGid}`, JSON.stringify(mergedPlayers));
@@ -567,15 +479,10 @@ export const updateGroup = async (groupId: string, updates: Partial<Group> | str
       'tournament_3rd_team_name', 'tournament_4th_team_name', 'radar_config', 'show_spider_rating', 'show_hidden_players', 'use_spider_for_teams', 'hidden_player_ids', 'use_dynamic_form', 'dynamic_form_enabled_at'
     ];
 
-    const metadataUpdates: Record<string, any> = {};
     for (const field of careerFields) {
       if ((payload as any)[field] !== undefined) {
         await AsyncStorage.setItem(`override_${field}_${groupId}`, JSON.stringify((payload as any)[field]));
-        metadataUpdates[field] = (payload as any)[field];
       }
-    }
-    if (Object.keys(metadataUpdates).length > 0) {
-      await saveGroupMetadata(groupId, metadataUpdates);
     }
 
     try {
@@ -775,19 +682,6 @@ export const savePlayer = async (player: Partial<Player> & { group_id: string })
   const updatedLocal = exists ? players.map(p => p.id === player.id ? playerWithId : p) : [...players, playerWithId];
 
   await AsyncStorage.setItem(`players_${player.group_id}`, JSON.stringify(updatedLocal));
-
-  // Salviamo i metadati dello stato di forma nel cloud metadata
-  const metaSaved = await AsyncStorage.getItem(`metadata_${player.group_id}`);
-  const cloudMeta = metaSaved ? JSON.parse(metaSaved) : {};
-  const playersFormData = cloudMeta.players_form_data || {};
-  playersFormData[playerWithId.id] = {
-    initial_strength: playerWithId.initial_strength,
-    activation_spider_score: playerWithId.activation_spider_score,
-    last_spider_score: playerWithId.last_spider_score,
-    form_trend: playerWithId.form_trend || 'neutral'
-  };
-
-  await saveGroupMetadata(player.group_id, { players_form_data: playersFormData });
 
   if (group?.storage_type === 'cloud') {
     await setNeedsSync(player.group_id);
