@@ -623,9 +623,9 @@ export const fetchPlayers = async (params: { group_id: string; search?: string; 
     const pMeta = pFormData[p.id] || {};
     return {
       ...p,
-      initial_strength: p.initial_strength ?? pMeta.initial_strength ?? p.strength,
-      activation_spider_score: p.activation_spider_score ?? pMeta.activation_spider_score,
-      last_spider_score: p.last_spider_score ?? pMeta.last_spider_score,
+      initial_strength: p.initial_strength !== null && p.initial_strength !== undefined ? Number(p.initial_strength) : (pMeta.initial_strength ?? p.strength),
+      activation_spider_score: p.activation_spider_score !== null && p.activation_spider_score !== undefined ? Number(p.activation_spider_score) : pMeta.activation_spider_score,
+      last_spider_score: p.last_spider_score !== null && p.last_spider_score !== undefined ? Number(p.last_spider_score) : pMeta.last_spider_score,
       form_trend: p.form_trend || pMeta.form_trend || 'neutral',
       is_hidden: isHidden === true,
       age: p.date_of_birth ? calculateAge(p.date_of_birth) : (p.age || 0)
@@ -686,23 +686,31 @@ export const savePlayer = async (player: Partial<Player> & { group_id: string })
   if (group?.storage_type === 'cloud') {
     await setNeedsSync(player.group_id);
     const dataToSave: any = {
-      nickname: player.nickname,
-      name: player.name,
-      surname: player.surname,
-      phone: player.phone,
-      date_of_birth: player.date_of_birth,
-      role: player.role,
-      strength: player.strength,
-      group_id: player.group_id,
-      is_hidden: player.is_hidden
+      nickname: playerWithId.nickname,
+      name: playerWithId.name,
+      surname: playerWithId.surname,
+      phone: playerWithId.phone,
+      date_of_birth: playerWithId.date_of_birth,
+      role: playerWithId.role,
+      strength: playerWithId.strength,
+      group_id: playerWithId.group_id,
+      is_hidden: playerWithId.is_hidden,
+      initial_strength: playerWithId.initial_strength,
+      activation_spider_score: playerWithId.activation_spider_score,
+      last_spider_score: playerWithId.last_spider_score,
+      form_trend: playerWithId.form_trend || 'neutral'
     };
     try {
-      if (player.id && player.id.length > 20) await supabase.from('players').update(dataToSave).eq('id', player.id);
+      if (playerWithId.id && playerWithId.id.length > 20) await supabase.from('players').update(dataToSave).eq('id', playerWithId.id);
       else await supabase.from('players').insert([dataToSave]);
     } catch (e) {
       delete dataToSave.is_hidden;
+      delete dataToSave.initial_strength;
+      delete dataToSave.activation_spider_score;
+      delete dataToSave.last_spider_score;
+      delete dataToSave.form_trend;
       try {
-        if (player.id && player.id.length > 20) await supabase.from('players').update(dataToSave).eq('id', player.id);
+        if (playerWithId.id && playerWithId.id.length > 20) await supabase.from('players').update(dataToSave).eq('id', playerWithId.id);
         else await supabase.from('players').insert([dataToSave]);
       } catch (err) {}
     }
